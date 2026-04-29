@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/schedules/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "TEACHER")
 
                         .requestMatchers("/api/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
+                        .requestMatchers("/api/roles/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
                         .requestMatchers("/api/payments/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "FINANCE")
 
                         .anyRequest().authenticated()

@@ -117,6 +117,80 @@ GET http://localhost:8080/api/students
 
 ###
 
+### Get roles with ADMIN token
+GET http://localhost:8080/api/roles
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get users with ADMIN token
+GET http://localhost:8080/api/users
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get user by id with ADMIN token
+GET http://localhost:8080/api/users/1
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create director with ADMIN token
+POST http://localhost:8080/api/users
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "email": "director@school.com",
+  "phone": "0701112233",
+  "password": "123456",
+  "roles": ["DIRECTOR"]
+}
+
+###
+
+### Create teacher with ADMIN token
+POST http://localhost:8080/api/users
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "email": "teacher@school.com",
+  "phone": "0704445566",
+  "password": "123456",
+  "roles": ["TEACHER"]
+}
+
+###
+
+### Assign role to user with ADMIN token
+POST http://localhost:8080/api/users/1/roles
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "role": "DIRECTOR"
+}
+
+###
+
+### Remove role from user with ADMIN token
+DELETE http://localhost:8080/api/users/1/roles
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "role": "DIRECTOR"
+}
+
+###
+
+### Deactivate user with ADMIN token
+PATCH http://localhost:8080/api/users/1/deactivate
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### ADMIN area with ADMIN token
 GET http://localhost:8080/api/admin/test
 Authorization: Bearer {{admin_token}}
