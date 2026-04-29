@@ -1,0 +1,50 @@
+### Get all students
+GET http://localhost:8080/api/students
+
+###
+
+### Get student by id
+GET http://localhost:8080/api/students/1
+
+###
+
+### Create student
+POST http://localhost:8080/api/students
+Content-Type: application/json
+
+{
+  "studentCode": "STU-010",
+  "firstName": "Mateo",
+  "lastName": "Garcia",
+  "birthDate": "2020-05-10",
+  "groupId": 1,
+  "status": "active",
+  "enrollmentDate": "2026-04-29",
+  "medicalNotes": "Sin notas médicas",
+  "allergies": null,
+  "notes": "Nuevo estudiante"
+}
+
+###
+
+### Update student
+PUT http://localhost:8080/api/students/1
+Content-Type: application/json
+
+{
+  "studentCode": "STU-001",
+  "firstName": "Lucas",
+  "lastName": "Andersson",
+  "birthDate": "2020-04-12",
+  "groupId": 1,
+  "status": "active",
+  "enrollmentDate": "2026-01-15",
+  "medicalNotes": "No major medical issues",
+  "allergies": null,
+  "notes": "Actualizado desde Spring Boot"
+}
+
+###
+
+### Delete student
+DELETE http://localhost:8080/api/students/3

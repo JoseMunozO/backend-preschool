@@ -1,0 +1,124 @@
+package com.preschool.backendpreschool.service;
+
+import com.preschool.backendpreschool.dto.StudentRequest;
+import com.preschool.backendpreschool.dto.StudentResponse;
+import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ResourceNotFoundException;
+import com.preschool.backendpreschool.model.ClassGroup;
+import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentStatus;
+import com.preschool.backendpreschool.repository.ClassGroupRepository;
+import com.preschool.backendpreschool.repository.StudentRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class StudentService {
+
+    private final StudentRepository studentRepository;
+    private final ClassGroupRepository classGroupRepository;
+
+    public List<StudentResponse> getAllStudents() {
+        return studentRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    public StudentResponse getStudentById(Long id) {
+        Student student = findStudentOrThrow(id);
+        return mapToResponse(student);
+    }
+
+    public StudentResponse createStudent(StudentRequest request) {
+        if (request.studentCode() != null && studentRepository.existsByStudentCode(request.studentCode())) {
+            throw new BadRequestException("Ya existe un estudiante con ese código");
+        }
+
+        Student student = Student.builder()
+                .studentCode(request.studentCode())
+                .firstName(request.firstName())
+                .lastName(request.lastName())
+                .birthDate(request.birthDate())
+                .classGroup(findClassGroup(request.groupId()))
+                .status(request.status() != null ? request.status() : StudentStatus.active)
+                .enrollmentDate(request.enrollmentDate())
+                .withdrawalDate(request.withdrawalDate())
+                .medicalNotes(request.medicalNotes())
+                .allergies(request.allergies())
+                .notes(request.notes())
+                .build();
+
+        Student savedStudent = studentRepository.save(student);
+        return mapToResponse(savedStudent);
+    }
+
+    public StudentResponse updateStudent(Long id, StudentRequest request) {
+        Student student = findStudentOrThrow(id);
+
+        if (request.studentCode() != null &&
+                !request.studentCode().equals(student.getStudentCode()) &&
+                studentRepository.existsByStudentCode(request.studentCode())) {
+            throw new BadRequestException("Ya existe un estudiante con ese código");
+        }
+
+        student.setStudentCode(request.studentCode());
+        student.setFirstName(request.firstName());
+        student.setLastName(request.lastName());
+        student.setBirthDate(request.birthDate());
+        student.setClassGroup(findClassGroup(request.groupId()));
+        student.setStatus(request.status() != null ? request.status() : StudentStatus.active);
+        student.setEnrollmentDate(request.enrollmentDate());
+        student.setWithdrawalDate(request.withdrawalDate());
+        student.setMedicalNotes(request.medicalNotes());
+        student.setAllergies(request.allergies());
+        student.setNotes(request.notes());
+
+        Student updatedStudent = studentRepository.save(student);
+        return mapToResponse(updatedStudent);
+    }
+
+    public void deleteStudent(Long id) {
+        Student student = findStudentOrThrow(id);
+        studentRepository.delete(student);
+    }
+
+    private Student findStudentOrThrow(Long id) {
+        return studentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
+    }
+
+    private ClassGroup findClassGroup(Long groupId) {
+        if (groupId == null) {
+            return null;
+        }
+
+        return classGroupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
+    }
+
+    private StudentResponse mapToResponse(Student student) {
+        ClassGroup group = student.getClassGroup();
+
+        return new StudentResponse(
+                student.getStudentId(),
+                student.getStudentCode(),
+                student.getFirstName(),
+                student.getLastName(),
+                student.getBirthDate(),
+                group != null ? group.getGroupId() : null,
+                group != null ? group.getName() : null,
+                student.getStatus(),
+                student.getEnrollmentDate(),
+                student.getWithdrawalDate(),
+                student.getMedicalNotes(),
+                student.getAllergies(),
+                student.getNotes(),
+                student.getCreatedAt(),
+                student.getUpdatedAt()
+        );
+    }
+}
