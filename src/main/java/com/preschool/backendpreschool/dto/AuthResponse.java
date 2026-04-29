@@ -1,4 +1,9 @@
 package com.preschool.backendpreschool.dto;
 
-public record AuthResponse() {
-}
+import java.util.Set;
+
+public record AuthResponse(
+        String token,
+        String email,
+        Set<String> roles
+) {}
