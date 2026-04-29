@@ -17,6 +17,30 @@ logs/
 .env.*
 !.env.example
 *.local
+*.local.*
+
+### Secrets and local config ###
+application-local.properties
+application-*.local.properties
+src/main/resources/application-local.properties
+src/main/resources/application-*.local.properties
+src/test/resources/application-local.properties
+src/test/resources/application-*.local.properties
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+secrets/
+*.secret
+*.secrets
+
+### Local API client data ###
+*.private.http
+*.local.http
+http-client.env.json
+http-client.private.env.json
+.idea/httpRequests/
 
 ### Runtime files ###
 *.pid
