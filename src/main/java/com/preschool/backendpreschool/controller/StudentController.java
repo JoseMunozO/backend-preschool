@@ -2,6 +2,8 @@ package com.preschool.backendpreschool.controller;
 
 import com.preschool.backendpreschool.dto.StudentRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
+import com.preschool.backendpreschool.dto.StudentGuardianResponse;
+import com.preschool.backendpreschool.service.StudentGuardianService;
 import com.preschool.backendpreschool.service.StudentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import java.util.List;
 public class StudentController {
 
     private final StudentService studentService;
+    private final StudentGuardianService studentGuardianService;
 
     @GetMapping
     public List<StudentResponse> getAllStudents() {
@@ -25,6 +28,11 @@ public class StudentController {
     @GetMapping("/{id}")
     public StudentResponse getStudentById(@PathVariable Long id) {
         return studentService.getStudentById(id);
+    }
+
+    @GetMapping("/{id}/guardians")
+    public List<StudentGuardianResponse> getStudentGuardians(@PathVariable Long id) {
+        return studentGuardianService.getGuardiansByStudent(id);
     }
 
     @PostMapping

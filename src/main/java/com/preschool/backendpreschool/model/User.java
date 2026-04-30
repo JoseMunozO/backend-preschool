@@ -30,7 +30,8 @@ public class User {
     private String passwordHash;
 
     @Column(nullable = false, length = 30)
-    private String status;
+    @Convert(converter = UserStatusConverter.class)
+    private UserStatus status;
 
     @Column(name = "email_verified", nullable = false)
     private Boolean emailVerified;

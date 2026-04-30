@@ -4,6 +4,7 @@ import com.preschool.backendpreschool.dto.AuthResponse;
 import com.preschool.backendpreschool.dto.LoginRequest;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
+import com.preschool.backendpreschool.model.UserStatus;
 import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,7 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
-        if (!"active".equalsIgnoreCase(user.getStatus())) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BadRequestException("Usuario inactivo");
         }
 

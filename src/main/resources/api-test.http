@@ -78,7 +78,7 @@ POST http://localhost:8080/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "parent@school.com",
+  "email": "parent.demo@school.com",
   "password": "123456"
 }
 
@@ -135,6 +135,18 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Get users filtered by ACTIVE status
+GET http://localhost:8080/api/users?status=ACTIVE
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Search users by email or phone
+GET http://localhost:8080/api/users?search=admin
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Create director with ADMIN token
 POST http://localhost:8080/api/users
 Content-Type: application/json
@@ -187,6 +199,152 @@ Authorization: Bearer {{admin_token}}
 
 ### Deactivate user with ADMIN token
 PATCH http://localhost:8080/api/users/1/deactivate
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Activate user with ADMIN token
+PATCH http://localhost:8080/api/users/1/activate
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Change user status with ADMIN token
+PATCH http://localhost:8080/api/users/1/status
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "status": "ACTIVE"
+}
+
+###
+
+### Get all parents with ADMIN token
+GET http://localhost:8080/api/parents
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Search parents with ADMIN token
+GET http://localhost:8080/api/parents?search=andersson
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create parent or guardian with access account
+POST http://localhost:8080/api/parents
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "firstName": "Carolina",
+  "lastName": "Demo",
+  "email": "parent.demo@school.com",
+  "phone": "0709990011",
+  "address": "Demo Street 12",
+  "preferredLanguage": "es",
+  "status": "ACTIVE",
+  "notes": "Cuenta demo para padre, madre o tutor",
+  "password": "123456"
+}
+
+> {%
+    client.global.set("parent_id", response.body.parentId);
+    client.global.set("parent_user_id", response.body.userId);
+    client.global.set("parent_email", response.body.email);
+%}
+
+###
+
+### Get parent by id with ADMIN token
+GET http://localhost:8080/api/parents/{{parent_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Update parent with ADMIN token
+PUT http://localhost:8080/api/parents/{{parent_id}}
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "firstName": "Carolina",
+  "lastName": "Demo",
+  "email": "parent.demo@school.com",
+  "phone": "0709990011",
+  "address": "Demo Street 12",
+  "preferredLanguage": "es",
+  "status": "ACTIVE",
+  "notes": "Perfil actualizado desde api-test.http",
+  "password": "123456"
+}
+
+###
+
+### Deactivate parent and linked user with ADMIN token
+PATCH http://localhost:8080/api/parents/{{parent_id}}/deactivate
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Activate parent and linked user with ADMIN token
+PATCH http://localhost:8080/api/parents/{{parent_id}}/activate
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Login created PARENT
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{parent_email}}",
+  "password": "123456"
+}
+
+> {%
+    client.global.set("parent_token", response.body.token);
+%}
+
+###
+
+### PARENT can access own profile
+GET http://localhost:8080/api/parents/me
+Authorization: Bearer {{parent_token}}
+
+###
+
+### Link parent as mother/father/guardian of student
+POST http://localhost:8080/api/parents/{{parent_id}}/students
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "studentId": 1,
+  "relationshipType": "MOTHER",
+  "primaryContact": true,
+  "billingContact": true,
+  "authorizedPickup": true,
+  "livesWithStudent": true
+}
+
+###
+
+### Get students linked to parent
+GET http://localhost:8080/api/parents/{{parent_id}}/students
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get guardians linked to student
+GET http://localhost:8080/api/students/1/guardians
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Unlink parent from student
+DELETE http://localhost:8080/api/parents/{{parent_id}}/students/1
 Authorization: Bearer {{admin_token}}
 
 ###
