@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.model.User;
+import com.preschool.backendpreschool.model.UserStatus;
 import com.preschool.backendpreschool.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.*;
@@ -22,7 +23,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .builder()
                 .username(user.getEmail())
                 .password(user.getPasswordHash())
-                .disabled(!"active".equalsIgnoreCase(user.getStatus()))
+                .disabled(user.getStatus() != UserStatus.ACTIVE)
                 .authorities(
                         user.getRoles()
                                 .stream()

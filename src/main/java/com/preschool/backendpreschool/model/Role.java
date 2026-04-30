@@ -3,6 +3,8 @@ package com.preschool.backendpreschool.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "roles")
 @Getter
@@ -23,4 +25,10 @@ public class Role {
 
     @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
+
+    @Column(length = 255)
+    private String description;
+
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
 }

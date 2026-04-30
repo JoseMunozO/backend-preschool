@@ -1,7 +1,9 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.RoleResponse;
+import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Role;
+import com.preschool.backendpreschool.model.RoleName;
 import com.preschool.backendpreschool.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,11 +25,20 @@ public class RoleService {
                 .toList();
     }
 
+    public RoleResponse getRoleByCode(RoleName code) {
+        Role role = roleRepository.findByCode(code)
+                .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado"));
+
+        return toResponse(role);
+    }
+
     private RoleResponse toResponse(Role role) {
         return new RoleResponse(
                 role.getRoleId(),
                 role.getCode(),
-                role.getName()
+                role.getName(),
+                role.getDescription(),
+                role.getCreatedAt()
         );
     }
 }
