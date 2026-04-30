@@ -1,0 +1,26 @@
+package com.preschool.backendpreschool.repository;
+
+import com.preschool.backendpreschool.model.Parent;
+import com.preschool.backendpreschool.model.ParentStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface ParentRepository extends JpaRepository<Parent, Long> {
+
+    Optional<Parent> findByUserUserId(Long userId);
+
+    Optional<Parent> findByUserEmail(String email);
+
+    boolean existsByUserUserId(Long userId);
+
+    List<Parent> findByStatus(ParentStatus status);
+
+    List<Parent> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCaseOrPhoneContainingIgnoreCase(
+            String firstName,
+            String lastName,
+            String email,
+            String phone
+    );
+}

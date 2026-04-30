@@ -315,6 +315,12 @@ Authorization: Bearer {{parent_token}}
 
 ###
 
+### PARENT can access only own linked students
+GET http://localhost:8080/api/parents/me/students
+Authorization: Bearer {{parent_token}}
+
+###
+
 ### Link parent as mother/father/guardian of student
 POST http://localhost:8080/api/parents/{{parent_id}}/students
 Content-Type: application/json
