@@ -38,7 +38,7 @@ Crear una herramienta administrativa clara, facil de usar y adaptada al funciona
 - [x] Seed versionado de roles.
 - [x] Tests basicos de contexto y servicios principales.
 - [x] Administracion base de pagos mensuales.
-- [ ] Administracion de material escolar.
+- [x] Administracion base de material escolar.
 - [ ] Administracion de horarios.
 - [ ] Dashboard principal.
 
@@ -51,7 +51,7 @@ La primera version debe construir una base funcional que permita validar si la a
 | Estudiantes | Crear, editar, consultar y organizar estudiantes. | Parcialmente implementado. |
 | Padres/tutores | Registrar responsables y conectarlos con cada estudiante. | Implementado en backend. |
 | Pagos | Control mensual con estados pagado, pendiente y atrasado. | Implementado en backend. |
-| Material escolar | Inventario basico con alertas de cantidad baja. | Pendiente como API. |
+| Material escolar | Inventario basico con alertas de cantidad baja. | Implementado en backend. |
 | Horarios | Organizacion basica por grupo y actividades. | Pendiente como API. |
 | Dashboard | Resumen general de informacion clave. | Pendiente. |
 
@@ -185,20 +185,24 @@ El preescolar podra ver rapidamente quien ha pagado, quien esta pendiente y que 
 ### Estado actual
 
 - [x] La base de datos contiene tablas relacionadas con materiales y movimientos.
-- [ ] Crear modelos Java necesarios si faltan.
-- [ ] Crear repositories.
-- [ ] Crear DTOs.
-- [ ] Crear `MaterialService`.
-- [ ] Crear `MaterialController`.
-- [ ] Endpoint para listar inventario.
-- [ ] Endpoint para crear/editar material.
-- [ ] Endpoint para registrar entrada de material.
-- [ ] Endpoint para registrar salida de material.
-- [ ] Endpoint para consultar movimientos.
-- [ ] Endpoint o filtro de materiales bajo stock minimo.
-- [ ] Tests de servicio.
+- [x] Modelos Java para materiales y movimientos.
+- [x] Repositories para inventario y movimientos.
+- [x] DTOs.
+- [x] `MaterialService`.
+- [x] `MaterialController`.
+- [x] Endpoint para listar inventario: `GET /api/materials`.
+- [x] Endpoint para crear/editar material.
+- [x] Endpoint para registrar entrada de material.
+- [x] Endpoint para registrar salida de material.
+- [x] Endpoint para registrar ajuste por conteo fisico.
+- [x] Endpoint para consultar movimientos.
+- [x] Endpoint y filtro de materiales bajo stock minimo.
+- [x] Seguridad por roles internos.
+- [x] Tests de servicio.
+- [x] Actualizar `api-test.http`.
 - [ ] Tests de controller/API.
-- [ ] Actualizar `api-test.http`.
+- [ ] Revisar categorias finales con el cliente.
+- [ ] Revisar si se necesita responsable como staff especifico en vez de usuario autenticado.
 
 ### Resultado esperado
 
@@ -322,4 +326,4 @@ Construir una primera version enfocada en administracion interna: estudiantes, t
 
 ## Proximo paso recomendado
 
-Implementar `D. Administracion de material escolar`, porque pagos mensuales ya tiene una API base funcional y el inventario es el siguiente bloque operativo de la primera version.
+Implementar `E. Administracion de horarios`, porque materiales ya tiene una API base funcional y horarios es el siguiente bloque operativo de la primera version.

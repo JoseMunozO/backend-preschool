@@ -601,3 +601,118 @@ Authorization: Bearer {{parent_token}}
 ### PARENT can access own charges
 GET http://localhost:8080/api/payments/me/charges
 Authorization: Bearer {{parent_token}}
+
+###
+
+### Get all materials with ADMIN token
+GET http://localhost:8080/api/materials
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Search materials by name, sku or category
+GET http://localhost:8080/api/materials?search=papel
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get active low stock materials
+GET http://localhost:8080/api/materials/low-stock
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create material with ADMIN token
+POST http://localhost:8080/api/materials
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "sku": "MAT-DEMO-001",
+  "name": "Toallas de papel",
+  "category": "limpieza",
+  "unit": "paquete",
+  "quantityOnHand": 10,
+  "minimumQuantity": 5,
+  "status": "ACTIVE",
+  "notes": "Material demo creado desde api-test.http"
+}
+
+> {%
+    client.global.set("material_id", response.body.materialId);
+%}
+
+###
+
+### Get material by id
+GET http://localhost:8080/api/materials/{{material_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Update material with ADMIN token
+PUT http://localhost:8080/api/materials/{{material_id}}
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "sku": "MAT-DEMO-001",
+  "name": "Toallas de papel",
+  "category": "limpieza",
+  "unit": "paquete",
+  "quantityOnHand": 10,
+  "minimumQuantity": 6,
+  "status": "ACTIVE",
+  "notes": "Material demo actualizado desde api-test.http"
+}
+
+###
+
+### Register material stock entry
+POST http://localhost:8080/api/materials/{{material_id}}/movements
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "movementType": "IN",
+  "quantity": 5,
+  "notes": "Entrada por compra de reposicion"
+}
+
+###
+
+### Register material stock output
+POST http://localhost:8080/api/materials/{{material_id}}/movements
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "movementType": "OUT",
+  "quantity": 2,
+  "notes": "Salida para aula principal"
+}
+
+###
+
+### Register material stock adjustment
+POST http://localhost:8080/api/materials/{{material_id}}/movements
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "movementType": "ADJUSTMENT",
+  "quantity": 8,
+  "notes": "Ajuste por conteo fisico"
+}
+
+###
+
+### Get all material movements
+GET http://localhost:8080/api/materials/movements
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get movements by material
+GET http://localhost:8080/api/materials/movements?materialId={{material_id}}
+Authorization: Bearer {{admin_token}}
