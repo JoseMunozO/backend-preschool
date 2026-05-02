@@ -52,6 +52,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/parents/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
                         .requestMatchers("/api/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
                         .requestMatchers("/api/roles/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/me").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "FINANCE", "PARENT")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/me/charges").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "FINANCE", "PARENT")
+                        .requestMatchers("/api/payments").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "FINANCE")
                         .requestMatchers("/api/payments/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "FINANCE")
 
                         .anyRequest().authenticated()

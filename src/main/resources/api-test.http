@@ -440,3 +440,164 @@ Authorization: Bearer {{admin_token}}
 ### Delete student
 DELETE http://localhost:8080/api/students/3
 Authorization: Bearer {{admin_token}}
+
+###
+
+### Get active charge types with FINANCE token
+GET http://localhost:8080/api/payments/charge-types?activeOnly=true
+Authorization: Bearer {{finance_token}}
+
+###
+
+### Get all student charges with FINANCE token
+GET http://localhost:8080/api/payments/charges
+Authorization: Bearer {{finance_token}}
+
+###
+
+### Get pending student charges with FINANCE token
+GET http://localhost:8080/api/payments/charges?status=PENDING
+Authorization: Bearer {{finance_token}}
+
+###
+
+### Get charges by billing month with FINANCE token
+GET http://localhost:8080/api/payments/charges?month=2026-06
+Authorization: Bearer {{finance_token}}
+
+###
+
+### Create monthly charge for a student with FINANCE token
+POST http://localhost:8080/api/payments/charges
+Content-Type: application/json
+Authorization: Bearer {{finance_token}}
+
+{
+  "studentId": 1,
+  "chargeTypeId": 1,
+  "dueDate": "2026-06-05",
+  "billingPeriodStart": "2026-06-01",
+  "billingPeriodEnd": "2026-06-30",
+  "amountDue": 1500.00,
+  "status": "PENDING",
+  "description": "Cuota mensual junio 2026"
+}
+
+> {%
+    client.global.set("student_charge_id", response.body.studentChargeId);
+%}
+
+###
+
+### Get student charge by id with FINANCE token
+GET http://localhost:8080/api/payments/charges/{{student_charge_id}}
+Authorization: Bearer {{finance_token}}
+
+###
+
+### Create cash payment with FINANCE token
+POST http://localhost:8080/api/payments
+Content-Type: application/json
+Authorization: Bearer {{finance_token}}
+
+{
+  "parentId": 1,
+  "receivedByStaffId": 3,
+  "paymentDate": "2026-06-05",
+  "totalAmount": 1500.00,
+  "paymentMethod": "CASH",
+  "referenceNumber": "CASH-JUN-001",
+  "notes": "Pago en efectivo registrado desde api-test.http",
+  "allocations": [
+    {
+      "studentChargeId": {{student_charge_id}},
+      "amountAllocated": 1500.00
+    }
+  ]
+}
+
+> {%
+    client.global.set("payment_id", response.body.paymentId);
+%}
+
+###
+
+### Create card payment example with FINANCE token
+POST http://localhost:8080/api/payments
+Content-Type: application/json
+Authorization: Bearer {{finance_token}}
+
+{
+  "parentId": 1,
+  "receivedByStaffId": 3,
+  "paymentDate": "2026-06-06",
+  "totalAmount": 500.00,
+  "paymentMethod": "CARD",
+  "referenceNumber": "CARD-DEMO-001",
+  "notes": "Ejemplo de pago con tarjeta. Cambiar studentChargeId antes de ejecutar si el cargo ya esta pagado.",
+  "allocations": [
+    {
+      "studentChargeId": 2,
+      "amountAllocated": 500.00
+    }
+  ]
+}
+
+###
+
+### Create transfer payment example with FINANCE token
+POST http://localhost:8080/api/payments
+Content-Type: application/json
+Authorization: Bearer {{finance_token}}
+
+{
+  "parentId": 1,
+  "receivedByStaffId": 3,
+  "paymentDate": "2026-06-07",
+  "totalAmount": 500.00,
+  "paymentMethod": "TRANSFER",
+  "referenceNumber": "TRF-DEMO-001",
+  "notes": "Ejemplo de transferencia. Cambiar studentChargeId antes de ejecutar si el cargo ya esta pagado.",
+  "allocations": [
+    {
+      "studentChargeId": 2,
+      "amountAllocated": 500.00
+    }
+  ]
+}
+
+###
+
+### Get all payments with FINANCE token
+GET http://localhost:8080/api/payments
+Authorization: Bearer {{finance_token}}
+
+###
+
+### Get payments by parent with FINANCE token
+GET http://localhost:8080/api/payments?parentId=1
+Authorization: Bearer {{finance_token}}
+
+###
+
+### Get payment by id with FINANCE token
+GET http://localhost:8080/api/payments/{{payment_id}}
+Authorization: Bearer {{finance_token}}
+
+###
+
+### Get payments by student with FINANCE token
+GET http://localhost:8080/api/payments/students/1
+Authorization: Bearer {{finance_token}}
+
+###
+
+### PARENT can access own payments
+GET http://localhost:8080/api/payments/me
+Authorization: Bearer {{parent_token}}
+
+###
+
+### PARENT can access own charges
+GET http://localhost:8080/api/payments/me/charges
+Authorization: Bearer {{parent_token}}

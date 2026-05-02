@@ -37,7 +37,7 @@ Crear una herramienta administrativa clara, facil de usar y adaptada al funciona
 - [x] Flyway baseline aplicado sobre la base de datos existente.
 - [x] Seed versionado de roles.
 - [x] Tests basicos de contexto y servicios principales.
-- [ ] Administracion completa de pagos mensuales.
+- [x] Administracion base de pagos mensuales.
 - [ ] Administracion de material escolar.
 - [ ] Administracion de horarios.
 - [ ] Dashboard principal.
@@ -50,7 +50,7 @@ La primera version debe construir una base funcional que permita validar si la a
 | --- | --- | --- |
 | Estudiantes | Crear, editar, consultar y organizar estudiantes. | Parcialmente implementado. |
 | Padres/tutores | Registrar responsables y conectarlos con cada estudiante. | Implementado en backend. |
-| Pagos | Control mensual con estados pagado, pendiente y atrasado. | Pendiente como API. |
+| Pagos | Control mensual con estados pagado, pendiente y atrasado. | Implementado en backend. |
 | Material escolar | Inventario basico con alertas de cantidad baja. | Pendiente como API. |
 | Horarios | Organizacion basica por grupo y actividades. | Pendiente como API. |
 | Dashboard | Resumen general de informacion clave. | Pendiente. |
@@ -145,21 +145,28 @@ El centro sabra rapidamente a quien contactar y quien es responsable de cada est
 ### Estado actual
 
 - [x] La base de datos contiene tablas relacionadas con pagos y cargos.
-- [ ] Crear modelos Java necesarios si faltan.
-- [ ] Crear repositories.
-- [ ] Crear DTOs de pagos/cargos.
-- [ ] Crear `PaymentService`.
-- [ ] Crear `PaymentController`.
-- [ ] Endpoint para listar pagos por estudiante.
-- [ ] Endpoint para listar pagos por mes.
-- [ ] Endpoint para listar pagos por estado.
-- [ ] Endpoint para registrar pago.
-- [ ] Soportar metodo de pago: `CASH`, `CARD`, `TRANSFER`.
-- [ ] Endpoint para actualizar estado de pago.
-- [ ] Calculo o consulta de pagos pendientes/atrasados.
-- [ ] Tests de servicio.
+- [x] Modelos Java para tipos de cargo, cargos de estudiante, pagos, asignaciones y staff.
+- [x] Repositories de pagos, cargos, tipos de cargo, asignaciones y staff.
+- [x] DTOs de pagos/cargos.
+- [x] `PaymentService`.
+- [x] `PaymentController`.
+- [x] Endpoint para listar pagos por estudiante: `GET /api/payments/students/{studentId}`.
+- [x] Endpoint para filtrar cargos por mes: `GET /api/payments/charges?month=YYYY-MM`.
+- [x] Endpoint para filtrar cargos por estudiante o estado.
+- [x] Endpoint para registrar pago: `POST /api/payments`.
+- [x] Soportar metodo de pago: `CASH`, `CARD`, `TRANSFER`.
+- [x] Calculo de saldo pendiente por cargo.
+- [x] Actualizacion automatica de estado del cargo al registrar pagos.
+- [x] Acceso de padre/tutor a sus propios pagos: `GET /api/payments/me`.
+- [x] Acceso de padre/tutor a sus propios cargos: `GET /api/payments/me/charges`.
+- [x] Seguridad por roles para `ADMIN`, `DIRECTOR`, `FINANCE` y `PARENT`.
+- [x] Tests de servicio.
+- [x] Actualizar `api-test.http`.
+- [ ] Endpoint explicito para actualizar/cancelar estado de cargo sin registrar pago.
+- [ ] Reporte/resumen mensual de pagos pendientes y atrasados.
 - [ ] Tests de controller/API.
-- [ ] Actualizar `api-test.http`.
+- [ ] Revisar optimizacion de queries si el volumen de pagos crece.
+- [ ] Generacion de recibo simple o comprobante en PDF en fase posterior.
 
 ### Resultado esperado
 
@@ -268,7 +275,7 @@ Al entrar en la aplicacion, el cliente vera lo mas importante sin tener que revi
 - [ ] Roles avanzados: administrador, profesor, contabilidad y padre/tutor.
 - [ ] Sistema de mensajes internos entre administracion y padres.
 
-Nota: parte del portal para padres ya empezo con `/api/parents/me` y `/api/parents/me/students`, pero pagos, horarios y avisos para padres siguen pendientes.
+Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parents/me/students`, `/api/payments/me` y `/api/payments/me/charges`. Horarios y avisos para padres siguen pendientes.
 
 ## Flujo de uso esperado
 
@@ -302,6 +309,7 @@ Nota: parte del portal para padres ya empezo con `/api/parents/me` y `/api/paren
 - [x] `application-local.properties` fuera del control de versiones.
 - [x] Workaround para archivos AppleDouble `._*` en volumen exFAT.
 - [x] `api-test.http` actualizado con flujos principales.
+- [x] `api-test.http` actualizado con flujo base de pagos mensuales.
 - [ ] Agregar futuras migraciones `V3`, `V4`, etc. para nuevos cambios de esquema o seeds.
 - [ ] Mejorar cobertura de tests de controllers.
 - [ ] Revisar `open-in-view` de JPA.
@@ -314,4 +322,4 @@ Construir una primera version enfocada en administracion interna: estudiantes, t
 
 ## Proximo paso recomendado
 
-Implementar `C. Administracion de pagos mensuales`, porque tiene alto valor operativo para el cliente y ya existen tablas base en la base de datos.
+Implementar `D. Administracion de material escolar`, porque pagos mensuales ya tiene una API base funcional y el inventario es el siguiente bloque operativo de la primera version.
