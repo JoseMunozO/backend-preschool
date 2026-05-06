@@ -39,7 +39,7 @@ Crear una herramienta administrativa clara, facil de usar y adaptada al funciona
 - [x] Tests basicos de contexto y servicios principales.
 - [x] Administracion base de pagos mensuales.
 - [x] Administracion base de material escolar.
-- [ ] Administracion de horarios.
+- [x] Administracion base de horarios.
 - [ ] Dashboard principal.
 
 ## Version inicial recomendada
@@ -52,7 +52,7 @@ La primera version debe construir una base funcional que permita validar si la a
 | Padres/tutores | Registrar responsables y conectarlos con cada estudiante. | Implementado en backend. |
 | Pagos | Control mensual con estados pagado, pendiente y atrasado. | Implementado en backend. |
 | Material escolar | Inventario basico con alertas de cantidad baja. | Implementado en backend. |
-| Horarios | Organizacion basica por grupo y actividades. | Pendiente como API. |
+| Horarios | Organizacion basica por grupo y actividades. | Implementado en backend. |
 | Dashboard | Resumen general de informacion clave. | Pendiente. |
 
 ## A. Administracion de estudiantes
@@ -221,19 +221,22 @@ El centro podra prevenir faltas de material y planificar compras con mas control
 ### Estado actual
 
 - [x] La base de datos contiene tabla relacionada con horarios.
-- [ ] Crear modelos Java necesarios si faltan.
-- [ ] Crear repositories.
-- [ ] Crear DTOs.
-- [ ] Crear `ScheduleService`.
-- [ ] Crear `ScheduleController`.
-- [ ] Endpoint para horarios por grupo.
-- [ ] Endpoint para horarios por dia.
-- [ ] Endpoint para horarios por semana.
-- [ ] Endpoint para crear/editar actividad.
-- [ ] Endpoint para asignar responsable.
-- [ ] Tests de servicio.
+- [x] Modelos Java para horarios y asignaciones de personal a grupo.
+- [x] Repositories.
+- [x] DTOs.
+- [x] `ScheduleService`.
+- [x] `ScheduleController`.
+- [x] Endpoint para listar horarios: `GET /api/schedules`.
+- [x] Endpoint para horarios por grupo: `GET /api/schedules/groups/{groupId}`.
+- [x] Endpoint para horarios por dia: `GET /api/schedules/days/{dayOfWeek}`.
+- [x] Endpoint para horarios por grupo y dia: `GET /api/schedules/groups/{groupId}/days/{dayOfWeek}`.
+- [x] Endpoint para crear/editar actividad.
+- [x] Endpoint para asignar responsable principal.
+- [x] Endpoint para consultar/asignar personal a grupos.
+- [x] Seguridad por roles internos.
+- [x] Tests de servicio.
 - [ ] Tests de controller/API.
-- [ ] Actualizar `api-test.http`.
+- [x] Actualizar `api-test.http`.
 
 ### Resultado esperado
 
@@ -314,6 +317,7 @@ Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parent
 - [x] Workaround para archivos AppleDouble `._*` en volumen exFAT.
 - [x] `api-test.http` actualizado con flujos principales.
 - [x] `api-test.http` actualizado con flujo base de pagos mensuales.
+- [x] `api-test.http` actualizado con flujo base de horarios.
 - [ ] Agregar futuras migraciones `V3`, `V4`, etc. para nuevos cambios de esquema o seeds.
 - [ ] Mejorar cobertura de tests de controllers.
 - [ ] Revisar `open-in-view` de JPA.
@@ -326,4 +330,4 @@ Construir una primera version enfocada en administracion interna: estudiantes, t
 
 ## Proximo paso recomendado
 
-Implementar `E. Administracion de horarios`, porque materiales ya tiene una API base funcional y horarios es el siguiente bloque operativo de la primera version.
+Implementar `F. Dashboard principal`, porque horarios ya tiene una API base funcional y el dashboard es el siguiente bloque operativo de la primera version.
