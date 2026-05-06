@@ -282,8 +282,37 @@ async function main() {
     const result = await request("/api/users", { token: state.tokens.parent });
     assertStatusIn(result, [401, 403]);
   });
-  await expectJsonArray("list payment charges as admin", "/api/payments/charges", "admin");
+  await runCheck("list charge types as admin", async () => {
+    const result = await request("/api/payments/charge-types", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertNonEmptyArray(result);
+    assertField(result.body[0].chargeTypeId, "chargeTypeId");
+    state.refs.chargeTypeId = result.body[0].chargeTypeId;
+  });
+  await expectJsonArray("list active charge types as admin", "/api/payments/charge-types?activeOnly=true", "admin");
+  await runCheck("list payment charges as admin", async () => {
+    const result = await request("/api/payments/charges", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertNonEmptyArray(result);
+    assertField(result.body[0].studentChargeId, "studentChargeId");
+    state.refs.studentChargeId = result.body[0].studentChargeId;
+  });
+  await expectJsonArray("list payment charges by student", `/api/payments/charges?studentId=${state.refs.studentId}`, "admin");
+  await expectJsonArray("list pending payment charges", "/api/payments/charges?status=PENDING", "admin");
+  await expectJsonObject("get payment charge by id", `/api/payments/charges/${state.refs.studentChargeId}`, "admin");
+  await runCheck("reject missing payment charge lookup", async () => {
+    const result = await request("/api/payments/charges/999999999", { token: state.tokens.admin });
+    assertStatus(result, 404);
+  });
+  await expectJsonArray("list payments as admin", "/api/payments", "admin");
+  await expectJsonArray("list payments by parent as admin", `/api/payments?parentId=${state.refs.parentId}`, "admin");
+  await expectJsonArray("list payments by student as admin", `/api/payments/students/${state.refs.studentId}`, "admin");
+  await runCheck("reject payments by missing student", async () => {
+    const result = await request("/api/payments/students/999999999", { token: state.tokens.admin });
+    assertStatus(result, 404);
+  });
   await expectJsonArray("list current parent charges", "/api/payments/me/charges", "parent");
+  await expectJsonArray("list current parent payments", "/api/payments/me", "parent");
   await expectJsonArray("list materials as admin", "/api/materials", "admin");
   await expectJsonArray("list schedules as admin", "/api/schedules", "admin");
   await expectJsonArray("list schedule staff assignments as admin", "/api/schedules/staff-assignments", "admin");
