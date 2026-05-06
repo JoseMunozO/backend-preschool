@@ -14,6 +14,8 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
 
     boolean existsBySku(String sku);
 
+    long countByStatus(MaterialStatus status);
+
     List<Material> findByStatus(MaterialStatus status);
 
     List<Material> findByCategoryIgnoreCase(String category);

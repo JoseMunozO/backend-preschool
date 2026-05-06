@@ -15,6 +15,8 @@ public interface ParentRepository extends JpaRepository<Parent, Long> {
 
     boolean existsByUserUserId(Long userId);
 
+    long countByStatus(ParentStatus status);
+
     List<Parent> findByStatus(ParentStatus status);
 
     List<Parent> findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCaseOrPhoneContainingIgnoreCase(
