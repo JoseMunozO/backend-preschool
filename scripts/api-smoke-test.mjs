@@ -226,8 +226,36 @@ async function main() {
     return;
   }
 
-  await expectJsonArray("list students as admin", "/api/students", "admin");
-  await expectJsonArray("list parents as admin", "/api/parents", "admin");
+  await runCheck("list students as admin", async () => {
+    const result = await request("/api/students", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertNonEmptyArray(result);
+    assertField(result.body[0].studentId, "studentId");
+    state.refs.studentId = result.body[0].studentId;
+  });
+  await expectJsonObject("get student by id as admin", `/api/students/${state.refs.studentId}`, "admin");
+  await expectJsonArray("get student guardians as admin", `/api/students/${state.refs.studentId}/guardians`, "admin");
+  await runCheck("reject missing student lookup", async () => {
+    const result = await request("/api/students/999999999", { token: state.tokens.admin });
+    assertStatus(result, 404);
+  });
+  await runCheck("list parents as admin", async () => {
+    const result = await request("/api/parents", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertNonEmptyArray(result);
+    assertField(result.body[0].parentId, "parentId");
+    state.refs.parentId = result.body[0].parentId;
+  });
+  await expectJsonArray("list active parents as admin", "/api/parents?status=ACTIVE", "admin");
+  await expectJsonArray("search parents as admin", "/api/parents?search=a", "admin");
+  await expectJsonObject("get parent by id as admin", `/api/parents/${state.refs.parentId}`, "admin");
+  await expectJsonArray("get linked students by parent as admin", `/api/parents/${state.refs.parentId}/students`, "admin");
+  await expectJsonObject("get current parent profile", "/api/parents/me", "parent");
+  await expectJsonArray("get current parent students", "/api/parents/me/students", "parent");
+  await runCheck("reject missing parent lookup", async () => {
+    const result = await request("/api/parents/999999999", { token: state.tokens.admin });
+    assertStatus(result, 404);
+  });
   await runCheck("list users as admin", async () => {
     const result = await request("/api/users", { token: state.tokens.admin });
     assertStatus(result, 200);
