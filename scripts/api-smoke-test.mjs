@@ -7,6 +7,7 @@ const baseUrl = process.env.API_BASE_URL ?? "http://localhost:8080";
 const logsDir = process.env.API_SMOKE_LOG_DIR ?? "logs";
 const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const logFile = join(logsDir, `api-smoke-test-${timestamp}.log`);
+const runId = timestamp.replace(/[^0-9TZ-]/g, "").slice(0, 24);
 
 const credentials = {
   admin: {
@@ -313,7 +314,114 @@ async function main() {
   });
   await expectJsonArray("list current parent charges", "/api/payments/me/charges", "parent");
   await expectJsonArray("list current parent payments", "/api/payments/me", "parent");
-  await expectJsonArray("list materials as admin", "/api/materials", "admin");
+  await runCheck("list materials as admin", async () => {
+    const result = await request("/api/materials", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertArrayBody(result);
+    if (result.body.length > 0) {
+      state.refs.existingMaterialId = result.body[0].materialId;
+    }
+  });
+  await expectJsonArray("search materials as admin", "/api/materials?search=a", "admin");
+  await expectJsonArray("list low stock materials as admin", "/api/materials/low-stock", "admin");
+  await runCheck("create smoke material as admin", async () => {
+    const result = await request("/api/materials", {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        sku: `SMOKE-MAT-${runId}`,
+        name: `Smoke material ${runId}`,
+        category: "smoke-test",
+        unit: "unit",
+        quantityOnHand: 10,
+        minimumQuantity: 3,
+        status: "ACTIVE",
+        notes: "Created by api-smoke-test.mjs",
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.materialId, "materialId");
+    state.refs.materialId = result.body.materialId;
+  });
+  await expectJsonObject("get smoke material by id", `/api/materials/${state.refs.materialId}`, "admin");
+  await expectJsonArray("search smoke material by sku", `/api/materials?search=SMOKE-MAT-${runId}`, "admin");
+  await runCheck("update smoke material as admin", async () => {
+    const result = await request(`/api/materials/${state.refs.materialId}`, {
+      method: "PUT",
+      token: state.tokens.admin,
+      body: {
+        sku: `SMOKE-MAT-${runId}`,
+        name: `Smoke material updated ${runId}`,
+        category: "smoke-test",
+        unit: "unit",
+        quantityOnHand: 10,
+        minimumQuantity: 4,
+        status: "ACTIVE",
+        notes: "Updated by api-smoke-test.mjs",
+      },
+    });
+    assertStatus(result, 200);
+    assertObjectBody(result);
+  });
+  await runCheck("register material stock entry", async () => {
+    const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        movementType: "IN",
+        quantity: 5,
+        notes: "Smoke stock entry",
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.materialMovementId, "materialMovementId");
+  });
+  await runCheck("register material stock output", async () => {
+    const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        movementType: "OUT",
+        quantity: 2,
+        notes: "Smoke stock output",
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+  });
+  await runCheck("register material stock adjustment", async () => {
+    const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        movementType: "ADJUSTMENT",
+        quantity: 8,
+        notes: "Smoke stock adjustment",
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+  });
+  await expectJsonArray("list material movements as admin", "/api/materials/movements", "admin");
+  await expectJsonArray("list smoke material movements", `/api/materials/movements?materialId=${state.refs.materialId}`, "admin");
+  await runCheck("reject material output above stock", async () => {
+    const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        movementType: "OUT",
+        quantity: 99999,
+        notes: "Smoke invalid output",
+      },
+    });
+    assertStatus(result, 400);
+  });
+  await runCheck("reject missing material lookup", async () => {
+    const result = await request("/api/materials/999999999", { token: state.tokens.admin });
+    assertStatus(result, 404);
+  });
   await expectJsonArray("list schedules as admin", "/api/schedules", "admin");
   await expectJsonArray("list schedule staff assignments as admin", "/api/schedules/staff-assignments", "admin");
 
