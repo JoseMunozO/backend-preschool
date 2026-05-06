@@ -24,6 +24,7 @@ const state = {
   failed: 0,
   logLines: [],
   tokens: {},
+  refs: {},
 };
 
 function now() {
@@ -110,15 +111,40 @@ function assertStatus(result, expectedStatus) {
   }
 }
 
+function assertStatusIn(result, expectedStatuses) {
+  if (!expectedStatuses.includes(result.status)) {
+    throw new Error(formatHttpFailure(result, expectedStatuses.join(" or ")));
+  }
+}
+
 function assertArrayBody(result) {
   if (!Array.isArray(result.body)) {
     throw new Error(`Expected response body to be an array. Received: ${formatBody(result.body)}`);
   }
 }
 
+function assertObjectBody(result) {
+  if (!result.body || typeof result.body !== "object" || Array.isArray(result.body)) {
+    throw new Error(`Expected response body to be an object. Received: ${formatBody(result.body)}`);
+  }
+}
+
 function assertToken(loginResult) {
   if (!loginResult.body || typeof loginResult.body.token !== "string" || loginResult.body.token.trim() === "") {
     throw new Error(`Login response did not include a token. Body: ${formatBody(loginResult.body)}`);
+  }
+}
+
+function assertNonEmptyArray(result) {
+  assertArrayBody(result);
+  if (result.body.length === 0) {
+    throw new Error(`Expected response body array to contain at least one item. Received: ${formatBody(result.body)}`);
+  }
+}
+
+function assertField(value, fieldName) {
+  if (value === undefined || value === null || value === "") {
+    throw new Error(`Expected field ${fieldName} to be present`);
   }
 }
 
@@ -162,6 +188,16 @@ async function expectJsonArray(name, path, tokenRole, expectedStatus = 200) {
   });
 }
 
+async function expectJsonObject(name, path, tokenRole, expectedStatus = 200) {
+  await runCheck(name, async () => {
+    const result = await request(path, { token: state.tokens[tokenRole] });
+    assertStatus(result, expectedStatus);
+    if (expectedStatus === 200) {
+      assertObjectBody(result);
+    }
+  });
+}
+
 async function main() {
   print(`API smoke test`);
   print(`Base URL: ${baseUrl}`);
@@ -192,7 +228,32 @@ async function main() {
 
   await expectJsonArray("list students as admin", "/api/students", "admin");
   await expectJsonArray("list parents as admin", "/api/parents", "admin");
+  await runCheck("list users as admin", async () => {
+    const result = await request("/api/users", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertNonEmptyArray(result);
+    assertField(result.body[0].userId, "userId");
+    state.refs.userId = result.body[0].userId;
+  });
+  await expectJsonArray("list active users as admin", "/api/users?status=ACTIVE", "admin");
+  await expectJsonArray("search users as admin", "/api/users?search=admin", "admin");
+  await expectJsonObject("get user by id as admin", `/api/users/${state.refs.userId}`, "admin");
   await expectJsonArray("list roles as admin", "/api/roles", "admin");
+  await expectJsonObject("get ADMIN role by code", "/api/roles/ADMIN", "admin");
+  await runCheck("reject invalid login", async () => {
+    const result = await request("/api/auth/login", {
+      method: "POST",
+      body: {
+        email: "missing-user@example.test",
+        password: "wrong-password",
+      },
+    });
+    assertStatus(result, 404);
+  });
+  await runCheck("parent cannot list users", async () => {
+    const result = await request("/api/users", { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
   await expectJsonArray("list payment charges as admin", "/api/payments/charges", "admin");
   await expectJsonArray("list current parent charges", "/api/payments/me/charges", "parent");
   await expectJsonArray("list materials as admin", "/api/materials", "admin");
