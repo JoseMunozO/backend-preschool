@@ -255,17 +255,17 @@ El personal podra tener una vision clara de la organizacion diaria y semanal del
 
 ### Estado actual
 
-- [ ] Crear DTO de resumen.
-- [ ] Crear `DashboardService`.
-- [ ] Crear `DashboardController`.
-- [ ] Conteo de estudiantes activos.
-- [ ] Conteo/listado de pagos pendientes o atrasados del mes.
-- [ ] Conteo/listado de materiales con stock bajo.
-- [ ] Horarios o actividades importantes del dia.
-- [ ] Listado de cumpleanos proximos.
-- [ ] Tests de servicio.
+- [x] Crear DTO de resumen.
+- [x] Crear `DashboardService`.
+- [x] Crear `DashboardController`.
+- [x] Conteo de estudiantes activos.
+- [x] Conteo/listado de pagos pendientes o atrasados del mes.
+- [x] Conteo/listado de materiales con stock bajo.
+- [x] Horarios o actividades importantes del dia.
+- [x] Listado de cumpleanos proximos.
+- [x] Tests de servicio.
 - [ ] Tests de controller/API.
-- [ ] Actualizar `api-test.http`.
+- [x] Actualizar `api-test.http`.
 
 ### Resultado esperado
 
@@ -320,6 +320,7 @@ Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parent
 - [x] `api-test.http` actualizado con flujo base de horarios.
 - [x] Smoke tester automatico para endpoints principales.
 - [x] Smoke tester con logs locales, retencion de ultimos 4 logs y modo read-only.
+- [x] Mockito configurado como Java agent para tests en Java 25.
 - [ ] Agregar futuras migraciones `V3`, `V4`, etc. para nuevos cambios de esquema o seeds.
 - [ ] Mejorar cobertura de tests de controllers.
 - [ ] Revisar `open-in-view` de JPA.

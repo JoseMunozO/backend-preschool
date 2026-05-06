@@ -112,6 +112,18 @@ Authorization: Bearer {{teacher_token}}
 
 ###
 
+### Get dashboard summary with ADMIN token
+GET http://localhost:8080/api/dashboard/summary
+Authorization: Bearer {{admin_token}}
+
+###
+
+### PARENT cannot access dashboard summary
+GET http://localhost:8080/api/dashboard/summary
+Authorization: Bearer {{parent_token}}
+
+###
+
 ### Missing JWT should return 401
 GET http://localhost:8080/api/students
 
