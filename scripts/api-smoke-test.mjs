@@ -468,6 +468,12 @@ async function pruneOldLogs() {
   }
 
   const entries = await readdir(logsDir);
+  const appleDoubleLogs = entries
+    .filter((entry) => /^\._api-smoke-test-.*\.log$/.test(entry))
+    .map((entry) => unlink(join(logsDir, entry)));
+
+  await Promise.all(appleDoubleLogs);
+
   const smokeLogs = await Promise.all(
     entries
       .filter((entry) => /^api-smoke-test-.*\.log$/.test(entry))
