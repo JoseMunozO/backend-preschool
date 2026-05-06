@@ -6,9 +6,18 @@ import { join } from "node:path";
 const baseUrl = process.env.API_BASE_URL ?? "http://localhost:8080";
 const logsDir = process.env.API_SMOKE_LOG_DIR ?? "logs";
 const logsToKeep = Number.parseInt(process.env.API_SMOKE_LOGS_TO_KEEP ?? "4", 10);
+const scheduleGroupId = Number.parseInt(process.env.API_SMOKE_GROUP_ID ?? "1", 10);
+const scheduleStaffId = Number.parseInt(process.env.API_SMOKE_STAFF_ID ?? "1", 10);
+const readOnly = parseBoolean(process.env.API_SMOKE_READ_ONLY);
 const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const logFile = join(logsDir, `api-smoke-test-${timestamp}.log`);
 const runId = timestamp.replace(/[^0-9TZ-]/g, "").slice(0, 24);
+const smokeAssignmentDate = buildSmokeAssignmentDate(new Date());
+
+if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  printHelp();
+  process.exit(0);
+}
 
 const credentials = {
   admin: {
@@ -27,6 +36,7 @@ const state = {
   logLines: [],
   tokens: {},
   refs: {},
+  skipped: 0,
 };
 
 function now() {
@@ -42,8 +52,62 @@ function print(message = "") {
   log(message);
 }
 
+function printHelp() {
+  console.log(`API smoke tester
+
+Usage:
+  node scripts/api-smoke-test.mjs
+  API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs
+
+Common commands:
+  Full local run:
+    node scripts/api-smoke-test.mjs
+
+  Read-only run:
+    API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs
+
+  Custom backend URL:
+    API_BASE_URL=http://localhost:8081 node scripts/api-smoke-test.mjs
+
+Environment variables:
+  API_BASE_URL              Backend URL. Default: http://localhost:8080
+  API_ADMIN_EMAIL           Admin login email. Default: admin@school.com
+  API_ADMIN_PASSWORD        Admin login password. Default: 123456
+  API_PARENT_EMAIL          Parent login email. Default: parent.demo@school.com
+  API_PARENT_PASSWORD       Parent login password. Default: 123456
+  API_SMOKE_READ_ONLY       true/false. Skip write checks when true.
+  API_SMOKE_LOGS_TO_KEEP    Number of local logs to retain. Default: 4
+  API_SMOKE_GROUP_ID        Existing group id for schedule checks. Default: 1
+  API_SMOKE_STAFF_ID        Existing staff id for schedule checks. Default: 1
+  API_SMOKE_LOG_DIR         Local log directory. Default: logs
+`);
+}
+
 function normalizeUrl(path) {
   return `${baseUrl}${path}`;
+}
+
+function parseBoolean(value) {
+  return value === "true" || value === "1" || value === "yes";
+}
+
+function buildSmokeAssignmentDate(date) {
+  const baseDate = Date.UTC(2090, 0, 1);
+  const dayOffset = Math.floor(date.getTime() / 1000) % 3000;
+  return formatDate(new Date(baseDate + dayOffset * 24 * 60 * 60 * 1000));
+}
+
+function addDays(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatDate(date);
+}
+
+function formatDate(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 async function request(path, options = {}) {
@@ -105,6 +169,17 @@ async function runCheck(name, check) {
     log(error.stack ?? error.message);
     return false;
   }
+}
+
+async function runWriteCheck(name, check) {
+  if (readOnly) {
+    state.skipped += 1;
+    print(`SKIP ${name}`);
+    log(`[${now()}] SKIP ${name} because API_SMOKE_READ_ONLY=true`);
+    return true;
+  }
+
+  return runCheck(name, check);
 }
 
 function assertStatus(result, expectedStatus) {
@@ -204,6 +279,7 @@ async function main() {
   print(`API smoke test`);
   print(`Base URL: ${baseUrl}`);
   print(`Log file: ${logFile}`);
+  print(`Read-only mode: ${readOnly ? "enabled" : "disabled"}`);
 
   const backendReachable = await runCheck("backend is reachable", async () => {
     const result = await request("/api/students");
@@ -325,7 +401,7 @@ async function main() {
   });
   await expectJsonArray("search materials as admin", "/api/materials?search=a", "admin");
   await expectJsonArray("list low stock materials as admin", "/api/materials/low-stock", "admin");
-  await runCheck("create smoke material as admin", async () => {
+  await runWriteCheck("create smoke material as admin", async () => {
     const result = await request("/api/materials", {
       method: "POST",
       token: state.tokens.admin,
@@ -345,94 +421,179 @@ async function main() {
     assertField(result.body.materialId, "materialId");
     state.refs.materialId = result.body.materialId;
   });
-  await expectJsonObject("get smoke material by id", `/api/materials/${state.refs.materialId}`, "admin");
-  await expectJsonArray("search smoke material by sku", `/api/materials?search=SMOKE-MAT-${runId}`, "admin");
-  await runCheck("update smoke material as admin", async () => {
-    const result = await request(`/api/materials/${state.refs.materialId}`, {
-      method: "PUT",
-      token: state.tokens.admin,
-      body: {
-        sku: `SMOKE-MAT-${runId}`,
-        name: `Smoke material updated ${runId}`,
-        category: "smoke-test",
-        unit: "unit",
-        quantityOnHand: 10,
-        minimumQuantity: 4,
-        status: "ACTIVE",
-        notes: "Updated by api-smoke-test.mjs",
-      },
+  if (!readOnly) {
+    await expectJsonObject("get smoke material by id", `/api/materials/${state.refs.materialId}`, "admin");
+    await expectJsonArray("search smoke material by sku", `/api/materials?search=SMOKE-MAT-${runId}`, "admin");
+    await runWriteCheck("update smoke material as admin", async () => {
+      const result = await request(`/api/materials/${state.refs.materialId}`, {
+        method: "PUT",
+        token: state.tokens.admin,
+        body: {
+          sku: `SMOKE-MAT-${runId}`,
+          name: `Smoke material updated ${runId}`,
+          category: "smoke-test",
+          unit: "unit",
+          quantityOnHand: 10,
+          minimumQuantity: 4,
+          status: "ACTIVE",
+          notes: "Updated by api-smoke-test.mjs",
+        },
+      });
+      assertStatus(result, 200);
+      assertObjectBody(result);
     });
-    assertStatus(result, 200);
-    assertObjectBody(result);
-  });
-  await runCheck("register material stock entry", async () => {
-    const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
-      method: "POST",
-      token: state.tokens.admin,
-      body: {
-        movementType: "IN",
-        quantity: 5,
-        notes: "Smoke stock entry",
-      },
+    await runWriteCheck("register material stock entry", async () => {
+      const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
+        method: "POST",
+        token: state.tokens.admin,
+        body: {
+          movementType: "IN",
+          quantity: 5,
+          notes: "Smoke stock entry",
+        },
+      });
+      assertStatus(result, 201);
+      assertObjectBody(result);
+      assertField(result.body.materialMovementId, "materialMovementId");
     });
-    assertStatus(result, 201);
-    assertObjectBody(result);
-    assertField(result.body.materialMovementId, "materialMovementId");
-  });
-  await runCheck("register material stock output", async () => {
-    const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
-      method: "POST",
-      token: state.tokens.admin,
-      body: {
-        movementType: "OUT",
-        quantity: 2,
-        notes: "Smoke stock output",
-      },
+    await runWriteCheck("register material stock output", async () => {
+      const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
+        method: "POST",
+        token: state.tokens.admin,
+        body: {
+          movementType: "OUT",
+          quantity: 2,
+          notes: "Smoke stock output",
+        },
+      });
+      assertStatus(result, 201);
+      assertObjectBody(result);
     });
-    assertStatus(result, 201);
-    assertObjectBody(result);
-  });
-  await runCheck("register material stock adjustment", async () => {
-    const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
-      method: "POST",
-      token: state.tokens.admin,
-      body: {
-        movementType: "ADJUSTMENT",
-        quantity: 8,
-        notes: "Smoke stock adjustment",
-      },
+    await runWriteCheck("register material stock adjustment", async () => {
+      const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
+        method: "POST",
+        token: state.tokens.admin,
+        body: {
+          movementType: "ADJUSTMENT",
+          quantity: 8,
+          notes: "Smoke stock adjustment",
+        },
+      });
+      assertStatus(result, 201);
+      assertObjectBody(result);
     });
-    assertStatus(result, 201);
-    assertObjectBody(result);
-  });
+  }
   await expectJsonArray("list material movements as admin", "/api/materials/movements", "admin");
-  await expectJsonArray("list smoke material movements", `/api/materials/movements?materialId=${state.refs.materialId}`, "admin");
-  await runCheck("reject material output above stock", async () => {
-    const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
-      method: "POST",
-      token: state.tokens.admin,
-      body: {
-        movementType: "OUT",
-        quantity: 99999,
-        notes: "Smoke invalid output",
-      },
+  if (!readOnly) {
+    await expectJsonArray("list smoke material movements", `/api/materials/movements?materialId=${state.refs.materialId}`, "admin");
+    await runWriteCheck("reject material output above stock", async () => {
+      const result = await request(`/api/materials/${state.refs.materialId}/movements`, {
+        method: "POST",
+        token: state.tokens.admin,
+        body: {
+          movementType: "OUT",
+          quantity: 99999,
+          notes: "Smoke invalid output",
+        },
+      });
+      assertStatus(result, 400);
     });
-    assertStatus(result, 400);
-  });
+  }
   await runCheck("reject missing material lookup", async () => {
     const result = await request("/api/materials/999999999", { token: state.tokens.admin });
     assertStatus(result, 404);
   });
   await expectJsonArray("list schedules as admin", "/api/schedules", "admin");
-  await expectJsonArray("list schedule staff assignments as admin", "/api/schedules/staff-assignments", "admin");
-
-  await runCheck("reject invalid schedule time", async () => {
+  await expectJsonArray("list schedules by group", `/api/schedules/groups/${scheduleGroupId}`, "admin");
+  await expectJsonArray("list schedules by day", "/api/schedules/days/MONDAY", "admin");
+  await expectJsonArray("list schedules by group and day", `/api/schedules/groups/${scheduleGroupId}/days/MONDAY`, "admin");
+  await runWriteCheck("create smoke schedule slot", async () => {
     const result = await request("/api/schedules", {
       method: "POST",
       token: state.tokens.admin,
       body: {
-        groupId: 1,
-        primaryStaffId: 1,
+        groupId: scheduleGroupId,
+        primaryStaffId: scheduleStaffId,
+        dayOfWeek: "FRIDAY",
+        startTime: "13:00:00",
+        endTime: "13:30:00",
+        activityTitle: `Smoke schedule ${runId}`,
+        roomName: "Smoke room",
+        notes: "Created by api-smoke-test.mjs",
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.scheduleSlotId, "scheduleSlotId");
+    state.refs.scheduleSlotId = result.body.scheduleSlotId;
+  });
+  if (!readOnly) {
+    await expectJsonObject("get smoke schedule slot by id", `/api/schedules/${state.refs.scheduleSlotId}`, "admin");
+    await runWriteCheck("update smoke schedule slot", async () => {
+      const result = await request(`/api/schedules/${state.refs.scheduleSlotId}`, {
+        method: "PUT",
+        token: state.tokens.admin,
+        body: {
+          groupId: scheduleGroupId,
+          primaryStaffId: scheduleStaffId,
+          dayOfWeek: "FRIDAY",
+          startTime: "14:00:00",
+          endTime: "14:30:00",
+          activityTitle: `Smoke schedule updated ${runId}`,
+          roomName: "Smoke room updated",
+          notes: "Updated by api-smoke-test.mjs",
+        },
+      });
+      assertStatus(result, 200);
+      assertObjectBody(result);
+    });
+    await runWriteCheck("assign primary staff to smoke schedule slot", async () => {
+      const result = await request(`/api/schedules/${state.refs.scheduleSlotId}/primary-staff/${scheduleStaffId}`, {
+        method: "PUT",
+        token: state.tokens.admin,
+      });
+      assertStatus(result, 200);
+      assertObjectBody(result);
+    });
+  }
+  await expectJsonArray("list schedule staff assignments as admin", "/api/schedules/staff-assignments", "admin");
+  await expectJsonArray("list schedule staff assignments by group", `/api/schedules/staff-assignments?groupId=${scheduleGroupId}`, "admin");
+  await expectJsonArray("list schedule staff assignments by staff", `/api/schedules/staff-assignments?staffId=${scheduleStaffId}`, "admin");
+  await runWriteCheck("create smoke staff group assignment", async () => {
+    let lastResult;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const result = await request("/api/schedules/staff-assignments", {
+        method: "POST",
+        token: state.tokens.admin,
+        body: {
+          staffId: scheduleStaffId,
+          groupId: scheduleGroupId,
+          roleInGroup: "TEACHER",
+          primary: false,
+          startDate: addDays(smokeAssignmentDate, attempt),
+          endDate: null,
+        },
+      });
+
+      if (result.status === 201) {
+        assertObjectBody(result);
+        assertField(result.body.staffGroupAssignmentId, "staffGroupAssignmentId");
+        return;
+      }
+
+      lastResult = result;
+    }
+
+    assertStatus(lastResult, 201);
+  });
+
+  await runWriteCheck("reject invalid schedule time", async () => {
+    const result = await request("/api/schedules", {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        groupId: scheduleGroupId,
+        primaryStaffId: scheduleStaffId,
         dayOfWeek: "MONDAY",
         startTime: "11:00:00",
         endTime: "10:00:00",
@@ -450,7 +611,7 @@ async function main() {
 
 async function finish() {
   print("");
-  print(`Summary: ${state.passed} passed, ${state.failed} failed`);
+  print(`Summary: ${state.passed} passed, ${state.failed} failed, ${state.skipped} skipped`);
 
   await mkdir(logsDir, { recursive: true });
   await writeFile(logFile, `${state.logLines.join("\n")}\n`, "utf8");

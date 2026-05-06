@@ -318,6 +318,8 @@ Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parent
 - [x] `api-test.http` actualizado con flujos principales.
 - [x] `api-test.http` actualizado con flujo base de pagos mensuales.
 - [x] `api-test.http` actualizado con flujo base de horarios.
+- [x] Smoke tester automatico para endpoints principales.
+- [x] Smoke tester con logs locales, retencion de ultimos 4 logs y modo read-only.
 - [ ] Agregar futuras migraciones `V3`, `V4`, etc. para nuevos cambios de esquema o seeds.
 - [ ] Mejorar cobertura de tests de controllers.
 - [ ] Revisar `open-in-view` de JPA.
@@ -327,6 +329,23 @@ Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parent
 ## Propuesta de cierre
 
 Construir una primera version enfocada en administracion interna: estudiantes, tutores, pagos, materiales, horarios y dashboard. Despues de probarla con el uso real del centro, se podran ajustar flujos y anadir funciones como portal de padres, notificaciones, asistencia y reportes avanzados.
+
+## Checklist para release oficial
+
+Antes de publicar la aplicacion para uso real del cliente:
+
+- [ ] Preparar una base de datos limpia para produccion.
+- [ ] Eliminar datos demo/locales, incluyendo datos creados por `api-smoke-test.mjs` con prefijos `SMOKE-*`.
+- [ ] Aplicar migraciones Flyway desde cero y confirmar que el esquema queda completo.
+- [ ] Mantener solo seeds necesarios para roles base y datos imprescindibles del sistema.
+- [ ] Crear usuario administrador inicial para el cliente.
+- [ ] Configurar `JWT_SECRET` real y suficientemente largo.
+- [ ] Configurar credenciales reales de base de datos y no usar passwords de desarrollo.
+- [ ] Confirmar que `application-local.properties`, `.env` y secretos no se suben al repositorio.
+- [ ] Ejecutar `./mvnw test`.
+- [ ] Ejecutar `API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs` contra el entorno final o staging.
+- [ ] Revisar warnings importantes de runtime antes de entregar.
+- [ ] Documentar URL, usuario inicial y pasos basicos de operacion para el cliente.
 
 ## Proximo paso recomendado
 
