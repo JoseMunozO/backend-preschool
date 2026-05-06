@@ -716,3 +716,107 @@ Authorization: Bearer {{admin_token}}
 ### Get movements by material
 GET http://localhost:8080/api/materials/movements?materialId={{material_id}}
 Authorization: Bearer {{admin_token}}
+
+###
+
+### Get all schedule slots with ADMIN token
+GET http://localhost:8080/api/schedules
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get schedule slots by group
+GET http://localhost:8080/api/schedules/groups/1
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get schedule slots by day
+GET http://localhost:8080/api/schedules/days/MONDAY
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get schedule slots by group and day
+GET http://localhost:8080/api/schedules/groups/1/days/MONDAY
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create schedule slot with ADMIN token
+POST http://localhost:8080/api/schedules
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "groupId": 1,
+  "primaryStaffId": 1,
+  "dayOfWeek": "MONDAY",
+  "startTime": "09:00:00",
+  "endTime": "10:00:00",
+  "activityTitle": "Actividad educativa",
+  "roomName": "Aula principal",
+  "notes": "Actividad demo creada desde api-test.http"
+}
+
+> {%
+    client.global.set("schedule_slot_id", response.body.scheduleSlotId);
+%}
+
+###
+
+### Get schedule slot by id
+GET http://localhost:8080/api/schedules/{{schedule_slot_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Update schedule slot with ADMIN token
+PUT http://localhost:8080/api/schedules/{{schedule_slot_id}}
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "groupId": 1,
+  "primaryStaffId": 1,
+  "dayOfWeek": "MONDAY",
+  "startTime": "09:30:00",
+  "endTime": "10:30:00",
+  "activityTitle": "Actividad educativa actualizada",
+  "roomName": "Aula principal",
+  "notes": "Horario demo actualizado desde api-test.http"
+}
+
+###
+
+### Assign primary staff to schedule slot
+PUT http://localhost:8080/api/schedules/{{schedule_slot_id}}/primary-staff/1
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get staff group assignments
+GET http://localhost:8080/api/schedules/staff-assignments
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get staff group assignments by group
+GET http://localhost:8080/api/schedules/staff-assignments?groupId=1
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Assign staff to group
+POST http://localhost:8080/api/schedules/staff-assignments
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "staffId": 1,
+  "groupId": 1,
+  "roleInGroup": "TEACHER",
+  "primary": true,
+  "startDate": "2026-08-15",
+  "endDate": null
+}
