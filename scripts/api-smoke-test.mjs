@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const baseUrl = process.env.API_BASE_URL ?? "http://localhost:8080";
 const logsDir = process.env.API_SMOKE_LOG_DIR ?? "logs";
+const logsToKeep = Number.parseInt(process.env.API_SMOKE_LOGS_TO_KEEP ?? "4", 10);
 const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const logFile = join(logsDir, `api-smoke-test-${timestamp}.log`);
 const runId = timestamp.replace(/[^0-9TZ-]/g, "").slice(0, 24);
@@ -453,11 +454,35 @@ async function finish() {
 
   await mkdir(logsDir, { recursive: true });
   await writeFile(logFile, `${state.logLines.join("\n")}\n`, "utf8");
+  await pruneOldLogs();
 
   if (state.failed > 0) {
     print(`Detailed log: ${logFile}`);
     process.exitCode = 1;
   }
+}
+
+async function pruneOldLogs() {
+  if (!Number.isInteger(logsToKeep) || logsToKeep < 1) {
+    return;
+  }
+
+  const entries = await readdir(logsDir);
+  const smokeLogs = await Promise.all(
+    entries
+      .filter((entry) => /^api-smoke-test-.*\.log$/.test(entry))
+      .map(async (entry) => {
+        const path = join(logsDir, entry);
+        const metadata = await stat(path);
+        return { path, mtimeMs: metadata.mtimeMs };
+      }),
+  );
+
+  const logsToDelete = smokeLogs
+    .sort((left, right) => right.mtimeMs - left.mtimeMs)
+    .slice(logsToKeep);
+
+  await Promise.all(logsToDelete.map((entry) => unlink(entry.path)));
 }
 
 main().catch(async (error) => {
@@ -467,6 +492,7 @@ main().catch(async (error) => {
   log(error.stack ?? error.message);
   await mkdir(logsDir, { recursive: true });
   await writeFile(logFile, `${state.logLines.join("\n")}\n`, "utf8");
+  await pruneOldLogs();
   print(`Detailed log: ${logFile}`);
   process.exitCode = 1;
 });

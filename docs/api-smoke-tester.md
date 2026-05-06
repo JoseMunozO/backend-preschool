@@ -22,7 +22,7 @@ En otra terminal, ejecuta:
 node scripts/api-smoke-test.mjs
 ```
 
-El script imprime `PASS` o `FAIL` por cada comprobacion y genera un log local en `logs/`.
+El script imprime `PASS` o `FAIL` por cada comprobacion y genera un log local en `logs/`. Por defecto conserva solo los ultimos 4 logs del smoke tester.
 
 ## Configuracion
 
@@ -34,6 +34,7 @@ API_ADMIN_EMAIL=admin@school.com \
 API_ADMIN_PASSWORD=123456 \
 API_PARENT_EMAIL=parent.demo@school.com \
 API_PARENT_PASSWORD=123456 \
+API_SMOKE_LOGS_TO_KEEP=4 \
 node scripts/api-smoke-test.mjs
 ```
 
