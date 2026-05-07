@@ -1,0 +1,43 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: preschool-mysql
+    environment:
+      MYSQL_DATABASE: preschool_admin_db_v2
+      MYSQL_USER: preschool
+      MYSQL_PASSWORD: preschool
+      MYSQL_ROOT_PASSWORD: rootpassword
+      TZ: Europe/Stockholm
+    ports:
+      - "3307:3306"
+    volumes:
+      - preschool_mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: preschool-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:mysql://mysql:3306/preschool_admin_db_v2?useSSL=false&serverTimezone=Europe/Stockholm&allowPublicKeyRetrieval=true
+      DB_USERNAME: preschool
+      DB_PASSWORD: preschool
+      JWT_SECRET: DockerPreschool_Auth_JWT_SECRET_2026_SuperSecureKey_9xL4pQ8mZ2rT7
+      JWT_EXPIRATION_MS: 86400000
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  preschool_mysql_data:
