@@ -473,6 +473,23 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Update student profile photo URL
+PUT http://localhost:8080/api/students/1/profile-photo
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "profilePhotoUrl": "https://example.com/demo/students/1/profile.jpg"
+}
+
+###
+
+### Remove student profile photo URL
+DELETE http://localhost:8080/api/students/1/profile-photo
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Delete student
 DELETE http://localhost:8080/api/students/3
 Authorization: Bearer {{admin_token}}

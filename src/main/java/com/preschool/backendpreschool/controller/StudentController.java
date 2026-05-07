@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.controller;
 
 import com.preschool.backendpreschool.dto.StudentRequest;
+import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.dto.StudentGuardianResponse;
 import com.preschool.backendpreschool.service.StudentGuardianService;
@@ -53,5 +54,18 @@ public class StudentController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteStudent(@PathVariable Long id) {
         studentService.deleteStudent(id);
+    }
+
+    @PutMapping("/{id}/profile-photo")
+    public StudentResponse updateProfilePhoto(
+            @PathVariable Long id,
+            @Valid @RequestBody StudentProfilePhotoRequest request
+    ) {
+        return studentService.updateProfilePhoto(id, request);
+    }
+
+    @DeleteMapping("/{id}/profile-photo")
+    public StudentResponse removeProfilePhoto(@PathVariable Long id) {
+        return studentService.removeProfilePhoto(id);
     }
 }

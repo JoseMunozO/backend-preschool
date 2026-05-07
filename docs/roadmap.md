@@ -283,7 +283,8 @@ Al entrar en la aplicacion, el cliente vera lo mas importante sin tener que revi
 - [ ] Reportes mensuales de pagos, estudiantes o inventario.
 - [ ] Generacion de recibos y documentos en PDF.
 - [ ] Notas estilo comentarios para estudiantes: profesores responsables pueden crear/editar sus comentarios; direccion/admin pueden revisar historial y moderar.
-- [ ] Foto de perfil por estudiante, visible segun permisos internos y consentimiento familiar.
+- [x] Backend base para foto de perfil por estudiante mediante `profilePhotoUrl`.
+- [ ] Subida/almacenamiento real de foto de perfil por estudiante, visible segun permisos internos y consentimiento familiar.
 - [ ] Album de fotos avanzado por estudiante o grupo, con permisos por grupo/estudiante asignado.
 - [ ] Consentimientos de privacidad/imagen: padres o tutores deben aceptar condiciones antes de permitir uso de fotos del estudiante.
 - [ ] Roles avanzados: administrador, profesor, contabilidad y padre/tutor.

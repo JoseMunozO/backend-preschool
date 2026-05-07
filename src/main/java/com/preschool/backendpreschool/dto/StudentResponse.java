@@ -11,6 +11,7 @@ public record StudentResponse(
         String studentCode,
         String firstName,
         String lastName,
+        String profilePhotoUrl,
         LocalDate birthDate,
         Long groupId,
         String groupName,

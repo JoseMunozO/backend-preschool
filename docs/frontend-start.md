@@ -504,6 +504,8 @@ Endpoints:
 | GET | `/api/students/{id}/guardians` | Tutores del estudiante |
 | POST | `/api/students` | Crear estudiante |
 | PUT | `/api/students/{id}` | Actualizar estudiante |
+| PUT | `/api/students/{id}/profile-photo` | Asignar URL de foto de perfil |
+| DELETE | `/api/students/{id}/profile-photo` | Quitar foto de perfil |
 | DELETE | `/api/students/{id}` | Eliminar estudiante |
 
 Types:
@@ -514,6 +516,7 @@ export type Student = {
   studentCode: string | null;
   firstName: string;
   lastName: string;
+  profilePhotoUrl: string | null;
   birthDate: ISODate;
   groupId: number | null;
   groupName: string | null;
@@ -539,6 +542,10 @@ export type StudentRequest = {
   medicalNotes?: string | null;
   allergies?: string | null;
   notes?: string | null;
+};
+
+export type StudentProfilePhotoRequest = {
+  profilePhotoUrl: string;
 };
 ```
 
