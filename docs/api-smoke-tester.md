@@ -43,7 +43,7 @@ API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs
 - Auth/login.
 - Dashboard principal.
 - Roles y usuarios.
-- Estudiantes, notas internas, consentimientos, padres y relaciones tutor-estudiante.
+- Estudiantes, notas internas, consentimientos, albumes/fotos, padres y relaciones tutor-estudiante.
 - Pagos y cargos.
 - Materiales y movimientos.
 - Horarios y asignaciones de staff.
@@ -84,13 +84,13 @@ node scripts/api-smoke-test.mjs
 Modo completo actual:
 
 ```text
-Summary: 78 passed, 0 failed, 0 skipped
+Summary: 87 passed, 0 failed, 0 skipped
 ```
 
 Modo read-only actual:
 
 ```text
-Summary: 57 passed, 0 failed, 6 skipped
+Summary: 59 passed, 0 failed, 7 skipped
 ```
 
 Si alguna comprobacion falla, el script termina con exit code `1` y deja el detalle en el log.

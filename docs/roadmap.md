@@ -305,9 +305,11 @@ Estado actual:
 - [x] Foto de perfil base disponible con URL en estudiante.
 - [x] Backend base para consentimientos familiares por estudiante y tutor.
 - [x] La foto de perfil requiere consentimiento activo `IMAGE_PROFILE_PHOTO`.
+- [x] Backend base para albumes/fotos por URL, con aprobacion, borrado logico y permisos por grupo.
+- [x] Las fotos asociadas a estudiante requieren consentimiento activo `PHOTO_ALBUM`.
 - [ ] Historial detallado de edicion/auditoria avanzada para notas.
 - [ ] UI de consentimientos familiares antes de habilitar foto de perfil/albumes en produccion.
-- [ ] Albumes de fotos con privacidad, aprobacion y permisos por grupo.
+- [ ] Almacenamiento real de archivos/imagenes para albumes.
 
 Reglas iniciales deseadas:
 
@@ -340,6 +342,7 @@ GET /api/photo-albums/{albumId}
 PUT /api/photo-albums/{albumId}
 DELETE /api/photo-albums/{albumId}
 POST /api/photo-albums/{albumId}/photos
+PATCH /api/photo-albums/{albumId}/photos/{photoId}/approve
 DELETE /api/photo-albums/{albumId}/photos/{photoId}
 
 GET /api/students/{studentId}/consents

@@ -138,7 +138,7 @@ API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs
 Resultado esperado actual:
 
 ```text
-Summary: 57 passed, 0 failed, 6 skipped
+Summary: 59 passed, 0 failed, 7 skipped
 ```
 
 ## Estructura recomendada del frontend
@@ -622,6 +622,83 @@ export type StudentConsentRequest = {
   parentId?: number | null;
   consentType: StudentConsentType;
   notes?: string | null;
+};
+```
+
+## Photo Albums API
+
+Base:
+
+```text
+/api/photo-albums
+```
+
+Endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/photo-albums?groupId=&studentId=` | Listar albumes visibles para el usuario |
+| GET | `/api/photo-albums/{albumId}` | Obtener album con fotos |
+| POST | `/api/photo-albums` | Crear album |
+| PUT | `/api/photo-albums/{albumId}` | Actualizar album |
+| DELETE | `/api/photo-albums/{albumId}` | Desactivar album |
+| POST | `/api/photo-albums/{albumId}/photos` | Agregar foto por URL |
+| PATCH | `/api/photo-albums/{albumId}/photos/{photoId}/approve` | Aprobar foto |
+| DELETE | `/api/photo-albums/{albumId}/photos/{photoId}` | Eliminar foto |
+
+Permisos:
+
+- `SUPER_ADMIN`, `ADMIN` y `DIRECTOR` pueden revisar, crear, aprobar y eliminar cualquier album/foto.
+- `TEACHER` puede revisar, crear, aprobar y eliminar albumes/fotos solo de grupos o estudiantes bajo su asignacion activa.
+- `PARENT` no tiene acceso a albumes internos en esta version.
+- Si el album o foto esta asociado a un estudiante, debe existir consentimiento activo `PHOTO_ALBUM`.
+
+Types:
+
+```ts
+export type PhotoAlbum = {
+  photoAlbumId: number;
+  title: string;
+  description: string | null;
+  groupId: number | null;
+  groupName: string | null;
+  studentId: number | null;
+  studentName: string | null;
+  createdByUserId: number;
+  createdByEmail: string;
+  eventDate: ISODate | null;
+  active: boolean;
+  photos: PhotoAlbumPhoto[];
+  createdAt: ISODateTime | null;
+  updatedAt: ISODateTime | null;
+};
+
+export type PhotoAlbumRequest = {
+  title: string;
+  description?: string | null;
+  groupId?: number | null;
+  studentId?: number | null;
+  eventDate?: ISODate | null;
+};
+
+export type PhotoAlbumPhoto = {
+  photoAlbumPhotoId: number;
+  photoAlbumId: number;
+  studentId: number | null;
+  studentName: string | null;
+  uploadedByUserId: number;
+  uploadedByEmail: string;
+  photoUrl: string;
+  caption: string | null;
+  approved: boolean;
+  createdAt: ISODateTime | null;
+  updatedAt: ISODateTime | null;
+};
+
+export type PhotoAlbumPhotoRequest = {
+  studentId?: number | null;
+  photoUrl: string;
+  caption?: string | null;
 };
 ```
 
