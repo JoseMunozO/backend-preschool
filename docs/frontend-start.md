@@ -138,7 +138,7 @@ API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs
 Resultado esperado actual:
 
 ```text
-Summary: 56 passed, 0 failed, 5 skipped
+Summary: 57 passed, 0 failed, 6 skipped
 ```
 
 ## Estructura recomendada del frontend
@@ -503,12 +503,15 @@ Endpoints:
 | GET | `/api/students/{id}` | Obtener estudiante |
 | GET | `/api/students/{id}/guardians` | Tutores del estudiante |
 | GET | `/api/students/{id}/notes` | Notas/comentarios del estudiante |
+| GET | `/api/students/{id}/consents` | Consentimientos del estudiante |
 | POST | `/api/students` | Crear estudiante |
 | POST | `/api/students/{id}/notes` | Crear nota/comentario |
+| POST | `/api/students/{id}/consents` | Registrar consentimiento |
 | PUT | `/api/students/{id}` | Actualizar estudiante |
-| PUT | `/api/students/{id}/profile-photo` | Asignar URL de foto de perfil |
+| PUT | `/api/students/{id}/profile-photo` | Asignar URL de foto de perfil, requiere consentimiento activo `IMAGE_PROFILE_PHOTO` |
 | PUT | `/api/students/{id}/notes/{noteId}` | Actualizar nota/comentario |
 | PATCH | `/api/students/{id}/notes/{noteId}/moderate` | Marcar nota como moderada |
+| PATCH | `/api/students/{id}/consents/{consentId}/revoke` | Revocar consentimiento |
 | DELETE | `/api/students/{id}/profile-photo` | Quitar foto de perfil |
 | DELETE | `/api/students/{id}/notes/{noteId}` | Eliminar nota/comentario |
 | DELETE | `/api/students/{id}` | Eliminar estudiante |
@@ -518,6 +521,12 @@ Permisos de notas:
 - `SUPER_ADMIN`, `ADMIN` y `DIRECTOR` pueden revisar, crear, moderar, actualizar y eliminar notas de cualquier estudiante.
 - `TEACHER` puede revisar, crear, moderar, actualizar y eliminar notas solo si tiene una asignacion activa al grupo del estudiante.
 - `PARENT` no puede acceder a notas internas.
+
+Permisos de consentimientos:
+
+- `SUPER_ADMIN`, `ADMIN` y `DIRECTOR` pueden revisar consentimientos y registrarlos/revocarlos para cualquier tutor vinculado al estudiante. Al crear desde administracion, `parentId` es requerido.
+- `TEACHER` puede revisar consentimientos solo si tiene una asignacion activa al grupo del estudiante.
+- `PARENT` puede revisar, aceptar y revocar solo sus propios consentimientos para estudiantes vinculados.
 
 Types:
 
@@ -583,6 +592,36 @@ export type StudentNote = {
 export type StudentNoteRequest = {
   noteType: StudentNoteType;
   content: string;
+};
+
+export type StudentConsentType =
+  | "IMAGE_PROFILE_PHOTO"
+  | "PHOTO_ALBUM"
+  | "INTERNAL_DOCUMENTATION"
+  | "MARKETING_PUBLICATION";
+
+export type StudentConsent = {
+  studentConsentId: number;
+  studentId: number;
+  studentName: string;
+  parentId: number;
+  parentName: string;
+  recordedByUserId: number;
+  recordedByEmail: string;
+  consentType: StudentConsentType;
+  granted: boolean;
+  active: boolean;
+  notes: string | null;
+  acceptedAt: ISODateTime | null;
+  revokedAt: ISODateTime | null;
+  createdAt: ISODateTime | null;
+  updatedAt: ISODateTime | null;
+};
+
+export type StudentConsentRequest = {
+  parentId?: number | null;
+  consentType: StudentConsentType;
+  notes?: string | null;
 };
 ```
 

@@ -46,6 +46,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/finance-summary").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "FINANCE")
                         .requestMatchers("/api/dashboard/**").denyAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/students/*/consents").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "TEACHER", "PARENT")
+                        .requestMatchers(HttpMethod.POST, "/api/students/*/consents").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "PARENT")
+                        .requestMatchers(HttpMethod.PATCH, "/api/students/*/consents/*/revoke").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "PARENT")
                         .requestMatchers("/api/students/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "TEACHER")
                         .requestMatchers("/api/class-groups/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "TEACHER")
                         .requestMatchers("/api/schedules/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "TEACHER")

@@ -7,8 +7,10 @@ import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentConsentType;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.repository.ClassGroupRepository;
+import com.preschool.backendpreschool.repository.StudentConsentRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ public class StudentService {
 
     private final StudentRepository studentRepository;
     private final ClassGroupRepository classGroupRepository;
+    private final StudentConsentRepository studentConsentRepository;
 
     public List<StudentResponse> getAllStudents() {
         return studentRepository.findAll()
@@ -89,6 +92,13 @@ public class StudentService {
 
     public StudentResponse updateProfilePhoto(Long id, StudentProfilePhotoRequest request) {
         Student student = findStudentOrThrow(id);
+        if (!studentConsentRepository.existsByStudentStudentIdAndConsentTypeAndGrantedTrueAndRevokedAtIsNull(
+                id,
+                StudentConsentType.IMAGE_PROFILE_PHOTO
+        )) {
+            throw new BadRequestException("Se requiere consentimiento activo de imagen para asignar foto de perfil");
+        }
+
         student.setProfilePhotoUrl(request.profilePhotoUrl().trim());
 
         return mapToResponse(studentRepository.save(student));

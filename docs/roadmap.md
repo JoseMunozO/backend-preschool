@@ -303,8 +303,10 @@ Estado actual:
 - [x] Profesores pueden gestionar notas solo de estudiantes cuyo grupo tienen asignado activamente.
 - [x] Direccion/admin pueden revisar, moderar, actualizar o eliminar notas de cualquier estudiante.
 - [x] Foto de perfil base disponible con URL en estudiante.
+- [x] Backend base para consentimientos familiares por estudiante y tutor.
+- [x] La foto de perfil requiere consentimiento activo `IMAGE_PROFILE_PHOTO`.
 - [ ] Historial detallado de edicion/auditoria avanzada para notas.
-- [ ] Consentimientos familiares antes de habilitar foto de perfil/albumes en produccion.
+- [ ] UI de consentimientos familiares antes de habilitar foto de perfil/albumes en produccion.
 - [ ] Albumes de fotos con privacidad, aprobacion y permisos por grupo.
 
 Reglas iniciales deseadas:
