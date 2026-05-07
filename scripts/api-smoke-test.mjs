@@ -368,6 +368,81 @@ async function main() {
     const result = await request("/api/students/999999999", { token: state.tokens.admin });
     assertStatus(result, 404);
   });
+  await expectJsonArray("list photo albums as admin", "/api/photo-albums", "admin");
+  await runCheck("parent cannot list photo albums", async () => {
+    const result = await request("/api/photo-albums", { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+  await runWriteCheck("create smoke photo album as admin", async () => {
+    const result = await request("/api/photo-albums", {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        title: `Smoke album ${runId}`,
+        description: "Created by api-smoke-test.mjs",
+        eventDate: "2090-01-01",
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.photoAlbumId, "photoAlbumId");
+    state.refs.photoAlbumId = result.body.photoAlbumId;
+  });
+  if (!readOnly) {
+    await expectJsonObject("get smoke photo album by id", `/api/photo-albums/${state.refs.photoAlbumId}`, "admin");
+    await runCheck("update smoke photo album as admin", async () => {
+      const result = await request(`/api/photo-albums/${state.refs.photoAlbumId}`, {
+        method: "PUT",
+        token: state.tokens.admin,
+        body: {
+          title: `Smoke album updated ${runId}`,
+          description: "Updated by api-smoke-test.mjs",
+          eventDate: "2090-01-02",
+        },
+      });
+      assertStatus(result, 200);
+      assertObjectBody(result);
+    });
+    await runCheck("add smoke photo to album as admin", async () => {
+      const result = await request(`/api/photo-albums/${state.refs.photoAlbumId}/photos`, {
+        method: "POST",
+        token: state.tokens.admin,
+        body: {
+          photoUrl: `https://example.com/smoke/photos/${runId}.jpg`,
+          caption: "Smoke photo",
+        },
+      });
+      assertStatus(result, 201);
+      assertObjectBody(result);
+      assertField(result.body.photoAlbumPhotoId, "photoAlbumPhotoId");
+      state.refs.photoAlbumPhotoId = result.body.photoAlbumPhotoId;
+    });
+    await runCheck("approve smoke photo as admin", async () => {
+      const result = await request(`/api/photo-albums/${state.refs.photoAlbumId}/photos/${state.refs.photoAlbumPhotoId}/approve`, {
+        method: "PATCH",
+        token: state.tokens.admin,
+      });
+      assertStatus(result, 200);
+      assertObjectBody(result);
+      if (result.body.approved !== true) {
+        throw new Error(`Expected approved=true. Received: ${formatBody(result.body)}`);
+      }
+    });
+    await runCheck("delete smoke photo as admin", async () => {
+      const result = await request(`/api/photo-albums/${state.refs.photoAlbumId}/photos/${state.refs.photoAlbumPhotoId}`, {
+        method: "DELETE",
+        token: state.tokens.admin,
+      });
+      assertStatus(result, 204);
+    });
+    await runCheck("delete smoke photo album as admin", async () => {
+      const result = await request(`/api/photo-albums/${state.refs.photoAlbumId}`, {
+        method: "DELETE",
+        token: state.tokens.admin,
+      });
+      assertStatus(result, 204);
+    });
+  }
   await runCheck("list parents as admin", async () => {
     const result = await request("/api/parents", { token: state.tokens.admin });
     assertStatus(result, 200);

@@ -460,6 +460,87 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Get photo albums
+GET http://localhost:8080/api/photo-albums
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create photo album
+POST http://localhost:8080/api/photo-albums
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "title": "Album demo",
+  "description": "Album creado desde api-test.http",
+  "groupId": 1,
+  "studentId": null,
+  "eventDate": "2026-05-07"
+}
+
+> {%
+    client.global.set("photo_album_id", response.body.photoAlbumId);
+%}
+
+###
+
+### Get photo album by id
+GET http://localhost:8080/api/photo-albums/{{photo_album_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Update photo album
+PUT http://localhost:8080/api/photo-albums/{{photo_album_id}}
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "title": "Album demo actualizado",
+  "description": "Album actualizado desde api-test.http",
+  "groupId": 1,
+  "studentId": null,
+  "eventDate": "2026-05-08"
+}
+
+###
+
+### Add photo to album
+POST http://localhost:8080/api/photo-albums/{{photo_album_id}}/photos
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "studentId": null,
+  "photoUrl": "https://example.com/demo/photo-album/photo-1.jpg",
+  "caption": "Foto demo"
+}
+
+> {%
+    client.global.set("photo_album_photo_id", response.body.photoAlbumPhotoId);
+%}
+
+###
+
+### Approve album photo
+PATCH http://localhost:8080/api/photo-albums/{{photo_album_id}}/photos/{{photo_album_photo_id}}/approve
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Delete album photo
+DELETE http://localhost:8080/api/photo-albums/{{photo_album_id}}/photos/{{photo_album_photo_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Delete photo album
+DELETE http://localhost:8080/api/photo-albums/{{photo_album_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Unlink parent from student
 DELETE http://localhost:8080/api/parents/{{parent_id}}/students/1
 Authorization: Bearer {{admin_token}}
