@@ -206,6 +206,12 @@ function assertObjectBody(result) {
   }
 }
 
+function assertObjectField(value, fieldName) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`Expected field ${fieldName} to be an object. Received: ${formatBody(value)}`);
+  }
+}
+
 function assertToken(loginResult) {
   if (!loginResult.body || typeof loginResult.body.token !== "string" || loginResult.body.token.trim() === "") {
     throw new Error(`Login response did not include a token. Body: ${formatBody(loginResult.body)}`);
@@ -555,6 +561,16 @@ async function main() {
       throw new Error(`Expected upcomingBirthdays to be an array. Received: ${formatBody(result.body.upcomingBirthdays)}`);
     }
   });
+  await runCheck("get main dashboard summary as admin", async () => {
+    const result = await request("/api/dashboard/summary", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertObjectBody(result);
+    assertField(result.body.date, "date");
+    assertObjectField(result.body.administration, "administration");
+    assertObjectField(result.body.finance, "finance");
+    assertField(result.body.administration.activeStudents, "administration.activeStudents");
+    assertField(result.body.finance.pendingCharges, "finance.pendingCharges");
+  });
   await runCheck("get admin dashboard summary as admin", async () => {
     const result = await request("/api/dashboard/admin-summary", { token: state.tokens.admin });
     assertStatus(result, 200);
@@ -573,6 +589,10 @@ async function main() {
   });
   await runCheck("parent cannot get teacher dashboard summary", async () => {
     const result = await request("/api/dashboard/teacher-summary", { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+  await runCheck("parent cannot get main dashboard summary", async () => {
+    const result = await request("/api/dashboard/summary", { token: state.tokens.parent });
     assertStatusIn(result, [401, 403]);
   });
   await runCheck("parent cannot get admin dashboard summary", async () => {

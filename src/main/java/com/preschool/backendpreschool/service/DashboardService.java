@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.DashboardAdminSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardBirthdayResponse;
 import com.preschool.backendpreschool.dto.DashboardFinanceAreaSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardMainSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardMaterialAlertResponse;
 import com.preschool.backendpreschool.dto.DashboardScheduleItemResponse;
 import com.preschool.backendpreschool.dto.DashboardTeacherSummaryResponse;
@@ -49,6 +50,15 @@ public class DashboardService {
     private final PaymentRepository paymentRepository;
     private final MaterialRepository materialRepository;
     private final ScheduleSlotRepository scheduleSlotRepository;
+
+    public DashboardMainSummaryResponse getMainSummary() {
+        LocalDate today = LocalDate.now();
+        return new DashboardMainSummaryResponse(
+                today,
+                getAdminSummary(),
+                getFinanceSummary()
+        );
+    }
 
     public DashboardTeacherSummaryResponse getTeacherSummary() {
         LocalDate today = LocalDate.now();

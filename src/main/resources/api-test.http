@@ -112,6 +112,12 @@ Authorization: Bearer {{teacher_token}}
 
 ###
 
+### Get main dashboard summary with ADMIN token
+GET http://localhost:8080/api/dashboard/summary
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Get teacher dashboard summary with ADMIN token
 GET http://localhost:8080/api/dashboard/teacher-summary
 Authorization: Bearer {{admin_token}}
@@ -127,6 +133,12 @@ Authorization: Bearer {{admin_token}}
 ### Get finance dashboard summary with FINANCE token
 GET http://localhost:8080/api/dashboard/finance-summary
 Authorization: Bearer {{finance_token}}
+
+###
+
+### PARENT cannot access main dashboard summary
+GET http://localhost:8080/api/dashboard/summary
+Authorization: Bearer {{parent_token}}
 
 ###
 
