@@ -92,7 +92,7 @@ La primera version debe construir una base funcional que permita validar si la a
 - [ ] Endpoint para listar album de estudiante.
 - [ ] Endpoint para eliminar foto de estudiante.
 - [ ] Endpoint o dashboard item para cumpleanos proximos.
-- [ ] Tests de controller/API.
+- [x] Tests de controller/API.
 
 ### Resultado esperado
 
@@ -166,7 +166,7 @@ El centro sabra rapidamente a quien contactar y quien es responsable de cada est
 - [x] Actualizar `api-test.http`.
 - [ ] Endpoint explicito para actualizar/cancelar estado de cargo sin registrar pago.
 - [ ] Reporte/resumen mensual de pagos pendientes y atrasados.
-- [ ] Tests de controller/API.
+- [x] Tests de controller/API.
 - [ ] Revisar optimizacion de queries si el volumen de pagos crece.
 - [ ] Generacion de recibo simple o comprobante en PDF en fase posterior.
 
@@ -202,7 +202,7 @@ El preescolar podra ver rapidamente quien ha pagado, quien esta pendiente y que 
 - [x] Seguridad por roles internos.
 - [x] Tests de servicio.
 - [x] Actualizar `api-test.http`.
-- [ ] Tests de controller/API.
+- [x] Tests de controller/API.
 - [ ] Revisar categorias finales con el cliente.
 - [ ] Revisar si se necesita responsable como staff especifico en vez de usuario autenticado.
 
@@ -237,7 +237,7 @@ El centro podra prevenir faltas de material y planificar compras con mas control
 - [x] Endpoint para consultar/asignar personal a grupos.
 - [x] Seguridad por roles internos.
 - [x] Tests de servicio.
-- [ ] Tests de controller/API.
+- [x] Tests de controller/API.
 - [x] Actualizar `api-test.http`.
 
 ### Resultado esperado
