@@ -138,7 +138,7 @@ API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs
 Resultado esperado actual:
 
 ```text
-Summary: 54 passed, 0 failed, 4 skipped
+Summary: 56 passed, 0 failed, 5 skipped
 ```
 
 ## Estructura recomendada del frontend
@@ -502,11 +502,22 @@ Endpoints:
 | GET | `/api/students` | Listar estudiantes |
 | GET | `/api/students/{id}` | Obtener estudiante |
 | GET | `/api/students/{id}/guardians` | Tutores del estudiante |
+| GET | `/api/students/{id}/notes` | Notas/comentarios del estudiante |
 | POST | `/api/students` | Crear estudiante |
+| POST | `/api/students/{id}/notes` | Crear nota/comentario |
 | PUT | `/api/students/{id}` | Actualizar estudiante |
 | PUT | `/api/students/{id}/profile-photo` | Asignar URL de foto de perfil |
+| PUT | `/api/students/{id}/notes/{noteId}` | Actualizar nota/comentario |
+| PATCH | `/api/students/{id}/notes/{noteId}/moderate` | Marcar nota como moderada |
 | DELETE | `/api/students/{id}/profile-photo` | Quitar foto de perfil |
+| DELETE | `/api/students/{id}/notes/{noteId}` | Eliminar nota/comentario |
 | DELETE | `/api/students/{id}` | Eliminar estudiante |
+
+Permisos de notas:
+
+- `SUPER_ADMIN`, `ADMIN` y `DIRECTOR` pueden revisar, crear, moderar, actualizar y eliminar notas de cualquier estudiante.
+- `TEACHER` puede revisar, crear, moderar, actualizar y eliminar notas solo si tiene una asignacion activa al grupo del estudiante.
+- `PARENT` no puede acceder a notas internas.
 
 Types:
 
@@ -546,6 +557,32 @@ export type StudentRequest = {
 
 export type StudentProfilePhotoRequest = {
   profilePhotoUrl: string;
+};
+
+export type StudentNoteType =
+  | "PEDAGOGICAL"
+  | "BEHAVIOR"
+  | "INCIDENT"
+  | "HEALTH"
+  | "FAMILY_FOLLOW_UP"
+  | "ADMINISTRATIVE";
+
+export type StudentNote = {
+  studentNoteId: number;
+  studentId: number;
+  studentName: string;
+  authorUserId: number;
+  authorEmail: string;
+  noteType: StudentNoteType;
+  content: string;
+  moderated: boolean;
+  createdAt: ISODateTime | null;
+  updatedAt: ISODateTime | null;
+};
+
+export type StudentNoteRequest = {
+  noteType: StudentNoteType;
+  content: string;
 };
 ```
 

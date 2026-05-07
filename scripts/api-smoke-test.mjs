@@ -313,6 +313,57 @@ async function main() {
   });
   await expectJsonObject("get student by id as admin", `/api/students/${state.refs.studentId}`, "admin");
   await expectJsonArray("get student guardians as admin", `/api/students/${state.refs.studentId}/guardians`, "admin");
+  await expectJsonArray("list student notes as admin", `/api/students/${state.refs.studentId}/notes`, "admin");
+  await runCheck("parent cannot list student notes", async () => {
+    const result = await request(`/api/students/${state.refs.studentId}/notes`, { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+  await runWriteCheck("create smoke student note as admin", async () => {
+    const result = await request(`/api/students/${state.refs.studentId}/notes`, {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        noteType: "PEDAGOGICAL",
+        content: `Smoke note ${runId}`,
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.studentNoteId, "studentNoteId");
+    state.refs.studentNoteId = result.body.studentNoteId;
+  });
+  if (!readOnly) {
+    await runCheck("moderate smoke student note as admin", async () => {
+      const result = await request(`/api/students/${state.refs.studentId}/notes/${state.refs.studentNoteId}/moderate`, {
+        method: "PATCH",
+        token: state.tokens.admin,
+      });
+      assertStatus(result, 200);
+      assertObjectBody(result);
+      if (result.body.moderated !== true) {
+        throw new Error(`Expected moderated=true. Received: ${formatBody(result.body)}`);
+      }
+    });
+    await runCheck("update smoke student note as admin", async () => {
+      const result = await request(`/api/students/${state.refs.studentId}/notes/${state.refs.studentNoteId}`, {
+        method: "PUT",
+        token: state.tokens.admin,
+        body: {
+          noteType: "ADMINISTRATIVE",
+          content: `Smoke note updated ${runId}`,
+        },
+      });
+      assertStatus(result, 200);
+      assertObjectBody(result);
+    });
+    await runCheck("delete smoke student note as admin", async () => {
+      const result = await request(`/api/students/${state.refs.studentId}/notes/${state.refs.studentNoteId}`, {
+        method: "DELETE",
+        token: state.tokens.admin,
+      });
+      assertStatus(result, 204);
+    });
+  }
   await runCheck("reject missing student lookup", async () => {
     const result = await request("/api/students/999999999", { token: state.tokens.admin });
     assertStatus(result, 404);

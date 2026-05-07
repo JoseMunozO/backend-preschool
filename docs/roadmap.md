@@ -297,6 +297,16 @@ Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parent
 
 Este modulo debe tratarse como sensible porque puede incluir informacion personal de menores.
 
+Estado actual:
+
+- [x] Backend base para notas estilo comentarios con autor, tipo, fecha, moderacion y soft delete.
+- [x] Profesores pueden gestionar notas solo de estudiantes cuyo grupo tienen asignado activamente.
+- [x] Direccion/admin pueden revisar, moderar, actualizar o eliminar notas de cualquier estudiante.
+- [x] Foto de perfil base disponible con URL en estudiante.
+- [ ] Historial detallado de edicion/auditoria avanzada para notas.
+- [ ] Consentimientos familiares antes de habilitar foto de perfil/albumes en produccion.
+- [ ] Albumes de fotos con privacidad, aprobacion y permisos por grupo.
+
 Reglas iniciales deseadas:
 
 - Las notas deben funcionar como comentarios con autor, fecha, tipo y posible historial de edicion.
@@ -316,6 +326,7 @@ Endpoints futuros sugeridos:
 GET /api/students/{studentId}/notes
 POST /api/students/{studentId}/notes
 PUT /api/students/{studentId}/notes/{noteId}
+PATCH /api/students/{studentId}/notes/{noteId}/moderate
 DELETE /api/students/{studentId}/notes/{noteId}
 
 POST /api/students/{studentId}/profile-photo
