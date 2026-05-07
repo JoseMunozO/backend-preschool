@@ -324,6 +324,8 @@ app.features.dashboard.support-summary=false
 ## Pendientes tecnicos
 
 - Definir modelo de permisos fino ademas de roles.
+- Definir reglas de jerarquia para gestion de roles: que roles puede asignar `SUPER_ADMIN`, `OWNER`, `ADMIN`, `DIRECTOR`, `HR` o `FINANCE`.
+- Definir flujo seguro para crear nuevos roles: enum backend, migracion/seed, permisos en `SecurityConfig`, tests y actualizacion del frontend.
 - Definir feature flags en configuracion.
 - Definir si `DIRECTOR` ve detalle financiero completo o solo resumen.
 - Definir si `OWNER` existe en la version pequena.

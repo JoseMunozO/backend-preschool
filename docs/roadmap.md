@@ -284,6 +284,7 @@ Al entrar en la aplicacion, el cliente vera lo mas importante sin tener que revi
 - [ ] Generacion de recibos y documentos en PDF.
 - [ ] Album de fotos avanzado por estudiante o grupo.
 - [ ] Roles avanzados: administrador, profesor, contabilidad y padre/tutor.
+- [ ] Reglas avanzadas para gestion de roles: definir quien puede crear usuarios, asignar roles, quitar roles y evitar que `ADMIN` o `DIRECTOR` puedan otorgar permisos superiores a los propios.
 - [ ] Sistema de mensajes internos entre administracion y padres.
 
 Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parents/me/students`, `/api/payments/me` y `/api/payments/me/charges`. Horarios y avisos para padres siguen pendientes.
