@@ -1,0 +1,16 @@
+.git
+.idea
+.vscode
+target
+logs
+docs/local
+*.log
+.DS_Store
+._*
+.env
+.env.*
+!.env.example
+src/main/resources/application-local.properties
+src/main/resources/application-*.local.properties
+http-client.env.json
+http-client.private.env.json
