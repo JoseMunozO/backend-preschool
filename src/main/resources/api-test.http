@@ -385,6 +385,52 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Get student notes
+GET http://localhost:8080/api/students/1/notes
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create student note
+POST http://localhost:8080/api/students/1/notes
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "noteType": "PEDAGOGICAL",
+  "content": "Nota demo desde api-test.http"
+}
+
+> {%
+    client.global.set("student_note_id", response.body.studentNoteId);
+%}
+
+###
+
+### Moderate student note
+PATCH http://localhost:8080/api/students/1/notes/{{student_note_id}}/moderate
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Update student note
+PUT http://localhost:8080/api/students/1/notes/{{student_note_id}}
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "noteType": "ADMINISTRATIVE",
+  "content": "Nota demo actualizada desde api-test.http"
+}
+
+###
+
+### Delete student note
+DELETE http://localhost:8080/api/students/1/notes/{{student_note_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Unlink parent from student
 DELETE http://localhost:8080/api/parents/{{parent_id}}/students/1
 Authorization: Bearer {{admin_token}}
@@ -470,6 +516,23 @@ Authorization: Bearer {{admin_token}}
   "allergies": null,
   "notes": "Actualizado desde Spring Boot"
 }
+
+###
+
+### Update student profile photo URL
+PUT http://localhost:8080/api/students/1/profile-photo
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "profilePhotoUrl": "https://example.com/demo/students/1/profile.jpg"
+}
+
+###
+
+### Remove student profile photo URL
+DELETE http://localhost:8080/api/students/1/profile-photo
+Authorization: Bearer {{admin_token}}
 
 ###
 

@@ -311,6 +311,7 @@ app.features.dashboard.support-summary=false
 - Activar `hr-summary`.
 - Activar `operations-summary`.
 - Activar `compliance-summary`.
+- Activar modulo de notas, fotos, albumes y consentimientos con permisos por grupo, sede y estudiante asignado.
 - Agregar multi-sede si el cliente lo necesita.
 
 ### Fase 4 - Multi-institucion
@@ -324,9 +325,14 @@ app.features.dashboard.support-summary=false
 ## Pendientes tecnicos
 
 - Definir modelo de permisos fino ademas de roles.
+- Definir reglas de jerarquia para gestion de roles: que roles puede asignar `SUPER_ADMIN`, `OWNER`, `ADMIN`, `DIRECTOR`, `HR` o `FINANCE`.
+- Definir flujo seguro para crear nuevos roles: enum backend, migracion/seed, permisos en `SecurityConfig`, tests y actualizacion del frontend.
 - Definir feature flags en configuracion.
 - Definir si `DIRECTOR` ve detalle financiero completo o solo resumen.
 - Definir si `OWNER` existe en la version pequena.
 - Definir alcance multi-sede.
+- Definir modelo de consentimiento de imagen/privacidad por estudiante, tutor, sede e institucion.
+- Definir reglas de acceso a fotos y notas: profesor responsable, grupo asignado, director de sede, admin institucional y auditor.
+- Definir almacenamiento de archivos: local en desarrollo, cloud/private bucket en produccion, politicas de borrado y URLs firmadas si aplica.
 - Definir auditoria para datos sensibles.
 - Definir retencion de logs y datos personales segun normativa aplicable.

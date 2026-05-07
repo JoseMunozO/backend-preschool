@@ -29,6 +29,9 @@ public class Student {
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
+    @Column(name = "profile_photo_url", length = 500)
+    private String profilePhotoUrl;
+
     @Column(name = "birth_date", nullable = false)
     private LocalDate birthDate;
 

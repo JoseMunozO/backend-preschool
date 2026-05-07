@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.StudentRequest;
+import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
@@ -86,6 +87,20 @@ public class StudentService {
         studentRepository.delete(student);
     }
 
+    public StudentResponse updateProfilePhoto(Long id, StudentProfilePhotoRequest request) {
+        Student student = findStudentOrThrow(id);
+        student.setProfilePhotoUrl(request.profilePhotoUrl().trim());
+
+        return mapToResponse(studentRepository.save(student));
+    }
+
+    public StudentResponse removeProfilePhoto(Long id) {
+        Student student = findStudentOrThrow(id);
+        student.setProfilePhotoUrl(null);
+
+        return mapToResponse(studentRepository.save(student));
+    }
+
     private Student findStudentOrThrow(Long id) {
         return studentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
@@ -108,6 +123,7 @@ public class StudentService {
                 student.getStudentCode(),
                 student.getFirstName(),
                 student.getLastName(),
+                student.getProfilePhotoUrl(),
                 student.getBirthDate(),
                 group != null ? group.getGroupId() : null,
                 group != null ? group.getName() : null,
