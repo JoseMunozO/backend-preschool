@@ -2,9 +2,12 @@ package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
+import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentConsentType;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.repository.ClassGroupRepository;
+import com.preschool.backendpreschool.repository.StudentConsentRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +19,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +32,9 @@ class StudentServiceTest {
     @Mock
     private ClassGroupRepository classGroupRepository;
 
+    @Mock
+    private StudentConsentRepository studentConsentRepository;
+
     @InjectMocks
     private StudentService studentService;
 
@@ -36,6 +43,10 @@ class StudentServiceTest {
         Student student = buildStudent();
 
         when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(studentConsentRepository.existsByStudentStudentIdAndConsentTypeAndGrantedTrueAndRevokedAtIsNull(
+                1L,
+                StudentConsentType.IMAGE_PROFILE_PHOTO
+        )).thenReturn(true);
         when(studentRepository.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudentResponse response = studentService.updateProfilePhoto(
@@ -45,6 +56,24 @@ class StudentServiceTest {
 
         assertThat(response.profilePhotoUrl()).isEqualTo("https://cdn.example.com/students/1/profile.jpg");
         assertThat(student.getProfilePhotoUrl()).isEqualTo("https://cdn.example.com/students/1/profile.jpg");
+    }
+
+    @Test
+    void updateProfilePhotoRequiresActiveImageConsent() {
+        Student student = buildStudent();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(studentConsentRepository.existsByStudentStudentIdAndConsentTypeAndGrantedTrueAndRevokedAtIsNull(
+                1L,
+                StudentConsentType.IMAGE_PROFILE_PHOTO
+        )).thenReturn(false);
+
+        assertThatThrownBy(() -> studentService.updateProfilePhoto(
+                1L,
+                new StudentProfilePhotoRequest("https://cdn.example.com/students/1/profile.jpg")
+        ))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Se requiere consentimiento activo de imagen para asignar foto de perfil");
     }
 
     @Test

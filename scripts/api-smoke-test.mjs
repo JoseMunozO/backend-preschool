@@ -379,8 +379,65 @@ async function main() {
   await expectJsonArray("search parents as admin", "/api/parents?search=a", "admin");
   await expectJsonObject("get parent by id as admin", `/api/parents/${state.refs.parentId}`, "admin");
   await expectJsonArray("get linked students by parent as admin", `/api/parents/${state.refs.parentId}/students`, "admin");
-  await expectJsonObject("get current parent profile", "/api/parents/me", "parent");
-  await expectJsonArray("get current parent students", "/api/parents/me/students", "parent");
+  await runCheck("get current parent profile", async () => {
+    const result = await request("/api/parents/me", { token: state.tokens.parent });
+    assertStatus(result, 200);
+    assertObjectBody(result);
+    assertField(result.body.parentId, "parentId");
+    state.refs.currentParentId = result.body.parentId;
+  });
+  await runCheck("get current parent students", async () => {
+    const result = await request("/api/parents/me/students", { token: state.tokens.parent });
+    assertStatus(result, 200);
+    assertNonEmptyArray(result);
+    assertField(result.body[0].studentId, "studentId");
+    state.refs.parentStudentId = result.body[0].studentId;
+  });
+  await expectJsonArray("list current parent student consents", `/api/students/${state.refs.parentStudentId}/consents`, "parent");
+  await runWriteCheck("create or reuse smoke student consent as parent", async () => {
+    const existing = await request(`/api/students/${state.refs.parentStudentId}/consents`, {
+      token: state.tokens.parent,
+    });
+    assertStatus(existing, 200);
+    assertArrayBody(existing);
+
+    const activeConsent = existing.body.find((consent) =>
+      consent.parentId === state.refs.currentParentId &&
+      consent.consentType === "MARKETING_PUBLICATION" &&
+      consent.active === true
+    );
+
+    if (activeConsent) {
+      state.refs.studentConsentId = activeConsent.studentConsentId;
+      return;
+    }
+
+    const result = await request(`/api/students/${state.refs.parentStudentId}/consents`, {
+      method: "POST",
+      token: state.tokens.parent,
+      body: {
+        consentType: "MARKETING_PUBLICATION",
+        notes: `Smoke consent ${runId}`,
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.studentConsentId, "studentConsentId");
+    state.refs.studentConsentId = result.body.studentConsentId;
+  });
+  if (!readOnly) {
+    await runCheck("revoke smoke student consent as parent", async () => {
+      const result = await request(`/api/students/${state.refs.parentStudentId}/consents/${state.refs.studentConsentId}/revoke`, {
+        method: "PATCH",
+        token: state.tokens.parent,
+      });
+      assertStatus(result, 200);
+      assertObjectBody(result);
+      if (result.body.active !== false) {
+        throw new Error(`Expected active=false. Received: ${formatBody(result.body)}`);
+      }
+    });
+  }
   await runCheck("reject missing parent lookup", async () => {
     const result = await request("/api/parents/999999999", { token: state.tokens.admin });
     assertStatus(result, 404);

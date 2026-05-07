@@ -1,11 +1,14 @@
 package com.preschool.backendpreschool.controller;
 
+import com.preschool.backendpreschool.dto.StudentConsentRequest;
+import com.preschool.backendpreschool.dto.StudentConsentResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.dto.StudentRequest;
 import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.dto.StudentGuardianResponse;
+import com.preschool.backendpreschool.service.StudentConsentService;
 import com.preschool.backendpreschool.service.StudentGuardianService;
 import com.preschool.backendpreschool.service.StudentNoteService;
 import com.preschool.backendpreschool.service.StudentService;
@@ -25,6 +28,7 @@ public class StudentController {
     private final StudentService studentService;
     private final StudentGuardianService studentGuardianService;
     private final StudentNoteService studentNoteService;
+    private final StudentConsentService studentConsentService;
 
     @GetMapping
     public List<StudentResponse> getAllStudents() {
@@ -86,6 +90,33 @@ public class StudentController {
             Authentication authentication
     ) {
         studentNoteService.deleteNote(id, noteId, authentication.getName());
+    }
+
+    @GetMapping("/{id}/consents")
+    public List<StudentConsentResponse> getStudentConsents(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        return studentConsentService.getConsents(id, authentication.getName());
+    }
+
+    @PostMapping("/{id}/consents")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StudentConsentResponse acceptStudentConsent(
+            @PathVariable Long id,
+            @Valid @RequestBody StudentConsentRequest request,
+            Authentication authentication
+    ) {
+        return studentConsentService.acceptConsent(id, request, authentication.getName());
+    }
+
+    @PatchMapping("/{id}/consents/{consentId}/revoke")
+    public StudentConsentResponse revokeStudentConsent(
+            @PathVariable Long id,
+            @PathVariable Long consentId,
+            Authentication authentication
+    ) {
+        return studentConsentService.revokeConsent(id, consentId, authentication.getName());
     }
 
     @PostMapping

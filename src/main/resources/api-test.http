@@ -431,6 +431,35 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Get student consents
+GET http://localhost:8080/api/students/1/consents
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Accept photo album consent as admin
+POST http://localhost:8080/api/students/1/consents
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "parentId": 1,
+  "consentType": "PHOTO_ALBUM",
+  "notes": "Consentimiento demo para album de fotos"
+}
+
+> {%
+    client.global.set("student_consent_id", response.body.studentConsentId);
+%}
+
+###
+
+### Revoke student consent
+PATCH http://localhost:8080/api/students/1/consents/{{student_consent_id}}/revoke
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Unlink parent from student
 DELETE http://localhost:8080/api/parents/{{parent_id}}/students/1
 Authorization: Bearer {{admin_token}}
@@ -515,6 +544,20 @@ Authorization: Bearer {{admin_token}}
   "medicalNotes": "No major medical issues",
   "allergies": null,
   "notes": "Actualizado desde Spring Boot"
+}
+
+###
+
+### Update student profile photo URL
+### Requires active IMAGE_PROFILE_PHOTO consent for this student
+POST http://localhost:8080/api/students/1/consents
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "parentId": 1,
+  "consentType": "IMAGE_PROFILE_PHOTO",
+  "notes": "Consentimiento demo para foto de perfil"
 }
 
 ###
