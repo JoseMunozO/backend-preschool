@@ -282,12 +282,56 @@ Al entrar en la aplicacion, el cliente vera lo mas importante sin tener que revi
 - [ ] Registro de asistencia diaria.
 - [ ] Reportes mensuales de pagos, estudiantes o inventario.
 - [ ] Generacion de recibos y documentos en PDF.
-- [ ] Album de fotos avanzado por estudiante o grupo.
+- [ ] Notas estilo comentarios para estudiantes: profesores responsables pueden crear/editar sus comentarios; direccion/admin pueden revisar historial y moderar.
+- [ ] Foto de perfil por estudiante, visible segun permisos internos y consentimiento familiar.
+- [ ] Album de fotos avanzado por estudiante o grupo, con permisos por grupo/estudiante asignado.
+- [ ] Consentimientos de privacidad/imagen: padres o tutores deben aceptar condiciones antes de permitir uso de fotos del estudiante.
 - [ ] Roles avanzados: administrador, profesor, contabilidad y padre/tutor.
 - [ ] Reglas avanzadas para gestion de roles: definir quien puede crear usuarios, asignar roles, quitar roles y evitar que `ADMIN` o `DIRECTOR` puedan otorgar permisos superiores a los propios.
 - [ ] Sistema de mensajes internos entre administracion y padres.
 
 Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parents/me/students`, `/api/payments/me` y `/api/payments/me/charges`. Horarios y avisos para padres siguen pendientes.
+
+### Modulo futuro - Notas, fotos y consentimientos
+
+Este modulo debe tratarse como sensible porque puede incluir informacion personal de menores.
+
+Reglas iniciales deseadas:
+
+- Las notas deben funcionar como comentarios con autor, fecha, tipo y posible historial de edicion.
+- Profesores pueden crear y modificar notas solo para estudiantes o grupos bajo su responsabilidad.
+- Direccion/admin pueden revisar, moderar o eliminar notas si es necesario.
+- La foto de perfil del estudiante debe depender de consentimiento familiar activo.
+- Los albumes pueden organizarse por estudiante, grupo, fecha, evento o album manual.
+- Profesores pueden subir/modificar fotos solo de sus grupos o estudiantes asignados.
+- Directores/admin pueden revisar, aprobar, eliminar o corregir fotos.
+- Padres/tutores deben aceptar consentimiento de privacidad/imagen antes de habilitar fotos del estudiante.
+- Debe existir forma de revocar consentimiento y definir que ocurre con fotos ya existentes.
+- Debe quedar preparada auditoria basica: quien subio, modifico, elimino o aprobo contenido.
+
+Endpoints futuros sugeridos:
+
+```text
+GET /api/students/{studentId}/notes
+POST /api/students/{studentId}/notes
+PUT /api/students/{studentId}/notes/{noteId}
+DELETE /api/students/{studentId}/notes/{noteId}
+
+POST /api/students/{studentId}/profile-photo
+DELETE /api/students/{studentId}/profile-photo
+
+GET /api/photo-albums
+POST /api/photo-albums
+GET /api/photo-albums/{albumId}
+PUT /api/photo-albums/{albumId}
+DELETE /api/photo-albums/{albumId}
+POST /api/photo-albums/{albumId}/photos
+DELETE /api/photo-albums/{albumId}/photos/{photoId}
+
+GET /api/students/{studentId}/consents
+POST /api/students/{studentId}/consents
+PATCH /api/students/{studentId}/consents/{consentId}/revoke
+```
 
 ## Flujo de uso esperado
 
@@ -301,11 +345,14 @@ Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parent
 ## Puntos a validar con el cliente
 
 - [ ] Que datos exactos necesitan guardar de cada estudiante.
+- [ ] Que tipos de comentarios/notas necesitan: pedagogicas, conducta, incidentes, seguimiento familiar, salud o administrativas.
 - [ ] Como manejan actualmente los pagos y si hay diferentes tipos de cuota.
 - [ ] Confirmar si los metodos de pago son solo efectivo, tarjeta y transferencia.
 - [ ] Confirmar si "transferencia" necesita numero de referencia, banco o comprobante.
 - [ ] Confirmar politica de privacidad y permisos para almacenar fotos de ninos.
+- [ ] Confirmar flujo de consentimiento: que tutor acepta, como se revoca y que pasa con fotos ya subidas.
 - [ ] Confirmar si las fotos se organizan por estudiante, grupo, fecha, evento o album manual.
+- [ ] Confirmar si profesores solo pueden modificar fotos/notas de sus propios grupos o estudiantes asignados.
 - [ ] Confirmar cuantos dias antes debe avisar el sistema de cumpleanos proximos.
 - [ ] Si los padres necesitan acceso directo a la aplicacion desde la primera version o mas adelante.
 - [ ] Que tipos de materiales quieren controlar en el inventario.
