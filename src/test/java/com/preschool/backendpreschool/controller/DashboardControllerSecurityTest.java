@@ -4,6 +4,7 @@ import com.preschool.backendpreschool.config.JwtAuthenticationFilter;
 import com.preschool.backendpreschool.config.SecurityConfig;
 import com.preschool.backendpreschool.dto.DashboardAdminSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardFinanceAreaSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardMainSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardTeacherSummaryResponse;
 import com.preschool.backendpreschool.service.CustomUserDetailsService;
 import com.preschool.backendpreschool.service.DashboardService;
@@ -44,6 +45,8 @@ class DashboardControllerSecurityTest {
 
         mockMvc.perform(get("/api/dashboard/teacher-summary"))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/dashboard/admin-summary"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/dashboard/finance-summary"))
@@ -53,10 +56,13 @@ class DashboardControllerSecurityTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void adminCanAccessAllDashboardAreas() throws Exception {
+        when(dashboardService.getMainSummary()).thenReturn(mainSummary());
         when(dashboardService.getTeacherSummary()).thenReturn(teacherSummary());
         when(dashboardService.getAdminSummary()).thenReturn(adminSummary());
         when(dashboardService.getFinanceSummary()).thenReturn(financeSummary());
 
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isOk());
         mockMvc.perform(get("/api/dashboard/teacher-summary"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/dashboard/admin-summary"))
@@ -68,10 +74,13 @@ class DashboardControllerSecurityTest {
     @Test
     @WithMockUser(roles = "DIRECTOR")
     void directorCanAccessAllDashboardAreas() throws Exception {
+        when(dashboardService.getMainSummary()).thenReturn(mainSummary());
         when(dashboardService.getTeacherSummary()).thenReturn(teacherSummary());
         when(dashboardService.getAdminSummary()).thenReturn(adminSummary());
         when(dashboardService.getFinanceSummary()).thenReturn(financeSummary());
 
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isOk());
         mockMvc.perform(get("/api/dashboard/teacher-summary"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/dashboard/admin-summary"))
@@ -87,6 +96,8 @@ class DashboardControllerSecurityTest {
 
         mockMvc.perform(get("/api/dashboard/finance-summary"))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/dashboard/teacher-summary"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/dashboard/admin-summary"))
@@ -96,6 +107,8 @@ class DashboardControllerSecurityTest {
     @Test
     @WithMockUser(roles = "PARENT")
     void parentCannotAccessInternalDashboards() throws Exception {
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/dashboard/teacher-summary"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/dashboard/admin-summary"))
@@ -107,14 +120,14 @@ class DashboardControllerSecurityTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void unknownDashboardRoutesAreBlocked() throws Exception {
-        mockMvc.perform(get("/api/dashboard/summary"))
-                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/dashboard/hr-summary"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void unauthenticatedUsersCannotAccessDashboards() throws Exception {
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/dashboard/teacher-summary"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/dashboard/admin-summary"))
@@ -132,6 +145,14 @@ class DashboardControllerSecurityTest {
                 List.of(),
                 List.of(),
                 List.of()
+        );
+    }
+
+    private DashboardMainSummaryResponse mainSummary() {
+        return new DashboardMainSummaryResponse(
+                LocalDate.now(),
+                adminSummary(),
+                financeSummary()
         );
     }
 

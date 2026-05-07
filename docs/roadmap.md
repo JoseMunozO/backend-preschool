@@ -42,7 +42,7 @@ Crear una herramienta administrativa clara, facil de usar y adaptada al funciona
 - [x] Administracion base de pagos mensuales.
 - [x] Administracion base de material escolar.
 - [x] Administracion base de horarios.
-- [ ] Dashboard principal.
+- [x] Dashboard principal.
 
 ## Version inicial recomendada
 
@@ -55,7 +55,7 @@ La primera version debe construir una base funcional que permita validar si la a
 | Pagos | Control mensual con estados pagado, pendiente y atrasado. | Implementado en backend. |
 | Material escolar | Inventario basico con alertas de cantidad baja. | Implementado en backend. |
 | Horarios | Organizacion basica por grupo y actividades. | Implementado en backend. |
-| Dashboard | Resumen general de informacion clave. | Pendiente. |
+| Dashboard | Resumen general de informacion clave. | Implementado en backend. |
 
 ## A. Administracion de estudiantes
 
@@ -260,6 +260,7 @@ El personal podra tener una vision clara de la organizacion diaria y semanal del
 - [x] Crear DTO de resumen.
 - [x] Crear `DashboardService`.
 - [x] Crear `DashboardController`.
+- [x] Endpoint principal `GET /api/dashboard/summary` para administracion/direccion.
 - [x] Separar dashboard en endpoints `teacher-summary`, `admin-summary` y `finance-summary`.
 - [x] Conteo de estudiantes activos.
 - [x] Conteo/listado de pagos pendientes o atrasados del mes.

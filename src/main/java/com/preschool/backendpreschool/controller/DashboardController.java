@@ -2,6 +2,7 @@ package com.preschool.backendpreschool.controller;
 
 import com.preschool.backendpreschool.dto.DashboardAdminSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardFinanceAreaSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardMainSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardTeacherSummaryResponse;
 import com.preschool.backendpreschool.service.DashboardService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class DashboardController {
 
     private final DashboardService dashboardService;
+
+    @GetMapping("/summary")
+    public DashboardMainSummaryResponse getMainSummary() {
+        return dashboardService.getMainSummary();
+    }
 
     @GetMapping("/teacher-summary")
     public DashboardTeacherSummaryResponse getTeacherSummary() {

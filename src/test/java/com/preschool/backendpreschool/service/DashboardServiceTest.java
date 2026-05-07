@@ -2,6 +2,7 @@ package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.DashboardAdminSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardFinanceAreaSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardMainSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardTeacherSummaryResponse;
 import com.preschool.backendpreschool.model.ChargeType;
 import com.preschool.backendpreschool.model.ClassGroup;
@@ -126,6 +127,7 @@ class DashboardServiceTest {
         DashboardTeacherSummaryResponse teacherSummary = dashboardService.getTeacherSummary();
         DashboardAdminSummaryResponse adminSummary = dashboardService.getAdminSummary();
         DashboardFinanceAreaSummaryResponse financeSummary = dashboardService.getFinanceSummary();
+        DashboardMainSummaryResponse mainSummary = dashboardService.getMainSummary();
 
         assertThat(teacherSummary.activeStudents()).isEqualTo(3);
         assertThat(teacherSummary.todayScheduleSlots()).isEqualTo(1);
@@ -175,6 +177,12 @@ class DashboardServiceTest {
         assertThat(financeSummary.pendingBalance()).isEqualByComparingTo("150.00");
         assertThat(financeSummary.overdueBalance()).isEqualByComparingTo("40.00");
         assertThat(financeSummary.monthPaymentsReceived()).isEqualByComparingTo("120.00");
+
+        assertThat(mainSummary.date()).isEqualTo(today);
+        assertThat(mainSummary.administration().activeStudents()).isEqualTo(3);
+        assertThat(mainSummary.administration().todayScheduleSlots()).isEqualTo(1);
+        assertThat(mainSummary.finance().pendingCharges()).isEqualTo(2);
+        assertThat(mainSummary.finance().overdueCharges()).isEqualTo(1);
     }
 
     private StudentCharge buildCharge(
