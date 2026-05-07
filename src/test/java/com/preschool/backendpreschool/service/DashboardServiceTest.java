@@ -1,6 +1,8 @@
 package com.preschool.backendpreschool.service;
 
-import com.preschool.backendpreschool.dto.DashboardSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardAdminSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardFinanceAreaSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardTeacherSummaryResponse;
 import com.preschool.backendpreschool.model.ChargeType;
 import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.Material;
@@ -64,7 +66,7 @@ class DashboardServiceTest {
     private DashboardService dashboardService;
 
     @Test
-    void getSummaryReturnsOperationalMetricsAndAlerts() {
+    void summariesReturnRoleSpecificDashboardData() {
         LocalDate today = LocalDate.now();
         YearMonth currentMonth = YearMonth.from(today);
         Student student = Student.builder()
@@ -121,38 +123,58 @@ class DashboardServiceTest {
         when(paymentAllocationRepository.sumAllocatedByStudentChargeId(12L)).thenReturn(new BigDecimal("10.00"));
         when(paymentRepository.findByPaymentDateBetween(currentMonth.atDay(1), currentMonth.atEndOfMonth())).thenReturn(List.of(payment));
 
-        DashboardSummaryResponse response = dashboardService.getSummary();
+        DashboardTeacherSummaryResponse teacherSummary = dashboardService.getTeacherSummary();
+        DashboardAdminSummaryResponse adminSummary = dashboardService.getAdminSummary();
+        DashboardFinanceAreaSummaryResponse financeSummary = dashboardService.getFinanceSummary();
 
-        assertThat(response.counts().totalStudents()).isEqualTo(4);
-        assertThat(response.counts().activeStudents()).isEqualTo(3);
-        assertThat(response.counts().totalParents()).isEqualTo(5);
-        assertThat(response.counts().activeParents()).isEqualTo(4);
-        assertThat(response.counts().totalMaterials()).isEqualTo(8);
-        assertThat(response.counts().lowStockMaterials()).isEqualTo(1);
-        assertThat(response.counts().pendingCharges()).isEqualTo(2);
-        assertThat(response.counts().overdueCharges()).isEqualTo(1);
-        assertThat(response.counts().todayScheduleSlots()).isEqualTo(1);
-        assertThat(response.finance().pendingBalance()).isEqualByComparingTo("150.00");
-        assertThat(response.finance().overdueBalance()).isEqualByComparingTo("40.00");
-        assertThat(response.finance().monthPaymentsReceived()).isEqualByComparingTo("120.00");
-        assertThat(response.lowStockMaterials()).singleElement()
-                .satisfies(material -> {
-                    assertThat(material.materialId()).isEqualTo(7L);
-                    assertThat(material.shortage()).isEqualTo(3);
-                });
-        assertThat(response.todaySchedule()).singleElement()
+        assertThat(teacherSummary.activeStudents()).isEqualTo(3);
+        assertThat(teacherSummary.todayScheduleSlots()).isEqualTo(1);
+        assertThat(teacherSummary.lowStockMaterials()).isEqualTo(1);
+        assertThat(teacherSummary.todaySchedule()).singleElement()
                 .satisfies(slot -> {
                     assertThat(slot.scheduleSlotId()).isEqualTo(20L);
                     assertThat(slot.groupName()).isEqualTo("Grupo A");
                     assertThat(slot.primaryStaffName()).isEqualTo("Luis Rojas");
                     assertThat(slot.dayOfWeek()).isEqualTo(DayOfWeek.from(today));
                 });
-        assertThat(response.upcomingBirthdays()).singleElement()
+        assertThat(teacherSummary.upcomingBirthdays()).singleElement()
                 .satisfies(birthday -> {
                     assertThat(birthday.studentId()).isEqualTo(1L);
                     assertThat(birthday.studentName()).isEqualTo("Ana Diaz");
                     assertThat(birthday.daysUntilBirthday()).isEqualTo(10);
                 });
+
+        assertThat(adminSummary.totalStudents()).isEqualTo(4);
+        assertThat(adminSummary.activeStudents()).isEqualTo(3);
+        assertThat(adminSummary.totalParents()).isEqualTo(5);
+        assertThat(adminSummary.activeParents()).isEqualTo(4);
+        assertThat(adminSummary.totalMaterials()).isEqualTo(8);
+        assertThat(adminSummary.lowStockMaterials()).isEqualTo(1);
+        assertThat(adminSummary.todayScheduleSlots()).isEqualTo(1);
+        assertThat(adminSummary.lowStockMaterialAlerts()).singleElement()
+                .satisfies(material -> {
+                    assertThat(material.materialId()).isEqualTo(7L);
+                    assertThat(material.shortage()).isEqualTo(3);
+                });
+        assertThat(adminSummary.todaySchedule()).singleElement()
+                .satisfies(slot -> {
+                    assertThat(slot.scheduleSlotId()).isEqualTo(20L);
+                    assertThat(slot.groupName()).isEqualTo("Grupo A");
+                    assertThat(slot.primaryStaffName()).isEqualTo("Luis Rojas");
+                    assertThat(slot.dayOfWeek()).isEqualTo(DayOfWeek.from(today));
+                });
+        assertThat(adminSummary.upcomingBirthdays()).singleElement()
+                .satisfies(birthday -> {
+                    assertThat(birthday.studentId()).isEqualTo(1L);
+                    assertThat(birthday.studentName()).isEqualTo("Ana Diaz");
+                    assertThat(birthday.daysUntilBirthday()).isEqualTo(10);
+                });
+
+        assertThat(financeSummary.pendingCharges()).isEqualTo(2);
+        assertThat(financeSummary.overdueCharges()).isEqualTo(1);
+        assertThat(financeSummary.pendingBalance()).isEqualByComparingTo("150.00");
+        assertThat(financeSummary.overdueBalance()).isEqualByComparingTo("40.00");
+        assertThat(financeSummary.monthPaymentsReceived()).isEqualByComparingTo("120.00");
     }
 
     private StudentCharge buildCharge(

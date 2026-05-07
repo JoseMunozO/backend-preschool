@@ -260,6 +260,7 @@ El personal podra tener una vision clara de la organizacion diaria y semanal del
 - [x] Crear DTO de resumen.
 - [x] Crear `DashboardService`.
 - [x] Crear `DashboardController`.
+ - [x] Separar dashboard en endpoints `teacher-summary`, `admin-summary` y `finance-summary`.
 - [x] Conteo de estudiantes activos.
 - [x] Conteo/listado de pagos pendientes o atrasados del mes.
 - [x] Dashboard financiero restringido a `SUPER_ADMIN`, `ADMIN`, `DIRECTOR` y `FINANCE`.

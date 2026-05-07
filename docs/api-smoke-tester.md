@@ -84,13 +84,13 @@ node scripts/api-smoke-test.mjs
 Modo completo actual:
 
 ```text
-Summary: 65 passed, 0 failed, 0 skipped
+Summary: 69 passed, 0 failed, 0 skipped
 ```
 
 Modo read-only actual:
 
 ```text
-Summary: 50 passed, 0 failed, 4 skipped
+Summary: 54 passed, 0 failed, 4 skipped
 ```
 
 Si alguna comprobacion falla, el script termina con exit code `1` y deja el detalle en el log.

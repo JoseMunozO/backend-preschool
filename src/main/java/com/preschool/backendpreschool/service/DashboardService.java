@@ -1,11 +1,11 @@
 package com.preschool.backendpreschool.service;
 
-import com.preschool.backendpreschool.dto.DashboardCountsResponse;
+import com.preschool.backendpreschool.dto.DashboardAdminSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardBirthdayResponse;
-import com.preschool.backendpreschool.dto.DashboardFinanceSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardFinanceAreaSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardMaterialAlertResponse;
 import com.preschool.backendpreschool.dto.DashboardScheduleItemResponse;
-import com.preschool.backendpreschool.dto.DashboardSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardTeacherSummaryResponse;
 import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.Material;
 import com.preschool.backendpreschool.model.MaterialStatus;
@@ -50,49 +50,70 @@ public class DashboardService {
     private final MaterialRepository materialRepository;
     private final ScheduleSlotRepository scheduleSlotRepository;
 
-    public DashboardSummaryResponse getSummary() {
+    public DashboardTeacherSummaryResponse getTeacherSummary() {
         LocalDate today = LocalDate.now();
-        YearMonth currentMonth = YearMonth.from(today);
-
         List<Material> allLowStockMaterials = materialRepository.findActiveLowStock();
-        List<Material> lowStockMaterials = allLowStockMaterials
-                .stream()
-                .sorted(Comparator
-                        .comparingInt(this::shortage).reversed()
-                        .thenComparing(Material::getName))
-                .limit(ALERT_LIMIT)
-                .toList();
+        List<ScheduleSlot> todaySchedule = todaySchedule(today);
 
-        List<ScheduleSlot> todaySchedule = scheduleSlotRepository.findByDayOfWeekOrderByStartTimeAsc(today.getDayOfWeek());
-        List<StudentCharge> charges = studentChargeRepository.findAll();
+        return new DashboardTeacherSummaryResponse(
+                today,
+                studentRepository.countByStatus(StudentStatus.active),
+                todaySchedule.size(),
+                allLowStockMaterials.size(),
+                todaySchedule.stream().map(this::toScheduleItem).toList(),
+                upcomingBirthdays(today),
+                lowStockMaterialAlerts(allLowStockMaterials)
+        );
+    }
 
-        DashboardCountsResponse counts = new DashboardCountsResponse(
+    public DashboardAdminSummaryResponse getAdminSummary() {
+        LocalDate today = LocalDate.now();
+        List<Material> allLowStockMaterials = materialRepository.findActiveLowStock();
+        List<ScheduleSlot> todaySchedule = todaySchedule(today);
+
+        return new DashboardAdminSummaryResponse(
+                today,
                 studentRepository.count(),
                 studentRepository.countByStatus(StudentStatus.active),
                 parentRepository.count(),
                 parentRepository.countByStatus(ParentStatus.ACTIVE),
                 materialRepository.countByStatus(MaterialStatus.ACTIVE),
                 allLowStockMaterials.size(),
+                todaySchedule.size(),
+                lowStockMaterialAlerts(allLowStockMaterials),
+                todaySchedule.stream().map(this::toScheduleItem).toList(),
+                upcomingBirthdays(today)
+        );
+    }
+
+    public DashboardFinanceAreaSummaryResponse getFinanceSummary() {
+        LocalDate today = LocalDate.now();
+        YearMonth currentMonth = YearMonth.from(today);
+        List<StudentCharge> charges = studentChargeRepository.findAll();
+
+        return new DashboardFinanceAreaSummaryResponse(
+                today,
+                currentMonth,
                 countChargesByStatus(charges, StudentChargeStatus.PENDING, StudentChargeStatus.PARTIALLY_PAID),
                 countChargesByStatus(charges, StudentChargeStatus.OVERDUE),
-                todaySchedule.size()
-        );
-
-        DashboardFinanceSummaryResponse finance = new DashboardFinanceSummaryResponse(
                 totalBalance(charges, StudentChargeStatus.PENDING, StudentChargeStatus.PARTIALLY_PAID),
                 totalBalance(charges, StudentChargeStatus.OVERDUE),
                 totalPaymentsReceived(currentMonth)
         );
+    }
 
-        return new DashboardSummaryResponse(
-                today,
-                currentMonth,
-                counts,
-                finance,
-                lowStockMaterials.stream().map(this::toMaterialAlert).toList(),
-                todaySchedule.stream().map(this::toScheduleItem).toList(),
-                upcomingBirthdays(today)
-        );
+    private List<ScheduleSlot> todaySchedule(LocalDate today) {
+        return scheduleSlotRepository.findByDayOfWeekOrderByStartTimeAsc(today.getDayOfWeek());
+    }
+
+    private List<DashboardMaterialAlertResponse> lowStockMaterialAlerts(List<Material> materials) {
+        return materials.stream()
+                .sorted(Comparator
+                        .comparingInt(this::shortage).reversed()
+                        .thenComparing(Material::getName))
+                .limit(ALERT_LIMIT)
+                .map(this::toMaterialAlert)
+                .toList();
     }
 
     private long countChargesByStatus(List<StudentCharge> charges, StudentChargeStatus... statuses) {

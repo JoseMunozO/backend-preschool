@@ -360,17 +360,11 @@ async function main() {
     const result = await request("/api/users", { token: state.tokens.parent });
     assertStatusIn(result, [401, 403]);
   });
-  await runCheck("get dashboard summary as admin", async () => {
-    const result = await request("/api/dashboard/summary", { token: state.tokens.admin });
+  await runCheck("get teacher dashboard summary as admin", async () => {
+    const result = await request("/api/dashboard/teacher-summary", { token: state.tokens.admin });
     assertStatus(result, 200);
     assertObjectBody(result);
     assertField(result.body.date, "date");
-    assertField(result.body.month, "month");
-    assertObjectBody({ body: result.body.counts });
-    assertObjectBody({ body: result.body.finance });
-    if (!Array.isArray(result.body.lowStockMaterials)) {
-      throw new Error(`Expected lowStockMaterials to be an array. Received: ${formatBody(result.body.lowStockMaterials)}`);
-    }
     if (!Array.isArray(result.body.todaySchedule)) {
       throw new Error(`Expected todaySchedule to be an array. Received: ${formatBody(result.body.todaySchedule)}`);
     }
@@ -378,8 +372,32 @@ async function main() {
       throw new Error(`Expected upcomingBirthdays to be an array. Received: ${formatBody(result.body.upcomingBirthdays)}`);
     }
   });
-  await runCheck("parent cannot get dashboard summary", async () => {
-    const result = await request("/api/dashboard/summary", { token: state.tokens.parent });
+  await runCheck("get admin dashboard summary as admin", async () => {
+    const result = await request("/api/dashboard/admin-summary", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertObjectBody(result);
+    assertField(result.body.date, "date");
+    if (!Array.isArray(result.body.lowStockMaterialAlerts)) {
+      throw new Error(`Expected lowStockMaterialAlerts to be an array. Received: ${formatBody(result.body.lowStockMaterialAlerts)}`);
+    }
+  });
+  await runCheck("get finance dashboard summary as admin", async () => {
+    const result = await request("/api/dashboard/finance-summary", { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertObjectBody(result);
+    assertField(result.body.month, "month");
+    assertField(result.body.monthPaymentsReceived, "monthPaymentsReceived");
+  });
+  await runCheck("parent cannot get teacher dashboard summary", async () => {
+    const result = await request("/api/dashboard/teacher-summary", { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+  await runCheck("parent cannot get admin dashboard summary", async () => {
+    const result = await request("/api/dashboard/admin-summary", { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+  await runCheck("parent cannot get finance dashboard summary", async () => {
+    const result = await request("/api/dashboard/finance-summary", { token: state.tokens.parent });
     assertStatusIn(result, [401, 403]);
   });
   await runCheck("list charge types as admin", async () => {
