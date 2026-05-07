@@ -2,6 +2,8 @@
 
 Documento vivo para alinear el backend con la propuesta validada con el cliente. Resume objetivo, alcance funcional, estado actual, pendientes y orden recomendado de implementacion.
 
+Este es el roadmap activo para el preescolar actual. Para una version futura orientada a instituciones grandes, ver `docs/institution-roadmap.md`.
+
 ## Idea principal
 
 Crear una aplicacion sencilla y centralizada para que el preescolar pueda administrar estudiantes, pagos mensuales, material escolar y horarios desde un solo lugar.
@@ -260,6 +262,7 @@ El personal podra tener una vision clara de la organizacion diaria y semanal del
 - [x] Crear `DashboardController`.
 - [x] Conteo de estudiantes activos.
 - [x] Conteo/listado de pagos pendientes o atrasados del mes.
+- [x] Dashboard financiero restringido a `SUPER_ADMIN`, `ADMIN`, `DIRECTOR` y `FINANCE`.
 - [x] Conteo/listado de materiales con stock bajo.
 - [x] Horarios o actividades importantes del dia.
 - [x] Listado de cumpleanos proximos.
