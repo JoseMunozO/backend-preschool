@@ -15,6 +15,7 @@ public record StudentResponse(
         LocalDate birthDate,
         Long groupId,
         String groupName,
+        String primaryGuardianName,
         StudentStatus status,
         LocalDate enrollmentDate,
         LocalDate withdrawalDate,

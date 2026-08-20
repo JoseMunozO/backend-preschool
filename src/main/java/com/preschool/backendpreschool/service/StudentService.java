@@ -8,14 +8,18 @@ import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentConsentType;
+import com.preschool.backendpreschool.model.StudentGuardian;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.repository.ClassGroupRepository;
 import com.preschool.backendpreschool.repository.StudentConsentRepository;
+import com.preschool.backendpreschool.repository.StudentGuardianRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,11 +28,25 @@ public class StudentService {
     private final StudentRepository studentRepository;
     private final ClassGroupRepository classGroupRepository;
     private final StudentConsentRepository studentConsentRepository;
+    private final StudentGuardianRepository studentGuardianRepository;
 
     public List<StudentResponse> getAllStudents() {
-        return studentRepository.findAll()
+        List<Student> students = studentRepository.findAll();
+        List<Long> studentIds = students.stream()
+                .map(Student::getStudentId)
+                .toList();
+        Map<Long, String> primaryGuardianNames = studentIds.isEmpty()
+                ? Map.of()
+                : studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(studentIds)
                 .stream()
-                .map(this::mapToResponse)
+                .collect(Collectors.toMap(
+                        guardian -> guardian.getStudent().getStudentId(),
+                        this::formatGuardianName,
+                        (first, ignored) -> first
+                ));
+
+        return students.stream()
+                .map(student -> mapToResponse(student, primaryGuardianNames.get(student.getStudentId())))
                 .toList();
     }
 
@@ -126,6 +144,15 @@ public class StudentService {
     }
 
     private StudentResponse mapToResponse(Student student) {
+        String primaryGuardianName = studentGuardianRepository
+                .findFirstByStudentStudentIdAndPrimaryContactTrue(student.getStudentId())
+                .map(this::formatGuardianName)
+                .orElse(null);
+
+        return mapToResponse(student, primaryGuardianName);
+    }
+
+    private StudentResponse mapToResponse(Student student, String primaryGuardianName) {
         ClassGroup group = student.getClassGroup();
 
         return new StudentResponse(
@@ -137,6 +164,7 @@ public class StudentService {
                 student.getBirthDate(),
                 group != null ? group.getGroupId() : null,
                 group != null ? group.getName() : null,
+                primaryGuardianName,
                 student.getStatus(),
                 student.getEnrollmentDate(),
                 student.getWithdrawalDate(),
@@ -146,5 +174,9 @@ public class StudentService {
                 student.getCreatedAt(),
                 student.getUpdatedAt()
         );
+    }
+
+    private String formatGuardianName(StudentGuardian guardian) {
+        return guardian.getParent().getFirstName() + " " + guardian.getParent().getLastName();
     }
 }

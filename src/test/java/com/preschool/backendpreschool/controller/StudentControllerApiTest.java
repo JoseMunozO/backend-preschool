@@ -61,7 +61,8 @@ class StudentControllerApiTest {
         mockMvc.perform(get("/api/students"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].studentId").value(1))
-                .andExpect(jsonPath("$[0].firstName").value("Ana"));
+                .andExpect(jsonPath("$[0].firstName").value("Ana"))
+                .andExpect(jsonPath("$[0].primaryGuardianName").value("Luis Diaz"));
 
         mockMvc.perform(get("/api/students/1"))
                 .andExpect(status().isOk())
@@ -109,6 +110,7 @@ class StudentControllerApiTest {
                 LocalDate.of(2021, 5, 10),
                 2L,
                 "Grupo A",
+                "Luis Diaz",
                 StudentStatus.active,
                 LocalDate.of(2024, 8, 1),
                 null,
