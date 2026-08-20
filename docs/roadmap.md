@@ -391,11 +391,12 @@ PATCH /api/students/{studentId}/consents/{consentId}/revoke
 - [x] Smoke tester automatico para endpoints principales.
 - [x] Smoke tester con logs locales, retencion de ultimos 4 logs y modo read-only.
 - [x] Mockito configurado como Java agent para tests en Java 25.
-- [ ] Agregar futuras migraciones `V3`, `V4`, etc. para nuevos cambios de esquema o seeds.
+- [x] Agregar futuras migraciones `V3`-`V7` para nuevos cambios de esquema (notas, consentimientos, albumes, contactos de emergencia); `V1` agregada ademas como baseline real para bases de datos limpias.
 - [ ] Mejorar cobertura de tests de controllers.
-- [ ] Revisar `open-in-view` de JPA.
+- [x] Revisar `open-in-view` de JPA: se probo `false` y rompio la mayoria de endpoints (`LazyInitializationException` sobre asociaciones como `Parent`); se mantiene `true` explicito con comentario. Ver seccion "Checklist para release oficial".
 - [ ] Revisar warnings de Mockito/Java agent en Java 25.
 - [ ] Revisar warning de Flyway con MySQL 9.5.
+- [x] Corregir que peticiones denegadas por rol devolvian `401` en vez de `403` en la app real (no se detectaba en tests `@WebMvcTest`): `response.sendError()` disparaba un forward interno a `/error` sin reautenticar, sobreescribiendo el status. Fix: `/error` marcado `permitAll()`. Verificado con un test de integracion con servidor real (`SecurityErrorDispatchIntegrationTest`) que falla sin el fix y pasa con el.
 
 ## Propuesta de cierre
 
