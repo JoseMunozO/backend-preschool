@@ -5,6 +5,7 @@ import com.preschool.backendpreschool.model.StudentStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record StudentResponse(
         Long studentId,
@@ -16,6 +17,7 @@ public record StudentResponse(
         Long groupId,
         String groupName,
         String primaryGuardianName,
+        List<StudentGuardianSummary> guardians,
         StudentStatus status,
         LocalDate enrollmentDate,
         LocalDate withdrawalDate,
