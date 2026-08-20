@@ -499,7 +499,7 @@ Endpoints:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/api/students?search=&groupId=&status=` | Listar/buscar/filtrar estudiantes |
+| GET | `/api/students?search=&groupId=&status=&includeDeleted=` | Listar/buscar/filtrar estudiantes (excluye eliminados salvo `includeDeleted=true`) |
 | GET | `/api/students/{id}` | Obtener estudiante |
 | GET | `/api/students/{id}/guardians` | Tutores del estudiante |
 | GET | `/api/students/{id}/notes` | Notas/comentarios del estudiante |
@@ -518,7 +518,15 @@ Endpoints:
 | DELETE | `/api/students/{id}/profile-photo` | Quitar foto de perfil |
 | DELETE | `/api/students/{id}/notes/{noteId}` | Eliminar nota/comentario |
 | DELETE | `/api/students/{id}/emergency-contacts/{contactId}` | Eliminar contacto de emergencia |
-| DELETE | `/api/students/{id}` | Eliminar estudiante |
+| DELETE | `/api/students/{id}` | Eliminar estudiante (soft-delete, ver abajo) |
+| POST | `/api/students/{id}/restore` | Restaurar estudiante eliminado (dentro de la ventana de gracia) |
+
+Eliminar estudiante y restauracion:
+
+- `DELETE /api/students/{id}` no borra la fila: marca `deletedAt = now()`. El estudiante deja de aparecer en `GET /api/students` y `GET /api/students/{id}` da `404` a partir de ese momento.
+- `POST /api/students/{id}/restore` limpia `deletedAt` si todavia estan dentro de una ventana de gracia de **7 dias**. Responde `404` si el estudiante no existe o no esta eliminado, `409` si la ventana ya expiro.
+- `GET /api/students?includeDeleted=true` muestra tambien los eliminados recientes (util para una pantalla de "papelera" o para el aviso de deshacer justo despues de eliminar).
+- Pasados los 7 dias, un job programado en el backend purga definitivamente el registro (o lo deja soft-deleted si tiene cargos de pago u otro historial protegido).
 
 Permisos de notas:
 
@@ -573,6 +581,7 @@ export type Student = {
   notes: string | null;
   createdAt: ISODateTime | null;
   updatedAt: ISODateTime | null;
+  deletedAt: ISODateTime | null;
 };
 
 export type StudentRequest = {

@@ -49,6 +49,9 @@ public class Student {
     @Column(name = "withdrawal_date")
     private LocalDate withdrawalDate;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "medical_notes", columnDefinition = "TEXT")
     private String medicalNotes;
 

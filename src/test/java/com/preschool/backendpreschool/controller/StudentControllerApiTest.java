@@ -63,7 +63,7 @@ class StudentControllerApiTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void adminCanListAndGetStudents() throws Exception {
-        when(studentService.getStudents(null, null, null)).thenReturn(List.of(student()));
+        when(studentService.getStudents(null, null, null, null)).thenReturn(List.of(student()));
         when(studentService.getStudentById(1L)).thenReturn(student());
 
         mockMvc.perform(get("/api/students"))
@@ -82,7 +82,7 @@ class StudentControllerApiTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void adminCanFilterStudentsBySearchGroupAndStatus() throws Exception {
-        when(studentService.getStudents("Ana", 2L, StudentStatus.active)).thenReturn(List.of(student()));
+        when(studentService.getStudents("Ana", 2L, StudentStatus.active, null)).thenReturn(List.of(student()));
 
         mockMvc.perform(get("/api/students")
                         .param("search", "Ana")
@@ -91,13 +91,24 @@ class StudentControllerApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].studentId").value(1));
 
-        verify(studentService).getStudents("Ana", 2L, StudentStatus.active);
+        verify(studentService).getStudents("Ana", 2L, StudentStatus.active, null);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanIncludeDeletedStudents() throws Exception {
+        when(studentService.getStudents(null, null, null, true)).thenReturn(List.of(student()));
+
+        mockMvc.perform(get("/api/students").param("includeDeleted", "true"))
+                .andExpect(status().isOk());
+
+        verify(studentService).getStudents(null, null, null, true);
     }
 
     @Test
     @WithMockUser(roles = "TEACHER")
     void teacherCanReadCreateAndDeleteStudentsUnderCurrentSecurityRules() throws Exception {
-        when(studentService.getStudents(null, null, null)).thenReturn(List.of(student()));
+        when(studentService.getStudents(null, null, null, null)).thenReturn(List.of(student()));
         when(studentService.createStudent(org.mockito.ArgumentMatchers.any())).thenReturn(student());
 
         mockMvc.perform(get("/api/students"))
@@ -108,6 +119,18 @@ class StudentControllerApiTest {
                 .andExpect(status().isCreated());
         mockMvc.perform(delete("/api/students/1"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanRestoreDeletedStudent() throws Exception {
+        when(studentService.restoreStudent(1L)).thenReturn(student());
+
+        mockMvc.perform(post("/api/students/1/restore"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentId").value(1));
+
+        verify(studentService).restoreStudent(1L);
     }
 
     @Test
@@ -172,7 +195,8 @@ class StudentControllerApiTest {
                 "Ninguna",
                 "Observacion",
                 LocalDateTime.now(),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                null
         );
     }
 

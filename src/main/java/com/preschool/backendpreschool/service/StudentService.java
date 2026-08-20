@@ -5,6 +5,7 @@ import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.dto.StudentGuardianSummary;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.Student;
@@ -16,23 +17,33 @@ import com.preschool.backendpreschool.repository.StudentConsentRepository;
 import com.preschool.backendpreschool.repository.StudentGuardianRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StudentService {
+
+    static final int RESTORE_GRACE_PERIOD_DAYS = 7;
 
     private final StudentRepository studentRepository;
     private final ClassGroupRepository classGroupRepository;
     private final StudentConsentRepository studentConsentRepository;
     private final StudentGuardianRepository studentGuardianRepository;
 
-    public List<StudentResponse> getStudents(String search, Long groupId, StudentStatus status) {
-        List<Student> students = studentRepository.findAll()
+    public List<StudentResponse> getStudents(String search, Long groupId, StudentStatus status, Boolean includeDeleted) {
+        List<Student> baseStudents = Boolean.TRUE.equals(includeDeleted)
+                ? studentRepository.findAll()
+                : studentRepository.findAllByDeletedAtIsNull();
+
+        List<Student> students = baseStudents
                 .stream()
                 .filter(student -> search == null || matchesSearch(student, search))
                 .filter(student -> groupId == null || matchesGroup(student, groupId))
@@ -113,7 +124,36 @@ public class StudentService {
 
     public void deleteStudent(Long id) {
         Student student = findStudentOrThrow(id);
-        studentRepository.delete(student);
+        student.setDeletedAt(LocalDateTime.now());
+        studentRepository.save(student);
+    }
+
+    public StudentResponse restoreStudent(Long id) {
+        Student student = studentRepository.findByStudentIdAndDeletedAtIsNotNull(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante eliminado no encontrado"));
+
+        LocalDateTime graceWindowStart = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
+        if (student.getDeletedAt().isBefore(graceWindowStart)) {
+            throw new ConflictException("La ventana de restauración de " + RESTORE_GRACE_PERIOD_DAYS + " días ya expiró");
+        }
+
+        student.setDeletedAt(null);
+        return mapToResponse(studentRepository.save(student));
+    }
+
+    public void purgeExpiredSoftDeletedStudents() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
+
+        for (Student student : studentRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(cutoff)) {
+            try {
+                studentRepository.delete(student);
+            } catch (DataIntegrityViolationException ex) {
+                // Student has related records (e.g. payment charges) that RESTRICT deletion
+                // on purpose, to protect financial history. Leave it soft-deleted and
+                // invisible via the API rather than losing that history.
+                log.warn("No se pudo purgar el estudiante {}: tiene registros relacionados", student.getStudentId());
+            }
+        }
     }
 
     public StudentResponse updateProfilePhoto(Long id, StudentProfilePhotoRequest request) {
@@ -138,7 +178,7 @@ public class StudentService {
     }
 
     private Student findStudentOrThrow(Long id) {
-        return studentRepository.findById(id)
+        return studentRepository.findByStudentIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
     }
 
@@ -182,7 +222,8 @@ public class StudentService {
                 student.getAllergies(),
                 student.getNotes(),
                 student.getCreatedAt(),
-                student.getUpdatedAt()
+                student.getUpdatedAt(),
+                student.getDeletedAt()
         );
     }
 

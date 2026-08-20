@@ -4,6 +4,8 @@ import com.preschool.backendpreschool.dto.StudentGuardianSummary;
 import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
+import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.Student;
@@ -19,14 +21,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,11 +71,11 @@ class StudentServiceTest {
                 .primaryContact(false)
                 .build();
 
-        when(studentRepository.findAll()).thenReturn(List.of(student));
+        when(studentRepository.findAllByDeletedAtIsNull()).thenReturn(List.of(student));
         when(studentGuardianRepository.findByStudentStudentIdIn(List.of(1L)))
                 .thenReturn(List.of(primaryGuardian, secondaryGuardian));
 
-        List<StudentResponse> response = studentService.getStudents(null, null, null);
+        List<StudentResponse> response = studentService.getStudents(null, null, null, null);
 
         assertThat(response).singleElement().satisfies(dto -> {
             assertThat(dto.primaryGuardianName()).isEqualTo("Luis Diaz");
@@ -96,12 +104,12 @@ class StudentServiceTest {
                 .enrollmentDate(LocalDate.of(2024, 2, 1))
                 .build();
 
-        when(studentRepository.findAll()).thenReturn(List.of(ana, noah));
+        when(studentRepository.findAllByDeletedAtIsNull()).thenReturn(List.of(ana, noah));
         when(studentGuardianRepository.findByStudentStudentIdIn(List.of(1L)))
                 .thenReturn(List.of());
 
-        List<StudentResponse> byName = studentService.getStudents("ana", null, null);
-        List<StudentResponse> byCode = studentService.getStudents("stu-001", null, null);
+        List<StudentResponse> byName = studentService.getStudents("ana", null, null, null);
+        List<StudentResponse> byCode = studentService.getStudents("stu-001", null, null, null);
 
         assertThat(byName).extracting(StudentResponse::studentId).containsExactly(1L);
         assertThat(byCode).extracting(StudentResponse::studentId).containsExactly(1L);
@@ -122,12 +130,12 @@ class StudentServiceTest {
                 .enrollmentDate(LocalDate.of(2024, 3, 1))
                 .build();
 
-        when(studentRepository.findAll()).thenReturn(List.of(activeInGroup, inactiveNoGroup));
+        when(studentRepository.findAllByDeletedAtIsNull()).thenReturn(List.of(activeInGroup, inactiveNoGroup));
         when(studentGuardianRepository.findByStudentStudentIdIn(List.of(1L)))
                 .thenReturn(List.of());
 
-        List<StudentResponse> byGroup = studentService.getStudents(null, 2L, null);
-        List<StudentResponse> byStatus = studentService.getStudents(null, null, StudentStatus.inactive);
+        List<StudentResponse> byGroup = studentService.getStudents(null, 2L, null, null);
+        List<StudentResponse> byStatus = studentService.getStudents(null, null, StudentStatus.inactive, null);
 
         assertThat(byGroup).extracting(StudentResponse::studentId).containsExactly(1L);
         assertThat(byStatus).extracting(StudentResponse::studentId).containsExactly(3L);
@@ -143,7 +151,7 @@ class StudentServiceTest {
                 .primaryContact(true)
                 .build();
 
-        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
         when(studentGuardianRepository.findByStudentStudentId(1L)).thenReturn(List.of(guardian));
 
         StudentResponse response = studentService.getStudentById(1L);
@@ -158,7 +166,7 @@ class StudentServiceTest {
     void updateProfilePhotoStoresTrimmedUrl() {
         Student student = buildStudent();
 
-        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
         when(studentConsentRepository.existsByStudentStudentIdAndConsentTypeAndGrantedTrueAndRevokedAtIsNull(
                 1L,
                 StudentConsentType.IMAGE_PROFILE_PHOTO
@@ -178,7 +186,7 @@ class StudentServiceTest {
     void updateProfilePhotoRequiresActiveImageConsent() {
         Student student = buildStudent();
 
-        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
         when(studentConsentRepository.existsByStudentStudentIdAndConsentTypeAndGrantedTrueAndRevokedAtIsNull(
                 1L,
                 StudentConsentType.IMAGE_PROFILE_PHOTO
@@ -197,13 +205,109 @@ class StudentServiceTest {
         Student student = buildStudent();
         student.setProfilePhotoUrl("https://cdn.example.com/students/1/profile.jpg");
 
-        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
         when(studentRepository.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudentResponse response = studentService.removeProfilePhoto(1L);
 
         assertThat(response.profilePhotoUrl()).isNull();
         assertThat(student.getProfilePhotoUrl()).isNull();
+    }
+
+    @Test
+    void deleteStudentSoftDeletesInsteadOfRemovingRow() {
+        Student student = buildStudent();
+
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
+        when(studentRepository.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        studentService.deleteStudent(1L);
+
+        assertThat(student.getDeletedAt()).isNotNull();
+        verify(studentRepository, never()).delete(any(Student.class));
+        verify(studentRepository).save(student);
+    }
+
+    @Test
+    void deleteStudentAlreadyDeletedThrowsNotFound() {
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studentService.deleteStudent(1L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void restoreStudentWithinGraceWindowClearsDeletedAt() {
+        Student student = buildStudent();
+        student.setDeletedAt(LocalDateTime.now().minusDays(3));
+
+        when(studentRepository.findByStudentIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.of(student));
+        when(studentRepository.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentGuardianRepository.findByStudentStudentId(1L)).thenReturn(List.of());
+
+        StudentResponse response = studentService.restoreStudent(1L);
+
+        assertThat(student.getDeletedAt()).isNull();
+        assertThat(response.deletedAt()).isNull();
+    }
+
+    @Test
+    void restoreStudentAfterGraceWindowThrowsConflict() {
+        Student student = buildStudent();
+        student.setDeletedAt(LocalDateTime.now().minusDays(8));
+
+        when(studentRepository.findByStudentIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.of(student));
+
+        assertThatThrownBy(() -> studentService.restoreStudent(1L))
+                .isInstanceOf(ConflictException.class);
+
+        verify(studentRepository, never()).save(any(Student.class));
+    }
+
+    @Test
+    void restoreStudentNotDeletedThrowsNotFound() {
+        when(studentRepository.findByStudentIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studentService.restoreStudent(1L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getStudentsWithIncludeDeletedTrueReturnsSoftDeletedStudents() {
+        Student deleted = buildStudent();
+        deleted.setDeletedAt(LocalDateTime.now().minusDays(1));
+
+        when(studentRepository.findAll()).thenReturn(List.of(deleted));
+        when(studentGuardianRepository.findByStudentStudentIdIn(List.of(1L))).thenReturn(List.of());
+
+        List<StudentResponse> response = studentService.getStudents(null, null, null, true);
+
+        assertThat(response).extracting(StudentResponse::studentId).containsExactly(1L);
+        verify(studentRepository, never()).findAllByDeletedAtIsNull();
+    }
+
+    @Test
+    void purgeExpiredSoftDeletedStudentsDeletesExpiredAndSkipsRestrictedOnes() {
+        Student purgeable = buildStudent();
+        Student restricted = Student.builder()
+                .studentId(2L)
+                .firstName("Noah")
+                .lastName("Eriksson")
+                .birthDate(LocalDate.of(2021, 1, 20))
+                .status(StudentStatus.active)
+                .enrollmentDate(LocalDate.of(2024, 2, 1))
+                .build();
+
+        when(studentRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(any(LocalDateTime.class)))
+                .thenReturn(List.of(purgeable, restricted));
+        doNothing().when(studentRepository).delete(purgeable);
+        doThrow(new DataIntegrityViolationException("has related charges"))
+                .when(studentRepository).delete(restricted);
+
+        studentService.purgeExpiredSoftDeletedStudents();
+
+        verify(studentRepository).delete(purgeable);
+        verify(studentRepository).delete(restricted);
     }
 
     private Student buildStudent() {

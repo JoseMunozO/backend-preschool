@@ -25,6 +25,7 @@ public record StudentResponse(
         String allergies,
         String notes,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        LocalDateTime deletedAt
 ) {
 }
