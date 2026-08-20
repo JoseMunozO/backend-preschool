@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.controller;
 import com.preschool.backendpreschool.config.JwtAuthenticationFilter;
 import com.preschool.backendpreschool.config.SecurityConfig;
 import com.preschool.backendpreschool.dto.ChargeTypeResponse;
+import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
 import com.preschool.backendpreschool.dto.PaymentResponse;
 import com.preschool.backendpreschool.dto.StudentChargeResponse;
 import com.preschool.backendpreschool.model.ChargeRecurrenceType;
@@ -92,6 +93,42 @@ class PaymentControllerApiTest {
                 .andExpect(jsonPath("$[0].paymentId").value(20));
 
         verify(paymentService).getPayments(1L, LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31));
+    }
+
+    @Test
+    @WithMockUser(roles = "FINANCE")
+    void financeCanGetMonthlyReport() throws Exception {
+        when(paymentService.getMonthlyReport(YearMonth.of(2026, 6))).thenReturn(monthlyReport());
+
+        mockMvc.perform(get("/api/payments/reports/monthly").param("month", "2026-06"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pendingCount").value(1))
+                .andExpect(jsonPath("$.pendingBalance").value(700.0))
+                .andExpect(jsonPath("$.overdueCount").value(1))
+                .andExpect(jsonPath("$.overdueBalance").value(500.0))
+                .andExpect(jsonPath("$.paymentsReceived").value(1070.0));
+
+        verify(paymentService).getMonthlyReport(YearMonth.of(2026, 6));
+    }
+
+    @Test
+    @WithMockUser(username = "parent@example.com", roles = "PARENT")
+    void parentCannotAccessMonthlyReport() throws Exception {
+        mockMvc.perform(get("/api/payments/reports/monthly"))
+                .andExpect(status().isForbidden());
+    }
+
+    private PaymentMonthlyReportResponse monthlyReport() {
+        return new PaymentMonthlyReportResponse(
+                YearMonth.of(2026, 6),
+                1,
+                new BigDecimal("700.00"),
+                List.of(charge()),
+                1,
+                new BigDecimal("500.00"),
+                List.of(charge()),
+                new BigDecimal("1070.00")
+        );
     }
 
     private ChargeTypeResponse chargeType() {

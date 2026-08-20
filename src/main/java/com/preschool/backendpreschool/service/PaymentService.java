@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.ChargeTypeResponse;
 import com.preschool.backendpreschool.dto.PaymentAllocationRequest;
 import com.preschool.backendpreschool.dto.PaymentAllocationResponse;
+import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
 import com.preschool.backendpreschool.dto.PaymentRequest;
 import com.preschool.backendpreschool.dto.PaymentResponse;
 import com.preschool.backendpreschool.dto.StudentChargeRequest;
@@ -120,6 +121,34 @@ public class PaymentService {
                 .filter(payment -> dateTo == null || !payment.getPaymentDate().isAfter(dateTo))
                 .map(this::toPaymentResponse)
                 .toList();
+    }
+
+    public PaymentMonthlyReportResponse getMonthlyReport(YearMonth month) {
+        List<StudentChargeResponse> pendingCharges = studentChargeRepository.findAll()
+                .stream()
+                .filter(charge -> isInBillingMonth(charge, month))
+                .filter(charge -> charge.getStatus() == StudentChargeStatus.PENDING
+                        || charge.getStatus() == StudentChargeStatus.PARTIALLY_PAID)
+                .map(this::toStudentChargeResponse)
+                .toList();
+
+        List<StudentChargeResponse> overdueCharges = studentChargeRepository.findAll()
+                .stream()
+                .filter(charge -> isInBillingMonth(charge, month))
+                .filter(charge -> charge.getStatus() == StudentChargeStatus.OVERDUE)
+                .map(this::toStudentChargeResponse)
+                .toList();
+
+        return new PaymentMonthlyReportResponse(
+                month,
+                pendingCharges.size(),
+                sumBalance(pendingCharges),
+                pendingCharges,
+                overdueCharges.size(),
+                sumBalance(overdueCharges),
+                overdueCharges,
+                totalPaymentsReceived(month)
+        );
     }
 
     public List<PaymentResponse> getCurrentParentPayments(String email) {
@@ -254,6 +283,22 @@ public class PaymentService {
             return YearMonth.from(charge.getBillingPeriodStart()).equals(month);
         }
         return YearMonth.from(charge.getDueDate()).equals(month);
+    }
+
+    private BigDecimal sumBalance(List<StudentChargeResponse> charges) {
+        return charges.stream()
+                .map(StudentChargeResponse::balance)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal totalPaymentsReceived(YearMonth month) {
+        LocalDate firstDay = month.atDay(1);
+        LocalDate lastDay = month.atEndOfMonth();
+
+        return paymentRepository.findByPaymentDateBetween(firstDay, lastDay)
+                .stream()
+                .map(Payment::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private Payment findPayment(Long paymentId) {

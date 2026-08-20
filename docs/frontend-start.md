@@ -834,6 +834,7 @@ Endpoints:
 | GET | `/api/payments/charge-types?activeOnly=true` | Tipos de cargo |
 | GET | `/api/payments/charges?studentId=&status=&month=YYYY-MM` | Cargos |
 | GET | `/api/payments/charges/{studentChargeId}` | Obtener cargo |
+| GET | `/api/payments/reports/monthly?month=YYYY-MM` | Reporte mensual de cargos pendientes/atrasados (mes opcional, default el actual) |
 | POST | `/api/payments/charges` | Crear cargo |
 | GET | `/api/payments/me` | Pagos del padre actual |
 | GET | `/api/payments/me/charges` | Cargos del padre actual |
@@ -898,6 +899,17 @@ export type PaymentAllocation = {
   studentName: string;
   amountAllocated: number;
   createdAt: ISODateTime | null;
+};
+
+export type PaymentMonthlyReport = {
+  month: string;
+  pendingCount: number;
+  pendingBalance: number;
+  pendingCharges: StudentCharge[];
+  overdueCount: number;
+  overdueBalance: number;
+  overdueCharges: StudentCharge[];
+  paymentsReceived: number;
 };
 ```
 
