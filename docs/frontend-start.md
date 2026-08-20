@@ -504,16 +504,20 @@ Endpoints:
 | GET | `/api/students/{id}/guardians` | Tutores del estudiante |
 | GET | `/api/students/{id}/notes` | Notas/comentarios del estudiante |
 | GET | `/api/students/{id}/consents` | Consentimientos del estudiante |
+| GET | `/api/students/{id}/emergency-contacts` | Contactos de emergencia del estudiante |
 | POST | `/api/students` | Crear estudiante |
 | POST | `/api/students/{id}/notes` | Crear nota/comentario |
 | POST | `/api/students/{id}/consents` | Registrar consentimiento |
+| POST | `/api/students/{id}/emergency-contacts` | Crear contacto de emergencia |
 | PUT | `/api/students/{id}` | Actualizar estudiante |
 | PUT | `/api/students/{id}/profile-photo` | Asignar URL de foto de perfil, requiere consentimiento activo `IMAGE_PROFILE_PHOTO` |
 | PUT | `/api/students/{id}/notes/{noteId}` | Actualizar nota/comentario |
+| PUT | `/api/students/{id}/emergency-contacts/{contactId}` | Actualizar contacto de emergencia |
 | PATCH | `/api/students/{id}/notes/{noteId}/moderate` | Marcar nota como moderada |
 | PATCH | `/api/students/{id}/consents/{consentId}/revoke` | Revocar consentimiento |
 | DELETE | `/api/students/{id}/profile-photo` | Quitar foto de perfil |
 | DELETE | `/api/students/{id}/notes/{noteId}` | Eliminar nota/comentario |
+| DELETE | `/api/students/{id}/emergency-contacts/{contactId}` | Eliminar contacto de emergencia |
 | DELETE | `/api/students/{id}` | Eliminar estudiante |
 
 Permisos de notas:
@@ -622,6 +626,29 @@ export type StudentConsentRequest = {
   parentId?: number | null;
   consentType: StudentConsentType;
   notes?: string | null;
+};
+
+export type StudentEmergencyContact = {
+  studentEmergencyContactId: number;
+  studentId: number;
+  studentName: string;
+  fullName: string;
+  relationship: string;
+  phone: string;
+  alternatePhone: string | null;
+  notes: string | null;
+  primary: boolean;
+  createdAt: ISODateTime | null;
+  updatedAt: ISODateTime | null;
+};
+
+export type StudentEmergencyContactRequest = {
+  fullName: string;
+  relationship: string;
+  phone: string;
+  alternatePhone?: string | null;
+  notes?: string | null;
+  primary?: boolean | null;
 };
 ```
 

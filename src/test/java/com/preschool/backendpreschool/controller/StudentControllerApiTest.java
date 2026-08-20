@@ -2,11 +2,13 @@ package com.preschool.backendpreschool.controller;
 
 import com.preschool.backendpreschool.config.JwtAuthenticationFilter;
 import com.preschool.backendpreschool.config.SecurityConfig;
+import com.preschool.backendpreschool.dto.StudentEmergencyContactResponse;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.service.CustomUserDetailsService;
 import com.preschool.backendpreschool.service.JwtService;
 import com.preschool.backendpreschool.service.StudentConsentService;
+import com.preschool.backendpreschool.service.StudentEmergencyContactService;
 import com.preschool.backendpreschool.service.StudentGuardianService;
 import com.preschool.backendpreschool.service.StudentNoteService;
 import com.preschool.backendpreschool.service.StudentService;
@@ -24,12 +26,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -51,6 +56,9 @@ class StudentControllerApiTest {
 
     @MockitoBean
     private StudentConsentService studentConsentService;
+
+    @MockitoBean
+    private StudentEmergencyContactService studentEmergencyContactService;
 
     @Test
     @WithMockUser(roles = "ADMIN")
@@ -103,9 +111,39 @@ class StudentControllerApiTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanManageStudentEmergencyContacts() throws Exception {
+        when(studentEmergencyContactService.getContacts(1L)).thenReturn(List.of(emergencyContact()));
+        when(studentEmergencyContactService.createContact(eq(1L), any())).thenReturn(emergencyContact());
+        when(studentEmergencyContactService.updateContact(eq(1L), eq(10L), any())).thenReturn(emergencyContact());
+
+        mockMvc.perform(get("/api/students/1/emergency-contacts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].fullName").value("Maria Lopez"));
+
+        mockMvc.perform(post("/api/students/1/emergency-contacts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validEmergencyContactRequest()))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(put("/api/students/1/emergency-contacts/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validEmergencyContactRequest()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/students/1/emergency-contacts/10"))
+                .andExpect(status().isNoContent());
+
+        verify(studentEmergencyContactService).deleteContact(1L, 10L);
+    }
+
+    @Test
     @WithMockUser(roles = "PARENT")
     void parentCannotAccessStudentAdminEndpoints() throws Exception {
         mockMvc.perform(get("/api/students"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/students/1/emergency-contacts"))
                 .andExpect(status().isForbidden());
     }
 
@@ -135,6 +173,32 @@ class StudentControllerApiTest {
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
+    }
+
+    private StudentEmergencyContactResponse emergencyContact() {
+        return new StudentEmergencyContactResponse(
+                10L,
+                1L,
+                "Ana Diaz",
+                "Maria Lopez",
+                "Vecina",
+                "+46000000099",
+                null,
+                null,
+                false,
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
+    }
+
+    private String validEmergencyContactRequest() {
+        return """
+                {
+                  "fullName": "Maria Lopez",
+                  "relationship": "Vecina",
+                  "phone": "+46000000099"
+                }
+                """;
     }
 
     private String validStudentRequest() {
