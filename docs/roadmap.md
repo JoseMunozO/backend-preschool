@@ -414,7 +414,7 @@ Antes de publicar la aplicacion para uso real del cliente:
 - [ ] Configurar `JWT_SECRET` real y suficientemente largo. (La app ahora falla al arrancar si falta; pendiente configurarlo en el entorno real de despliegue.)
 - [ ] Configurar credenciales reales de base de datos y no usar passwords de desarrollo. (Idem: depende del entorno real de despliegue.)
 - [x] Confirmar que `application-local.properties`, `.env` y secretos no se suben al repositorio. Verificado en `.gitignore` y `git check-ignore`.
-- [x] Ejecutar `./mvnw test`. 58/58 passing.
+- [x] Ejecutar `./mvnw test`. 71/71 passing.
 - [ ] Ejecutar `API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs` contra el entorno final o staging. (Solo corrido contra local/docker; no existe todavia un staging real.)
 - [x] Revisar warnings importantes de runtime antes de entregar. Ver seccion "Infraestructura y calidad".
 - [x] Documentar URL, usuario inicial y pasos basicos de operacion para el cliente: ver `docs/operations-runbook.md` (incluye el procedimiento para crear el primer admin en una base de datos limpia, verificado end-to-end).
