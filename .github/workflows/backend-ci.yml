@@ -1,0 +1,66 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+      - "chore/**"
+      - "fix/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test and package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Start MySQL for tests
+        run: docker compose up -d --wait mysql
+
+      - name: Run Maven verification
+        env:
+          SPRING_PROFILES_ACTIVE: ci
+          DB_URL: jdbc:mysql://localhost:3307/preschool_admin_db_v2?useSSL=false&serverTimezone=Europe/Stockholm&allowPublicKeyRetrieval=true
+          DB_USERNAME: preschool
+          DB_PASSWORD: preschool
+          JWT_SECRET: CiPreschool_Auth_JWT_SECRET_2026_SuperSecureKey_9xL4pQ8mZ2rT7
+        run: ./mvnw --batch-mode verify
+
+      - name: Stop MySQL
+        if: always()
+        run: docker compose down
+
+  docker:
+    name: Validate Docker setup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose file
+        run: docker compose config
+
+      - name: Build backend Docker image
+        run: docker build --pull --tag backend-preschool:ci .
