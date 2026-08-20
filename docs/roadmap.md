@@ -44,6 +44,22 @@ Crear una herramienta administrativa clara, facil de usar y adaptada al funciona
 - [x] Administracion base de horarios.
 - [x] Dashboard principal.
 
+## Prioridad actual: soft-delete y restauracion (eliminar con deshacer)
+
+Pedido desde el frontend (2026-08-20): la app de administracion quiere ofrecer "eliminar con posibilidad de deshacer" para acciones destructivas, empezando por eliminar estudiante, con una ventana de gracia de unos 7 dias antes del borrado definitivo. Hoy `DELETE /api/students/{id}` hace un borrado fisico inmediato, asi que no hay nada que el frontend pueda deshacer de forma confiable una vez confirmado — necesita que el backend soporte esto primero.
+
+Alcance propuesto:
+
+- [ ] Agregar campo `deletedAt` (timestamp nullable) a la entidad `Student`. Evaluar si `Parent`, `Material` y `ScheduleSlot` necesitan el mismo tratamiento mas adelante (el frontend tiene una accion de "desactivar" para padres/tutores que es distinta a eliminar y no requiere esto por ahora).
+- [ ] Cambiar `DELETE /api/students/{id}` de borrado fisico a soft-delete: setea `deletedAt = now()` en vez de eliminar la fila.
+- [ ] `GET /api/students` y `GET /api/students/{id}` excluyen por defecto los registros con `deletedAt` no nulo.
+- [ ] Nuevo endpoint para restaurar, ej. `POST /api/students/{id}/restore`: limpia `deletedAt` si todavia esta dentro de la ventana de gracia (7 dias); responde error claro (404/409) si ya se purgo definitivamente.
+- [ ] Job programado (o verificacion perezosa en el proximo acceso) que purga definitivamente los registros con `deletedAt` mas antiguo que 7 dias.
+- [ ] Endpoint o parametro para que administracion pueda ver los eliminados recientes, ej. `GET /api/students?includeDeleted=true` o `GET /api/students/trash`, para no depender solo de un aviso temporal del lado del cliente.
+- [ ] Tests: soft-delete no borra la fila, restore dentro de la ventana funciona, restore despues de la ventana falla, purga automatica despues de 7 dias.
+
+Esto bloquea la funcion de frontend "confirmaciones para acciones sensibles" en su parte de eliminar estudiante (ver `frontend-preschool/docs/frontend-roadmap.md`). Mientras tanto el frontend deja ese boton sin conectar en vez de simular un soft-delete que no puede garantizar.
+
 ## Version inicial recomendada
 
 La primera version debe construir una base funcional que permita validar si la aplicacion responde a las necesidades reales del preescolar. No se busca incluir todo desde el primer dia, sino empezar con lo mas importante y luego ampliar.
@@ -76,7 +92,8 @@ La primera version debe construir una base funcional que permita validar si la a
 - [x] Listar estudiantes.
 - [x] Consultar estudiante por id.
 - [x] Actualizar estudiante.
-- [x] Eliminar estudiante.
+- [x] Eliminar estudiante (borrado fisico inmediato).
+- [ ] Soft-delete + restauracion con ventana de 7 dias en vez de borrado fisico inmediato — ver seccion "Prioridad actual: soft-delete y restauracion" arriba (pedido del frontend, bloquea su feature de confirmaciones con deshacer).
 - [x] Estado del estudiante.
 - [x] Grupo/aula mediante `groupId`.
 - [x] Alergias, notas medicas y observaciones.
