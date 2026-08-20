@@ -46,8 +46,14 @@ Demo API users:
 
 ```text
 admin@school.com / 123456
+director@school.com / 123456
+finance@school.com / 123456
 parent.demo@school.com / 123456
 teacher@school.com / 123456
+assistant@school.com / 123456
+parent.sofia@school.com / 123456
+parent.noah@school.com / 123456
+parent.emma@school.com / 123456
 ```
 
 ## Smoke Test
