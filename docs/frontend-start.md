@@ -499,7 +499,7 @@ Endpoints:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/api/students` | Listar estudiantes |
+| GET | `/api/students?search=&groupId=&status=` | Listar/buscar/filtrar estudiantes |
 | GET | `/api/students/{id}` | Obtener estudiante |
 | GET | `/api/students/{id}/guardians` | Tutores del estudiante |
 | GET | `/api/students/{id}/notes` | Notas/comentarios del estudiante |

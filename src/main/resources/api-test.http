@@ -112,6 +112,18 @@ Authorization: Bearer {{teacher_token}}
 
 ###
 
+### Search students by name or code
+GET http://localhost:8080/api/students?search=ana
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Filter students by group and status
+GET http://localhost:8080/api/students?groupId=2&status=active
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Get main dashboard summary with ADMIN token
 GET http://localhost:8080/api/dashboard/summary
 Authorization: Bearer {{admin_token}}

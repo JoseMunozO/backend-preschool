@@ -8,6 +8,7 @@ import com.preschool.backendpreschool.dto.StudentRequest;
 import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.dto.StudentGuardianResponse;
+import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.service.StudentConsentService;
 import com.preschool.backendpreschool.service.StudentGuardianService;
 import com.preschool.backendpreschool.service.StudentNoteService;
@@ -31,8 +32,12 @@ public class StudentController {
     private final StudentConsentService studentConsentService;
 
     @GetMapping
-    public List<StudentResponse> getAllStudents() {
-        return studentService.getAllStudents();
+    public List<StudentResponse> getStudents(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long groupId,
+            @RequestParam(required = false) StudentStatus status
+    ) {
+        return studentService.getStudents(search, groupId, status);
     }
 
     @GetMapping("/{id}")
