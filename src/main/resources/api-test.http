@@ -409,6 +409,26 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Get student emergency contacts
+GET http://localhost:8080/api/students/1/emergency-contacts
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create student emergency contact
+POST http://localhost:8080/api/students/1/emergency-contacts
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "fullName": "Maria Lopez",
+  "relationship": "Vecina",
+  "phone": "+46000000099",
+  "primary": true
+}
+
+###
+
 ### Get student notes
 GET http://localhost:8080/api/students/1/notes
 Authorization: Bearer {{admin_token}}

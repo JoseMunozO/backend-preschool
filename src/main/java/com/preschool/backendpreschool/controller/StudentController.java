@@ -2,6 +2,8 @@ package com.preschool.backendpreschool.controller;
 
 import com.preschool.backendpreschool.dto.StudentConsentRequest;
 import com.preschool.backendpreschool.dto.StudentConsentResponse;
+import com.preschool.backendpreschool.dto.StudentEmergencyContactRequest;
+import com.preschool.backendpreschool.dto.StudentEmergencyContactResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.dto.StudentRequest;
@@ -10,6 +12,7 @@ import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.dto.StudentGuardianResponse;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.service.StudentConsentService;
+import com.preschool.backendpreschool.service.StudentEmergencyContactService;
 import com.preschool.backendpreschool.service.StudentGuardianService;
 import com.preschool.backendpreschool.service.StudentNoteService;
 import com.preschool.backendpreschool.service.StudentService;
@@ -30,6 +33,7 @@ public class StudentController {
     private final StudentGuardianService studentGuardianService;
     private final StudentNoteService studentNoteService;
     private final StudentConsentService studentConsentService;
+    private final StudentEmergencyContactService studentEmergencyContactService;
 
     @GetMapping
     public List<StudentResponse> getStudents(
@@ -48,6 +52,38 @@ public class StudentController {
     @GetMapping("/{id}/guardians")
     public List<StudentGuardianResponse> getStudentGuardians(@PathVariable Long id) {
         return studentGuardianService.getGuardiansByStudent(id);
+    }
+
+    @GetMapping("/{id}/emergency-contacts")
+    public List<StudentEmergencyContactResponse> getStudentEmergencyContacts(@PathVariable Long id) {
+        return studentEmergencyContactService.getContacts(id);
+    }
+
+    @PostMapping("/{id}/emergency-contacts")
+    @ResponseStatus(HttpStatus.CREATED)
+    public StudentEmergencyContactResponse createStudentEmergencyContact(
+            @PathVariable Long id,
+            @Valid @RequestBody StudentEmergencyContactRequest request
+    ) {
+        return studentEmergencyContactService.createContact(id, request);
+    }
+
+    @PutMapping("/{id}/emergency-contacts/{contactId}")
+    public StudentEmergencyContactResponse updateStudentEmergencyContact(
+            @PathVariable Long id,
+            @PathVariable Long contactId,
+            @Valid @RequestBody StudentEmergencyContactRequest request
+    ) {
+        return studentEmergencyContactService.updateContact(id, contactId, request);
+    }
+
+    @DeleteMapping("/{id}/emergency-contacts/{contactId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteStudentEmergencyContact(
+            @PathVariable Long id,
+            @PathVariable Long contactId
+    ) {
+        studentEmergencyContactService.deleteContact(id, contactId);
     }
 
     @GetMapping("/{id}/notes")

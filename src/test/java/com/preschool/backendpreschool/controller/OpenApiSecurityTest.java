@@ -34,6 +34,9 @@ class OpenApiSecurityTest {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private com.preschool.backendpreschool.service.StudentConsentService studentConsentService;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.preschool.backendpreschool.service.StudentEmergencyContactService studentEmergencyContactService;
+
     @Test
     void openApiDocsRouteIsNotBlockedByAuthentication() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
