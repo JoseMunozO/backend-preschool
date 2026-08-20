@@ -39,6 +39,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // response.sendError() triggers a server-side forward to /error; without this,
+                        // that forwarded request hits .anyRequest().authenticated() unauthenticated
+                        // (JwtAuthenticationFilter skips error dispatches) and overwrites the original
+                        // 403 with a 401 from the entry point.
+                        .requestMatchers("/error").permitAll()
 
                         .requestMatchers("/api/admin/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
 
