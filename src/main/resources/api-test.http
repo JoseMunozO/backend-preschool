@@ -704,8 +704,20 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
-### Delete student
+### Delete student (soft-delete)
 DELETE http://localhost:8080/api/students/3
+Authorization: Bearer {{admin_token}}
+
+###
+
+### List students including recently deleted ones
+GET http://localhost:8080/api/students?includeDeleted=true
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Restore a deleted student (within the 7-day grace window)
+POST http://localhost:8080/api/students/3/restore
 Authorization: Bearer {{admin_token}}
 
 ###

@@ -39,9 +39,10 @@ public class StudentController {
     public List<StudentResponse> getStudents(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Long groupId,
-            @RequestParam(required = false) StudentStatus status
+            @RequestParam(required = false) StudentStatus status,
+            @RequestParam(required = false) Boolean includeDeleted
     ) {
-        return studentService.getStudents(search, groupId, status);
+        return studentService.getStudents(search, groupId, status, includeDeleted);
     }
 
     @GetMapping("/{id}")
@@ -178,6 +179,11 @@ public class StudentController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteStudent(@PathVariable Long id) {
         studentService.deleteStudent(id);
+    }
+
+    @PostMapping("/{id}/restore")
+    public StudentResponse restoreStudent(@PathVariable Long id) {
+        return studentService.restoreStudent(id);
     }
 
     @PutMapping("/{id}/profile-photo")
