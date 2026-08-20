@@ -107,7 +107,7 @@ La primera version debe construir una base funcional que permita validar si la a
 - [ ] Endpoint para subir foto de estudiante.
 - [ ] Endpoint para listar album de estudiante.
 - [ ] Endpoint para eliminar foto de estudiante.
-- [ ] Endpoint o dashboard item para cumpleanos proximos.
+- [x] Endpoint o dashboard item para cumpleanos proximos: ya implementado en el dashboard (`upcomingBirthdays` en `teacher-summary` y `admin-summary`), ver seccion F.
 - [x] Tests de controller/API.
 
 ### Resultado esperado
@@ -142,7 +142,7 @@ El personal podra consultar rapidamente la informacion de cada nino sin depender
 - [x] Marcar si vive con el estudiante.
 - [x] Tests de servicio principales.
 - [ ] Revisar payloads finales para frontend.
-- [ ] Agregar tests de controller/API.
+- [x] Agregar tests de controller/API: `ParentControllerApiTest` (filtros de admin, acceso propio de padre, rechazo sin autenticar).
 
 ### Resultado esperado
 
@@ -408,7 +408,7 @@ PATCH /api/students/{studentId}/consents/{consentId}/revoke
 - [x] Smoke tester con logs locales, retencion de ultimos 4 logs y modo read-only.
 - [x] Mockito configurado como Java agent para tests en Java 25.
 - [x] Agregar futuras migraciones `V3`-`V7` para nuevos cambios de esquema (notas, consentimientos, albumes, contactos de emergencia); `V1` agregada ademas como baseline real para bases de datos limpias.
-- [ ] Mejorar cobertura de tests de controllers.
+- [x] Mejorar cobertura de tests de controllers: agregados `AuthControllerApiTest`, `RoleControllerApiTest`, `UserControllerApiTest` y `PhotoAlbumControllerApiTest` (antes sin tests de controller propios).
 - [x] Revisar `open-in-view` de JPA: se probo `false` y rompio la mayoria de endpoints (`LazyInitializationException` sobre asociaciones como `Parent`); se mantiene `true` explicito con comentario. Ver seccion "Checklist para release oficial".
 - [ ] Revisar warnings de Mockito/Java agent en Java 25.
 - [ ] Revisar warning de Flyway con MySQL 9.5.
