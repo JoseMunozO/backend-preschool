@@ -55,7 +55,7 @@ class StudentControllerApiTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void adminCanListAndGetStudents() throws Exception {
-        when(studentService.getAllStudents()).thenReturn(List.of(student()));
+        when(studentService.getStudents(null, null, null)).thenReturn(List.of(student()));
         when(studentService.getStudentById(1L)).thenReturn(student());
 
         mockMvc.perform(get("/api/students"))
@@ -72,9 +72,24 @@ class StudentControllerApiTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanFilterStudentsBySearchGroupAndStatus() throws Exception {
+        when(studentService.getStudents("Ana", 2L, StudentStatus.active)).thenReturn(List.of(student()));
+
+        mockMvc.perform(get("/api/students")
+                        .param("search", "Ana")
+                        .param("groupId", "2")
+                        .param("status", "active"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].studentId").value(1));
+
+        verify(studentService).getStudents("Ana", 2L, StudentStatus.active);
+    }
+
+    @Test
     @WithMockUser(roles = "TEACHER")
     void teacherCanReadCreateAndDeleteStudentsUnderCurrentSecurityRules() throws Exception {
-        when(studentService.getAllStudents()).thenReturn(List.of(student()));
+        when(studentService.getStudents(null, null, null)).thenReturn(List.of(student()));
         when(studentService.createStudent(org.mockito.ArgumentMatchers.any())).thenReturn(student());
 
         mockMvc.perform(get("/api/students"))

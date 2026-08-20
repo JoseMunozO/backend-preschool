@@ -30,8 +30,13 @@ public class StudentService {
     private final StudentConsentRepository studentConsentRepository;
     private final StudentGuardianRepository studentGuardianRepository;
 
-    public List<StudentResponse> getAllStudents() {
-        List<Student> students = studentRepository.findAll();
+    public List<StudentResponse> getStudents(String search, Long groupId, StudentStatus status) {
+        List<Student> students = studentRepository.findAll()
+                .stream()
+                .filter(student -> search == null || matchesSearch(student, search))
+                .filter(student -> groupId == null || matchesGroup(student, groupId))
+                .filter(student -> status == null || student.getStatus() == status)
+                .toList();
         List<Long> studentIds = students.stream()
                 .map(Student::getStudentId)
                 .toList();
@@ -178,5 +183,21 @@ public class StudentService {
 
     private String formatGuardianName(StudentGuardian guardian) {
         return guardian.getParent().getFirstName() + " " + guardian.getParent().getLastName();
+    }
+
+    private boolean matchesSearch(Student student, String search) {
+        String normalized = search.toLowerCase();
+        return containsIgnoreCase(student.getFirstName(), normalized)
+                || containsIgnoreCase(student.getLastName(), normalized)
+                || containsIgnoreCase(student.getStudentCode(), normalized);
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedSearch) {
+        return value != null && value.toLowerCase().contains(normalizedSearch);
+    }
+
+    private boolean matchesGroup(Student student, Long groupId) {
+        ClassGroup group = student.getClassGroup();
+        return group != null && groupId.equals(group.getGroupId());
     }
 }

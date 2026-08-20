@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentConsentType;
@@ -46,7 +47,7 @@ class StudentServiceTest {
     private StudentService studentService;
 
     @Test
-    void getAllStudentsIncludesPrimaryGuardianNameFromBatchLookup() {
+    void getStudentsIncludesPrimaryGuardianNameFromBatchLookup() {
         Student student = buildStudent();
         StudentGuardian guardian = StudentGuardian.builder()
                 .student(student)
@@ -58,11 +59,61 @@ class StudentServiceTest {
         when(studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(List.of(1L)))
                 .thenReturn(List.of(guardian));
 
-        List<StudentResponse> response = studentService.getAllStudents();
+        List<StudentResponse> response = studentService.getStudents(null, null, null);
 
         assertThat(response).singleElement()
                 .extracting(StudentResponse::primaryGuardianName)
                 .isEqualTo("Luis Diaz");
+    }
+
+    @Test
+    void getStudentsFiltersBySearchAcrossNameAndCode() {
+        Student ana = buildStudent();
+        Student noah = Student.builder()
+                .studentId(2L)
+                .studentCode("STU-002")
+                .firstName("Noah")
+                .lastName("Eriksson")
+                .birthDate(LocalDate.of(2021, 1, 20))
+                .status(StudentStatus.active)
+                .enrollmentDate(LocalDate.of(2024, 2, 1))
+                .build();
+
+        when(studentRepository.findAll()).thenReturn(List.of(ana, noah));
+        when(studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(List.of(1L)))
+                .thenReturn(List.of());
+
+        List<StudentResponse> byName = studentService.getStudents("ana", null, null);
+        List<StudentResponse> byCode = studentService.getStudents("stu-001", null, null);
+
+        assertThat(byName).extracting(StudentResponse::studentId).containsExactly(1L);
+        assertThat(byCode).extracting(StudentResponse::studentId).containsExactly(1L);
+    }
+
+    @Test
+    void getStudentsFiltersByGroupAndStatus() {
+        Student activeInGroup = buildStudent();
+        ClassGroup group = ClassGroup.builder().groupId(2L).name("Rainbow Room").build();
+        activeInGroup.setClassGroup(group);
+
+        Student inactiveNoGroup = Student.builder()
+                .studentId(3L)
+                .firstName("Oliver")
+                .lastName("Brown")
+                .birthDate(LocalDate.of(2021, 5, 29))
+                .status(StudentStatus.inactive)
+                .enrollmentDate(LocalDate.of(2024, 3, 1))
+                .build();
+
+        when(studentRepository.findAll()).thenReturn(List.of(activeInGroup, inactiveNoGroup));
+        when(studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(List.of(1L)))
+                .thenReturn(List.of());
+
+        List<StudentResponse> byGroup = studentService.getStudents(null, 2L, null);
+        List<StudentResponse> byStatus = studentService.getStudents(null, null, StudentStatus.inactive);
+
+        assertThat(byGroup).extracting(StudentResponse::studentId).containsExactly(1L);
+        assertThat(byStatus).extracting(StudentResponse::studentId).containsExactly(3L);
     }
 
     @Test

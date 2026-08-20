@@ -81,8 +81,8 @@ La primera version debe construir una base funcional que permita validar si la a
 - [x] Grupo/aula mediante `groupId`.
 - [x] Alergias, notas medicas y observaciones.
 - [x] Vinculacion con padres/tutores mediante `student_guardians`.
-- [ ] Busqueda por nombre, codigo, grupo o estado.
-- [ ] Filtros formales por estado/grupo.
+- [x] Busqueda por nombre, codigo, grupo o estado: `GET /api/students?search=&groupId=&status=`.
+- [x] Filtros formales por estado/grupo: mismos parametros `groupId` y `status`.
 - [ ] Contactos de emergencia como campo o entidad especifica.
 - [ ] Respuesta de ficha completa con tutores incluidos.
 - [ ] Revisar si las notas actuales son suficientes o si se necesita historial de notas por fecha/usuario.
