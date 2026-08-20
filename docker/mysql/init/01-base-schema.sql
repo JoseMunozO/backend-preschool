@@ -259,39 +259,123 @@ INSERT INTO roles (role_id, code, name, description) VALUES
 INSERT INTO users (user_id, email, phone, password_hash, status, email_verified, phone_verified) VALUES
     (1, 'admin@school.com', '+46000000001', '$2a$10$dk9rrTOVgWsP62/tL6ZzoOJcp8Na1tXcouCUunVkwWzW4dpc33Dl2', 'active', TRUE, TRUE),
     (2, 'parent.demo@school.com', '+46000000002', '$2a$10$qlnQJmgdSqezkI8XOte2XOvKu0P3jmuRv5iVD6x0DDUtJUSvYV0iK', 'active', TRUE, TRUE),
-    (3, 'teacher@school.com', '+46000000003', '$2a$10$dk9rrTOVgWsP62/tL6ZzoOJcp8Na1tXcouCUunVkwWzW4dpc33Dl2', 'active', TRUE, TRUE);
+    (3, 'teacher@school.com', '+46000000003', '$2a$10$dk9rrTOVgWsP62/tL6ZzoOJcp8Na1tXcouCUunVkwWzW4dpc33Dl2', 'active', TRUE, TRUE),
+    (4, 'director@school.com', '+46000000004', '$2a$10$dk9rrTOVgWsP62/tL6ZzoOJcp8Na1tXcouCUunVkwWzW4dpc33Dl2', 'active', TRUE, TRUE),
+    (5, 'finance@school.com', '+46000000005', '$2a$10$dk9rrTOVgWsP62/tL6ZzoOJcp8Na1tXcouCUunVkwWzW4dpc33Dl2', 'active', TRUE, TRUE),
+    (6, 'assistant@school.com', '+46000000006', '$2a$10$dk9rrTOVgWsP62/tL6ZzoOJcp8Na1tXcouCUunVkwWzW4dpc33Dl2', 'active', TRUE, TRUE),
+    (7, 'parent.sofia@school.com', '+46000000007', '$2a$10$qlnQJmgdSqezkI8XOte2XOvKu0P3jmuRv5iVD6x0DDUtJUSvYV0iK', 'active', TRUE, TRUE),
+    (8, 'parent.noah@school.com', '+46000000008', '$2a$10$qlnQJmgdSqezkI8XOte2XOvKu0P3jmuRv5iVD6x0DDUtJUSvYV0iK', 'active', TRUE, TRUE),
+    (9, 'parent.emma@school.com', '+46000000009', '$2a$10$qlnQJmgdSqezkI8XOte2XOvKu0P3jmuRv5iVD6x0DDUtJUSvYV0iK', 'active', TRUE, TRUE);
 
 INSERT INTO user_roles (user_id, role_id) VALUES
     (1, 2),
     (2, 6),
-    (3, 4);
+    (3, 4),
+    (4, 3),
+    (5, 5),
+    (6, 4),
+    (7, 6),
+    (8, 6),
+    (9, 6);
 
-INSERT INTO class_groups (group_id, name, school_year, level_name, capacity, status) VALUES
-    (1, 'Demo Group', '2026', 'Preschool', 20, 'active');
+INSERT INTO class_groups (group_id, name, school_year, level_name, capacity, age_min_months, age_max_months, status, notes) VALUES
+    (1, 'Sunflower Room', '2026', 'Toddlers', 14, 18, 36, 'active', 'Young toddler group'),
+    (2, 'Rainbow Room', '2026', 'Preschool', 18, 36, 54, 'active', 'Mixed preschool group'),
+    (3, 'Forest Room', '2026', 'Pre-K', 20, 54, 72, 'active', 'School readiness group');
 
-INSERT INTO students (student_id, student_code, first_name, last_name, birth_date, group_id, status, enrollment_date) VALUES
-    (1, 'STU-001', 'Lucas', 'Andersson', '2020-04-12', 1, 'active', '2026-01-15');
+INSERT INTO students (student_id, student_code, first_name, last_name, birth_date, group_id, status, enrollment_date, medical_notes, allergies, notes) VALUES
+    (1, 'STU-001', 'Lucas', 'Andersson', '2020-04-12', 3, 'active', '2026-01-15', 'Uses inhaler if prescribed by family doctor', 'Peanuts', 'Confident reader, enjoys building blocks'),
+    (2, 'STU-002', 'Sofia', 'Lindberg', '2021-08-03', 2, 'active', '2026-02-01', NULL, 'Lactose intolerance', 'Settling well after lunch'),
+    (3, 'STU-003', 'Noah', 'Eriksson', '2022-01-20', 2, 'active', '2026-02-12', NULL, NULL, 'Enjoys music and outdoor play'),
+    (4, 'STU-004', 'Emma', 'Nilsson', '2020-11-05', 3, 'active', '2026-01-22', 'Speech therapy follow-up monthly', NULL, 'Needs quiet transition time'),
+    (5, 'STU-005', 'Maya', 'Garcia', '2023-03-18', 1, 'active', '2026-03-01', NULL, 'Eggs', 'New toddler enrollment'),
+    (6, 'STU-006', 'Oliver', 'Brown', '2021-05-29', 2, 'pending', '2026-05-20', NULL, NULL, 'Pending final documents');
 
-INSERT INTO parents (parent_id, user_id, first_name, last_name, email, phone, status) VALUES
-    (1, 2, 'Demo', 'Parent', 'parent.demo@school.com', '+46000000002', 'active');
+INSERT INTO parents (parent_id, user_id, first_name, last_name, email, phone, address, preferred_language, status, notes) VALUES
+    (1, 2, 'Demo', 'Parent', 'parent.demo@school.com', '+46000000002', 'Demo Street 12', 'en', 'active', 'Main parent demo account'),
+    (2, 7, 'Anna', 'Lindberg', 'parent.sofia@school.com', '+46000000007', 'Birch Road 8', 'sv', 'active', 'Primary contact for Sofia'),
+    (3, 8, 'Erik', 'Eriksson', 'parent.noah@school.com', '+46000000008', 'Lake Avenue 4', 'sv', 'active', 'Billing contact for Noah and Maya'),
+    (4, 9, 'Maria', 'Nilsson', 'parent.emma@school.com', '+46000000009', 'Forest Lane 16', 'en', 'active', 'Authorized pickup on weekdays'),
+    (5, NULL, 'Carlos', 'Garcia', 'carlos.garcia@example.com', '+46000000010', 'Harbor Street 2', 'es', 'active', 'Secondary contact without portal user'),
+    (6, NULL, 'Julia', 'Brown', 'julia.brown@example.com', '+46000000011', 'Market Square 5', 'en', 'inactive', 'Inactive demo contact');
 
 INSERT INTO student_guardians (student_id, parent_id, relationship_type, is_primary_contact, is_billing_contact, is_authorized_pickup, lives_with_student) VALUES
-    (1, 1, 'guardian', TRUE, TRUE, TRUE, TRUE);
+    (1, 1, 'guardian', TRUE, TRUE, TRUE, TRUE),
+    (2, 2, 'mother', TRUE, TRUE, TRUE, TRUE),
+    (3, 3, 'father', TRUE, TRUE, TRUE, TRUE),
+    (4, 4, 'mother', TRUE, TRUE, TRUE, TRUE),
+    (5, 3, 'relative', FALSE, TRUE, TRUE, FALSE),
+    (5, 5, 'father', TRUE, FALSE, TRUE, TRUE),
+    (6, 6, 'mother', TRUE, TRUE, TRUE, TRUE);
 
 INSERT INTO staff (staff_id, user_id, employee_code, first_name, last_name, email, phone, position_title, staff_type, hire_date, status) VALUES
-    (1, 3, 'STAFF-001', 'Demo', 'Teacher', 'teacher@school.com', '+46000000003', 'Teacher', 'teacher', '2026-01-01', 'active');
+    (1, 3, 'STAFF-001', 'Demo', 'Teacher', 'teacher@school.com', '+46000000003', 'Lead Teacher', 'teacher', '2026-01-01', 'active'),
+    (2, 4, 'STAFF-002', 'Diana', 'Director', 'director@school.com', '+46000000004', 'Center Director', 'director', '2025-08-01', 'active'),
+    (3, 5, 'STAFF-003', 'Felix', 'Finance', 'finance@school.com', '+46000000005', 'Finance Officer', 'admin', '2025-09-15', 'active'),
+    (4, 6, 'STAFF-004', 'Sara', 'Assistant', 'assistant@school.com', '+46000000006', 'Assistant Teacher', 'teacher', '2026-02-01', 'active');
 
 INSERT INTO staff_group_assignments (staff_group_assignment_id, staff_id, group_id, role_in_group, is_primary, start_date) VALUES
-    (1, 1, 1, 'teacher', TRUE, '2026-01-01');
+    (1, 1, 3, 'teacher', TRUE, '2026-01-01'),
+    (2, 4, 1, 'teacher', TRUE, '2026-02-01'),
+    (3, 1, 2, 'coordinator', FALSE, '2026-01-01'),
+    (4, 4, 2, 'assistant', FALSE, '2026-02-01'),
+    (5, 2, 1, 'coordinator', FALSE, '2026-01-01'),
+    (6, 2, 2, 'coordinator', FALSE, '2026-01-01'),
+    (7, 2, 3, 'coordinator', FALSE, '2026-01-01');
 
 INSERT INTO charge_types (charge_type_id, code, name, recurrence_type, default_amount, active) VALUES
-    (1, 'MONTHLY_FEE', 'Monthly fee', 'monthly', 100.00, TRUE);
+    (1, 'MONTHLY_FEE', 'Monthly fee', 'monthly', 950.00, TRUE),
+    (2, 'MEAL_PLAN', 'Meal plan', 'monthly', 120.00, TRUE),
+    (3, 'FIELD_TRIP', 'Field trip', 'one_time', 35.00, TRUE),
+    (4, 'MATERIAL_FEE', 'Material fee', 'custom', 45.00, TRUE);
 
 INSERT INTO student_charges (student_charge_id, student_id, charge_type_id, due_date, billing_period_start, billing_period_end, amount_due, status, description, created_by_user_id) VALUES
-    (1, 1, 1, '2026-05-31', '2026-05-01', '2026-05-31', 100.00, 'pending', 'Demo monthly fee', 1);
+    (1, 1, 1, '2026-05-31', '2026-05-01', '2026-05-31', 950.00, 'pending', 'May tuition', 1),
+    (2, 2, 1, '2026-05-31', '2026-05-01', '2026-05-31', 950.00, 'paid', 'May tuition', 1),
+    (3, 2, 2, '2026-05-31', '2026-05-01', '2026-05-31', 120.00, 'paid', 'May meal plan', 1),
+    (4, 3, 1, '2026-05-31', '2026-05-01', '2026-05-31', 950.00, 'partially_paid', 'May tuition', 1),
+    (5, 4, 3, '2026-05-15', NULL, NULL, 35.00, 'overdue', 'Museum field trip', 1),
+    (6, 5, 4, '2026-06-05', NULL, NULL, 45.00, 'pending', 'Starter craft kit', 1),
+    (7, 6, 1, '2026-06-30', '2026-06-01', '2026-06-30', 950.00, 'pending', 'June tuition preview', 1);
 
-INSERT INTO materials (material_id, sku, name, category, unit, quantity_on_hand, minimum_quantity, status) VALUES
-    (1, 'DEMO-MAT-001', 'Demo paper', 'classroom', 'pack', 10, 2, 'active');
+INSERT INTO payments (payment_id, parent_id, received_by_staff_id, payment_date, total_amount, payment_method, reference_number, notes) VALUES
+    (1, 2, 3, '2026-05-06', 1070.00, 'card', 'DEMO-CARD-001', 'Sofia May invoice paid in full'),
+    (2, 3, 3, '2026-05-07', 400.00, 'bank_transfer', 'DEMO-TRF-001', 'Partial payment for Noah May tuition');
 
-INSERT INTO schedule_slots (schedule_slot_id, group_id, primary_staff_id, day_of_week, start_time, end_time, activity_title, room_name) VALUES
-    (1, 1, 1, 1, '09:00:00', '10:00:00', 'Morning circle', 'Room A');
+INSERT INTO payment_allocations (payment_allocation_id, payment_id, student_charge_id, amount_allocated) VALUES
+    (1, 1, 2, 950.00),
+    (2, 1, 3, 120.00),
+    (3, 2, 4, 400.00);
+
+INSERT INTO materials (material_id, sku, name, category, unit, quantity_on_hand, minimum_quantity, status, notes) VALUES
+    (1, 'DEMO-MAT-001', 'A4 drawing paper', 'Arts and crafts', 'pack', 18, 6, 'active', 'Daily drawing and painting'),
+    (2, 'DEMO-MAT-002', 'Washable paint set', 'Arts and crafts', 'set', 5, 3, 'active', 'Primary color classroom set'),
+    (3, 'DEMO-MAT-003', 'Glue sticks', 'Arts and crafts', 'box', 2, 5, 'active', 'Low stock demo item'),
+    (4, 'DEMO-MAT-004', 'Building blocks', 'Learning toys', 'box', 12, 4, 'active', 'Shared STEM shelf'),
+    (5, 'DEMO-MAT-005', 'Picture books', 'Library', 'book', 42, 12, 'active', 'Classroom reading corner'),
+    (6, 'DEMO-MAT-006', 'Nap mats', 'Rest time', 'unit', 16, 10, 'active', 'Cleaned weekly'),
+    (7, 'DEMO-MAT-007', 'First aid bandages', 'Health and safety', 'box', 1, 4, 'active', 'Urgent restock example'),
+    (8, 'DEMO-MAT-008', 'Outdoor chalk', 'Outdoor play', 'bucket', 9, 3, 'active', 'Playground activities'),
+    (9, 'DEMO-MAT-009', 'Tablet protectors', 'Technology', 'unit', 4, 2, 'active', 'Digital portfolio devices'),
+    (10, 'DEMO-MAT-010', 'Old sensory bins', 'Archived', 'unit', 0, 0, 'archived', 'Archived demo material');
+
+INSERT INTO material_movements (material_movement_id, material_id, movement_type, quantity, performed_by_user_id, notes) VALUES
+    (1, 1, 'in', 20, 1, 'Initial stock'),
+    (2, 1, 'out', 2, 3, 'Weekly classroom use'),
+    (3, 2, 'in', 6, 1, 'Supplier delivery'),
+    (4, 2, 'out', 1, 4, 'Rainbow Room painting activity'),
+    (5, 3, 'out', 3, 4, 'Craft activity restock trigger'),
+    (6, 4, 'in', 12, 1, 'Initial stock'),
+    (7, 7, 'out', 2, 2, 'Health room usage'),
+    (8, 8, 'in', 10, 1, 'Outdoor play delivery'),
+    (9, 8, 'out', 1, 3, 'Playground activity');
+
+INSERT INTO schedule_slots (schedule_slot_id, group_id, primary_staff_id, day_of_week, start_time, end_time, activity_title, room_name, notes) VALUES
+    (1, 1, 4, 1, '09:00:00', '09:30:00', 'Toddler morning circle', 'Sunflower Room', 'Songs and attendance'),
+    (2, 1, 4, 2, '10:00:00', '10:45:00', 'Sensory play', 'Sunflower Room', 'Water table and textures'),
+    (3, 2, 1, 1, '09:00:00', '10:00:00', 'Morning circle', 'Rainbow Room', 'Calendar and group talk'),
+    (4, 2, 4, 3, '10:30:00', '11:15:00', 'Music and movement', 'Rainbow Room', 'Gross motor activity'),
+    (5, 2, 1, 5, '13:00:00', '14:00:00', 'Art studio', 'Creative Atelier', 'Painting and collage'),
+    (6, 3, 1, 1, '10:00:00', '11:00:00', 'Pre-K literacy', 'Forest Room', 'Story sequencing'),
+    (7, 3, 1, 2, '13:00:00', '14:00:00', 'Outdoor science', 'Garden', 'Weather observation'),
+    (8, 3, 2, 4, '15:00:00', '15:30:00', 'Family pickup briefing', 'Forest Room', 'Director visit');
