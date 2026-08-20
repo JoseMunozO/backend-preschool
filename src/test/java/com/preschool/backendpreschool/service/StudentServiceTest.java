@@ -3,11 +3,14 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentConsentType;
+import com.preschool.backendpreschool.model.StudentGuardian;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.repository.ClassGroupRepository;
 import com.preschool.backendpreschool.repository.StudentConsentRepository;
+import com.preschool.backendpreschool.repository.StudentGuardianRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,8 +39,31 @@ class StudentServiceTest {
     @Mock
     private StudentConsentRepository studentConsentRepository;
 
+    @Mock
+    private StudentGuardianRepository studentGuardianRepository;
+
     @InjectMocks
     private StudentService studentService;
+
+    @Test
+    void getAllStudentsIncludesPrimaryGuardianNameFromBatchLookup() {
+        Student student = buildStudent();
+        StudentGuardian guardian = StudentGuardian.builder()
+                .student(student)
+                .parent(Parent.builder().firstName("Luis").lastName("Diaz").build())
+                .primaryContact(true)
+                .build();
+
+        when(studentRepository.findAll()).thenReturn(List.of(student));
+        when(studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(List.of(1L)))
+                .thenReturn(List.of(guardian));
+
+        List<StudentResponse> response = studentService.getAllStudents();
+
+        assertThat(response).singleElement()
+                .extracting(StudentResponse::primaryGuardianName)
+                .isEqualTo("Luis Diaz");
+    }
 
     @Test
     void updateProfilePhotoStoresTrimmedUrl() {
