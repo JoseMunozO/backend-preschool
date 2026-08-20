@@ -84,7 +84,7 @@ La primera version debe construir una base funcional que permita validar si la a
 - [x] Busqueda por nombre, codigo, grupo o estado: `GET /api/students?search=&groupId=&status=`.
 - [x] Filtros formales por estado/grupo: mismos parametros `groupId` y `status`.
 - [x] Contactos de emergencia como campo o entidad especifica: entidad `student_emergency_contacts` (nombre, relacion, telefono, telefono alterno, notas, contacto principal), endpoints `GET/POST/PUT/DELETE /api/students/{id}/emergency-contacts`.
-- [ ] Respuesta de ficha completa con tutores incluidos.
+- [x] Respuesta de ficha completa con tutores incluidos: `StudentResponse` ahora incluye `guardians` (lista completa de tutores con datos de contacto) ademas de `primaryGuardianName`, tanto en `GET /api/students` como en `GET /api/students/{id}`.
 - [ ] Revisar si las notas actuales son suficientes o si se necesita historial de notas por fecha/usuario.
 - [ ] Investigar almacenamiento de fotos: base de datos, filesystem local, S3/Cloudinary u otro proveedor.
 - [ ] Definir modelo de album de fotos por estudiante.

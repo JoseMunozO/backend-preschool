@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.StudentGuardianSummary;
 import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
@@ -47,23 +48,39 @@ class StudentServiceTest {
     private StudentService studentService;
 
     @Test
-    void getStudentsIncludesPrimaryGuardianNameFromBatchLookup() {
+    void getStudentsIncludesAllGuardiansAndDerivesPrimaryFromBatchLookup() {
         Student student = buildStudent();
-        StudentGuardian guardian = StudentGuardian.builder()
+        StudentGuardian primaryGuardian = StudentGuardian.builder()
                 .student(student)
-                .parent(Parent.builder().firstName("Luis").lastName("Diaz").build())
+                .parent(Parent.builder().parentId(1L).firstName("Luis").lastName("Diaz").email("luis@example.com").build())
+                .relationshipType(com.preschool.backendpreschool.model.GuardianRelationshipType.FATHER)
                 .primaryContact(true)
+                .build();
+        StudentGuardian secondaryGuardian = StudentGuardian.builder()
+                .student(student)
+                .parent(Parent.builder().parentId(2L).firstName("Carla").lastName("Diaz").build())
+                .relationshipType(com.preschool.backendpreschool.model.GuardianRelationshipType.MOTHER)
+                .primaryContact(false)
                 .build();
 
         when(studentRepository.findAll()).thenReturn(List.of(student));
-        when(studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(List.of(1L)))
-                .thenReturn(List.of(guardian));
+        when(studentGuardianRepository.findByStudentStudentIdIn(List.of(1L)))
+                .thenReturn(List.of(primaryGuardian, secondaryGuardian));
 
         List<StudentResponse> response = studentService.getStudents(null, null, null);
 
-        assertThat(response).singleElement()
-                .extracting(StudentResponse::primaryGuardianName)
-                .isEqualTo("Luis Diaz");
+        assertThat(response).singleElement().satisfies(dto -> {
+            assertThat(dto.primaryGuardianName()).isEqualTo("Luis Diaz");
+            assertThat(dto.guardians()).hasSize(2);
+            assertThat(dto.guardians())
+                    .extracting(StudentGuardianSummary::parentName)
+                    .containsExactlyInAnyOrder("Luis Diaz", "Carla Diaz");
+            assertThat(dto.guardians())
+                    .filteredOn(StudentGuardianSummary::parentId, 1L)
+                    .singleElement()
+                    .extracting(StudentGuardianSummary::email)
+                    .isEqualTo("luis@example.com");
+        });
     }
 
     @Test
@@ -80,7 +97,7 @@ class StudentServiceTest {
                 .build();
 
         when(studentRepository.findAll()).thenReturn(List.of(ana, noah));
-        when(studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(List.of(1L)))
+        when(studentGuardianRepository.findByStudentStudentIdIn(List.of(1L)))
                 .thenReturn(List.of());
 
         List<StudentResponse> byName = studentService.getStudents("ana", null, null);
@@ -106,7 +123,7 @@ class StudentServiceTest {
                 .build();
 
         when(studentRepository.findAll()).thenReturn(List.of(activeInGroup, inactiveNoGroup));
-        when(studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(List.of(1L)))
+        when(studentGuardianRepository.findByStudentStudentIdIn(List.of(1L)))
                 .thenReturn(List.of());
 
         List<StudentResponse> byGroup = studentService.getStudents(null, 2L, null);
@@ -114,6 +131,27 @@ class StudentServiceTest {
 
         assertThat(byGroup).extracting(StudentResponse::studentId).containsExactly(1L);
         assertThat(byStatus).extracting(StudentResponse::studentId).containsExactly(3L);
+    }
+
+    @Test
+    void getStudentByIdIncludesAllGuardians() {
+        Student student = buildStudent();
+        StudentGuardian guardian = StudentGuardian.builder()
+                .student(student)
+                .parent(Parent.builder().parentId(1L).firstName("Luis").lastName("Diaz").build())
+                .relationshipType(com.preschool.backendpreschool.model.GuardianRelationshipType.FATHER)
+                .primaryContact(true)
+                .build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(studentGuardianRepository.findByStudentStudentId(1L)).thenReturn(List.of(guardian));
+
+        StudentResponse response = studentService.getStudentById(1L);
+
+        assertThat(response.guardians()).singleElement()
+                .extracting(StudentGuardianSummary::parentName)
+                .isEqualTo("Luis Diaz");
+        assertThat(response.primaryGuardianName()).isEqualTo("Luis Diaz");
     }
 
     @Test

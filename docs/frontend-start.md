@@ -535,6 +535,25 @@ Permisos de consentimientos:
 Types:
 
 ```ts
+export type GuardianRelationshipType =
+  | "FATHER"
+  | "MOTHER"
+  | "GUARDIAN"
+  | "RELATIVE"
+  | "OTHER";
+
+export type StudentGuardianSummary = {
+  parentId: number;
+  parentName: string;
+  email: string | null;
+  phone: string | null;
+  relationshipType: GuardianRelationshipType;
+  primaryContact: boolean;
+  billingContact: boolean;
+  authorizedPickup: boolean;
+  livesWithStudent: boolean;
+};
+
 export type Student = {
   studentId: number;
   studentCode: string | null;
@@ -544,6 +563,8 @@ export type Student = {
   birthDate: ISODate;
   groupId: number | null;
   groupName: string | null;
+  primaryGuardianName: string | null;
+  guardians: StudentGuardianSummary[];
   status: StudentStatus;
   enrollmentDate: ISODate;
   withdrawalDate: ISODate | null;

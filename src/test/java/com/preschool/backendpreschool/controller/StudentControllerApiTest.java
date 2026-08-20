@@ -164,6 +164,7 @@ class StudentControllerApiTest {
                 2L,
                 "Grupo A",
                 "Luis Diaz",
+                List.of(),
                 StudentStatus.active,
                 LocalDate.of(2024, 8, 1),
                 null,

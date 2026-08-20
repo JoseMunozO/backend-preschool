@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.StudentRequest;
 import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
+import com.preschool.backendpreschool.dto.StudentGuardianSummary;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ClassGroup;
@@ -40,18 +41,20 @@ public class StudentService {
         List<Long> studentIds = students.stream()
                 .map(Student::getStudentId)
                 .toList();
-        Map<Long, String> primaryGuardianNames = studentIds.isEmpty()
+        Map<Long, List<StudentGuardianSummary>> guardiansByStudent = studentIds.isEmpty()
                 ? Map.of()
-                : studentGuardianRepository.findByStudentStudentIdInAndPrimaryContactTrue(studentIds)
+                : studentGuardianRepository.findByStudentStudentIdIn(studentIds)
                 .stream()
-                .collect(Collectors.toMap(
+                .collect(Collectors.groupingBy(
                         guardian -> guardian.getStudent().getStudentId(),
-                        this::formatGuardianName,
-                        (first, ignored) -> first
+                        Collectors.mapping(this::toGuardianSummary, Collectors.toList())
                 ));
 
         return students.stream()
-                .map(student -> mapToResponse(student, primaryGuardianNames.get(student.getStudentId())))
+                .map(student -> mapToResponse(
+                        student,
+                        guardiansByStudent.getOrDefault(student.getStudentId(), List.of())
+                ))
                 .toList();
     }
 
@@ -149,15 +152,16 @@ public class StudentService {
     }
 
     private StudentResponse mapToResponse(Student student) {
-        String primaryGuardianName = studentGuardianRepository
-                .findFirstByStudentStudentIdAndPrimaryContactTrue(student.getStudentId())
-                .map(this::formatGuardianName)
-                .orElse(null);
+        List<StudentGuardianSummary> guardians = studentGuardianRepository
+                .findByStudentStudentId(student.getStudentId())
+                .stream()
+                .map(this::toGuardianSummary)
+                .toList();
 
-        return mapToResponse(student, primaryGuardianName);
+        return mapToResponse(student, guardians);
     }
 
-    private StudentResponse mapToResponse(Student student, String primaryGuardianName) {
+    private StudentResponse mapToResponse(Student student, List<StudentGuardianSummary> guardians) {
         ClassGroup group = student.getClassGroup();
 
         return new StudentResponse(
@@ -169,7 +173,8 @@ public class StudentService {
                 student.getBirthDate(),
                 group != null ? group.getGroupId() : null,
                 group != null ? group.getName() : null,
-                primaryGuardianName,
+                derivePrimaryGuardianName(guardians),
+                guardians,
                 student.getStatus(),
                 student.getEnrollmentDate(),
                 student.getWithdrawalDate(),
@@ -178,6 +183,28 @@ public class StudentService {
                 student.getNotes(),
                 student.getCreatedAt(),
                 student.getUpdatedAt()
+        );
+    }
+
+    private String derivePrimaryGuardianName(List<StudentGuardianSummary> guardians) {
+        return guardians.stream()
+                .filter(guardian -> Boolean.TRUE.equals(guardian.primaryContact()))
+                .findFirst()
+                .map(StudentGuardianSummary::parentName)
+                .orElse(null);
+    }
+
+    private StudentGuardianSummary toGuardianSummary(StudentGuardian guardian) {
+        return new StudentGuardianSummary(
+                guardian.getParent().getParentId(),
+                formatGuardianName(guardian),
+                guardian.getParent().getEmail(),
+                guardian.getParent().getPhone(),
+                guardian.getRelationshipType(),
+                guardian.getPrimaryContact(),
+                guardian.getBillingContact(),
+                guardian.getAuthorizedPickup(),
+                guardian.getLivesWithStudent()
         );
     }
 
