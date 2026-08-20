@@ -405,9 +405,9 @@ Construir una primera version enfocada en administracion interna: estudiantes, t
 
 Antes de publicar la aplicacion para uso real del cliente:
 
-- [ ] Preparar una base de datos limpia para produccion.
-- [ ] Eliminar datos demo/locales, incluyendo datos creados por `api-smoke-test.mjs` con prefijos `SMOKE-*`.
-- [ ] Aplicar migraciones Flyway desde cero y confirmar que el esquema queda completo.
+- [x] Preparar una base de datos limpia para produccion: apuntar Flyway a un MySQL vacio real (no reusar `docker/mysql/init/`, que es solo para desarrollo local y siembra datos demo). Verificado que una base vacia migra completa via Flyway sin datos demo.
+- [ ] Si alguna vez se corrio `api-smoke-test.mjs` en modo escritura contra un entorno compartido/staging, limpiar los residuos `SMOKE-*` con `scripts/cleanup-smoke-data.sql` (revisar manualmente `staff_group_assignments`, que no tiene campo distintivo para filtrar por patron).
+- [x] Aplicar migraciones Flyway desde cero y confirmar que el esquema queda completo: agregado `V1__initial_schema.sql`, verificado contra base de datos vacia (crea las 20 tablas) y contra el flujo existente de docker-compose (Flyway hace baseline en vez de re-ejecutar V1).
 - [ ] Mantener solo seeds necesarios para roles base y datos imprescindibles del sistema.
 - [ ] Crear usuario administrador inicial para el cliente.
 - [ ] Configurar `JWT_SECRET` real y suficientemente largo.

@@ -1,3 +1,14 @@
+-- LOCAL DEVELOPMENT ONLY.
+--
+-- This script is mounted into docker-entrypoint-initdb.d for the local
+-- docker-compose stack. It creates the schema AND seeds fake demo data
+-- (students, parents, payments, etc.) so the app is immediately usable
+-- for manual testing.
+--
+-- Do NOT point this at a real/production database. The schema itself is
+-- also defined as a real Flyway migration (V1__initial_schema.sql), so a
+-- clean production database only needs Flyway (spring.flyway.enabled=true)
+-- against an empty schema - it will build the schema with zero demo data.
 CREATE DATABASE IF NOT EXISTS preschool_admin_db_v2
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
