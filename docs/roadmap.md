@@ -408,14 +408,14 @@ Antes de publicar la aplicacion para uso real del cliente:
 - [x] Preparar una base de datos limpia para produccion: apuntar Flyway a un MySQL vacio real (no reusar `docker/mysql/init/`, que es solo para desarrollo local y siembra datos demo). Verificado que una base vacia migra completa via Flyway sin datos demo.
 - [ ] Si alguna vez se corrio `api-smoke-test.mjs` en modo escritura contra un entorno compartido/staging, limpiar los residuos `SMOKE-*` con `scripts/cleanup-smoke-data.sql` (revisar manualmente `staff_group_assignments`, que no tiene campo distintivo para filtrar por patron).
 - [x] Aplicar migraciones Flyway desde cero y confirmar que el esquema queda completo: agregado `V1__initial_schema.sql`, verificado contra base de datos vacia (crea las 20 tablas) y contra el flujo existente de docker-compose (Flyway hace baseline en vez de re-ejecutar V1).
-- [ ] Mantener solo seeds necesarios para roles base y datos imprescindibles del sistema.
-- [ ] Crear usuario administrador inicial para el cliente.
-- [ ] Configurar `JWT_SECRET` real y suficientemente largo.
-- [ ] Configurar credenciales reales de base de datos y no usar passwords de desarrollo.
-- [ ] Confirmar que `application-local.properties`, `.env` y secretos no se suben al repositorio.
-- [ ] Ejecutar `./mvnw test`.
-- [ ] Ejecutar `API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs` contra el entorno final o staging.
-- [ ] Revisar warnings importantes de runtime antes de entregar.
+- [x] Mantener solo seeds necesarios para roles base y datos imprescindibles del sistema: `V2__seed_roles.sql` solo siembra los 6 roles base, sin datos demo dentro de Flyway.
+- [ ] Crear usuario administrador inicial para el cliente. (Requiere entorno/credenciales reales del cliente; pendiente hasta tener el destino de despliegue.)
+- [ ] Configurar `JWT_SECRET` real y suficientemente largo. (La app ahora falla al arrancar si falta; pendiente configurarlo en el entorno real de despliegue.)
+- [ ] Configurar credenciales reales de base de datos y no usar passwords de desarrollo. (Idem: depende del entorno real de despliegue.)
+- [x] Confirmar que `application-local.properties`, `.env` y secretos no se suben al repositorio. Verificado en `.gitignore` y `git check-ignore`.
+- [x] Ejecutar `./mvnw test`. 58/58 passing.
+- [ ] Ejecutar `API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs` contra el entorno final o staging. (Solo corrido contra local/docker; no existe todavia un staging real.)
+- [x] Revisar warnings importantes de runtime antes de entregar. Ver seccion "Infraestructura y calidad".
 - [ ] Documentar URL, usuario inicial y pasos basicos de operacion para el cliente.
 
 ## Proximo paso recomendado
