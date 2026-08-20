@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.controller;
 
 import com.preschool.backendpreschool.dto.ChargeTypeResponse;
+import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
 import com.preschool.backendpreschool.dto.PaymentRequest;
 import com.preschool.backendpreschool.dto.PaymentResponse;
 import com.preschool.backendpreschool.dto.StudentChargeRequest;
@@ -51,6 +52,12 @@ public class PaymentController {
     @GetMapping("/charges/{studentChargeId}")
     public StudentChargeResponse getChargeById(@PathVariable Long studentChargeId) {
         return paymentService.getChargeById(studentChargeId);
+    }
+
+    @GetMapping("/reports/monthly")
+    public PaymentMonthlyReportResponse getMonthlyReport(@RequestParam(required = false) String month) {
+        YearMonth yearMonth = month != null ? YearMonth.parse(month) : YearMonth.now();
+        return paymentService.getMonthlyReport(yearMonth);
     }
 
     @PostMapping("/charges")

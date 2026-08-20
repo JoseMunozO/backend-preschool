@@ -762,6 +762,12 @@ Authorization: Bearer {{finance_token}}
 
 ###
 
+### Monthly pending/overdue payments report
+GET http://localhost:8080/api/payments/reports/monthly?month=2026-06
+Authorization: Bearer {{finance_token}}
+
+###
+
 ### Create cash payment with FINANCE token
 POST http://localhost:8080/api/payments
 Content-Type: application/json

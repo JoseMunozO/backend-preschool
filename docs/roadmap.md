@@ -165,7 +165,7 @@ El centro sabra rapidamente a quien contactar y quien es responsable de cada est
 - [x] Tests de servicio.
 - [x] Actualizar `api-test.http`.
 - [ ] Endpoint explicito para actualizar/cancelar estado de cargo sin registrar pago.
-- [ ] Reporte/resumen mensual de pagos pendientes y atrasados.
+- [x] Reporte/resumen mensual de pagos pendientes y atrasados: `GET /api/payments/reports/monthly?month=YYYY-MM` (mes opcional, default el mes actual). Devuelve conteo, saldo y detalle de cargos pendientes y atrasados de ese mes, mas el total de pagos recibidos.
 - [x] Tests de controller/API.
 - [ ] Revisar optimizacion de queries si el volumen de pagos crece.
 - [ ] Generacion de recibo simple o comprobante en PDF en fase posterior.

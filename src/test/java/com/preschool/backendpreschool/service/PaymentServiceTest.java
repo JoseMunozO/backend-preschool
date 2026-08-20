@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.PaymentAllocationRequest;
+import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
 import com.preschool.backendpreschool.dto.PaymentRequest;
 import com.preschool.backendpreschool.dto.PaymentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
@@ -32,6 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -155,6 +157,64 @@ class PaymentServiceTest {
         assertThatThrownBy(() -> paymentService.createPayment(request))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("La asignacion supera el saldo pendiente del cargo");
+    }
+
+    @Test
+    void getMonthlyReportSeparatesPendingAndOverdueForTheGivenMonth() {
+        StudentCharge junePending = buildCharge(10L, new BigDecimal("1000.00"), StudentChargeStatus.PENDING, 2026, 6);
+        StudentCharge juneOverdue = buildCharge(11L, new BigDecimal("500.00"), StudentChargeStatus.OVERDUE, 2026, 6);
+        StudentCharge julyPending = buildCharge(12L, new BigDecimal("1000.00"), StudentChargeStatus.PENDING, 2026, 7);
+
+        when(studentChargeRepository.findAll()).thenReturn(List.of(junePending, juneOverdue, julyPending));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(new BigDecimal("300.00"));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(11L)).thenReturn(BigDecimal.ZERO);
+
+        Payment juneCardPayment = Payment.builder()
+                .paymentId(50L)
+                .totalAmount(new BigDecimal("1070.00"))
+                .build();
+        when(paymentRepository.findByPaymentDateBetween(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30)))
+                .thenReturn(List.of(juneCardPayment));
+
+        PaymentMonthlyReportResponse report = paymentService.getMonthlyReport(YearMonth.of(2026, 6));
+
+        assertThat(report.month()).isEqualTo(YearMonth.of(2026, 6));
+        assertThat(report.pendingCount()).isEqualTo(1);
+        assertThat(report.pendingBalance()).isEqualByComparingTo("700.00");
+        assertThat(report.pendingCharges()).extracting("studentChargeId").containsExactly(10L);
+        assertThat(report.overdueCount()).isEqualTo(1);
+        assertThat(report.overdueBalance()).isEqualByComparingTo("500.00");
+        assertThat(report.overdueCharges()).extracting("studentChargeId").containsExactly(11L);
+        assertThat(report.paymentsReceived()).isEqualByComparingTo("1070.00");
+    }
+
+    private StudentCharge buildCharge(Long chargeId, BigDecimal amountDue, StudentChargeStatus status, int year, int month) {
+        Student student = Student.builder()
+                .studentId(5L)
+                .firstName("Mateo")
+                .lastName("Garcia")
+                .birthDate(LocalDate.of(2020, 5, 10))
+                .status(StudentStatus.active)
+                .enrollmentDate(LocalDate.of(2026, 1, 15))
+                .build();
+        ChargeType chargeType = ChargeType.builder()
+                .chargeTypeId(1L)
+                .code("MONTHLY_TUITION")
+                .name("Cuota mensual")
+                .recurrenceType(ChargeRecurrenceType.MONTHLY)
+                .active(true)
+                .build();
+
+        return StudentCharge.builder()
+                .studentChargeId(chargeId)
+                .student(student)
+                .chargeType(chargeType)
+                .dueDate(LocalDate.of(year, month, 5))
+                .billingPeriodStart(LocalDate.of(year, month, 1))
+                .billingPeriodEnd(LocalDate.of(year, month, 28))
+                .amountDue(amountDue)
+                .status(status)
+                .build();
     }
 
     private StudentCharge buildCharge(BigDecimal amountDue, StudentChargeStatus status) {
