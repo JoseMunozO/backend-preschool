@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,9 +35,10 @@ public class MaterialController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) MaterialStatus status,
-            @RequestParam(required = false) Boolean lowStock
+            @RequestParam(required = false) Boolean lowStock,
+            @RequestParam(required = false) Boolean includeDeleted
     ) {
-        return materialService.getMaterials(search, category, status, lowStock);
+        return materialService.getMaterials(search, category, status, lowStock, includeDeleted);
     }
 
     @GetMapping("/low-stock")
@@ -61,6 +63,17 @@ public class MaterialController {
             @Valid @RequestBody MaterialRequest request
     ) {
         return materialService.updateMaterial(materialId, request);
+    }
+
+    @DeleteMapping("/{materialId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteMaterial(@PathVariable Long materialId) {
+        materialService.deleteMaterial(materialId);
+    }
+
+    @PostMapping("/{materialId}/restore")
+    public MaterialResponse restoreMaterial(@PathVariable Long materialId) {
+        return materialService.restoreMaterial(materialId);
     }
 
     @GetMapping("/movements")

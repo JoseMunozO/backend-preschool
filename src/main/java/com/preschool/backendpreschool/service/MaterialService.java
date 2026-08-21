@@ -5,6 +5,7 @@ import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialRequest;
 import com.preschool.backendpreschool.dto.MaterialResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Material;
 import com.preschool.backendpreschool.model.MaterialMovement;
@@ -15,21 +16,31 @@ import com.preschool.backendpreschool.repository.MaterialMovementRepository;
 import com.preschool.backendpreschool.repository.MaterialRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MaterialService {
+
+    static final int RESTORE_GRACE_PERIOD_DAYS = 7;
 
     private final MaterialRepository materialRepository;
     private final MaterialMovementRepository materialMovementRepository;
     private final UserRepository userRepository;
 
-    public List<MaterialResponse> getMaterials(String search, String category, MaterialStatus status, Boolean lowStock) {
-        return materialRepository.findAll()
+    public List<MaterialResponse> getMaterials(String search, String category, MaterialStatus status, Boolean lowStock, Boolean includeDeleted) {
+        List<Material> baseMaterials = Boolean.TRUE.equals(includeDeleted)
+                ? materialRepository.findAll()
+                : materialRepository.findAllByDeletedAtIsNull();
+
+        return baseMaterials
                 .stream()
                 .filter(material -> search == null || matchesSearch(material, search))
                 .filter(material -> category == null || equalsIgnoreCase(material.getCategory(), category))
@@ -141,8 +152,41 @@ public class MaterialService {
         return request.quantity();
     }
 
+    @Transactional
+    public void deleteMaterial(Long materialId) {
+        Material material = findMaterial(materialId);
+        material.setDeletedAt(LocalDateTime.now());
+        materialRepository.save(material);
+    }
+
+    @Transactional
+    public MaterialResponse restoreMaterial(Long materialId) {
+        Material material = materialRepository.findByMaterialIdAndDeletedAtIsNotNull(materialId)
+                .orElseThrow(() -> new ResourceNotFoundException("Material eliminado no encontrado"));
+
+        LocalDateTime graceWindowStart = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
+        if (material.getDeletedAt().isBefore(graceWindowStart)) {
+            throw new ConflictException("La ventana de restauración de " + RESTORE_GRACE_PERIOD_DAYS + " días ya expiró");
+        }
+
+        material.setDeletedAt(null);
+        return toMaterialResponse(materialRepository.save(material));
+    }
+
+    public void purgeExpiredSoftDeletedMaterials() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
+
+        for (Material material : materialRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(cutoff)) {
+            try {
+                materialRepository.delete(material);
+            } catch (DataIntegrityViolationException ex) {
+                log.warn("No se pudo purgar el material {}: tiene registros relacionados", material.getMaterialId());
+            }
+        }
+    }
+
     private Material findMaterial(Long materialId) {
-        return materialRepository.findById(materialId)
+        return materialRepository.findByMaterialIdAndDeletedAtIsNull(materialId)
                 .orElseThrow(() -> new ResourceNotFoundException("Material no encontrado"));
     }
 
@@ -159,7 +203,8 @@ public class MaterialService {
                 material.getStatus(),
                 material.getNotes(),
                 material.getCreatedAt(),
-                material.getUpdatedAt()
+                material.getUpdatedAt(),
+                material.getDeletedAt()
         );
     }
 

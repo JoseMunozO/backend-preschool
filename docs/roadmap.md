@@ -46,11 +46,18 @@ Crear una herramienta administrativa clara, facil de usar y adaptada al funciona
 
 ## Prioridad actual: soft-delete y restauracion (eliminar con deshacer)
 
-Pedido desde el frontend (2026-08-20): la app de administracion quiere ofrecer "eliminar con posibilidad de deshacer" para acciones destructivas, empezando por eliminar estudiante, con una ventana de gracia de unos 7 dias antes del borrado definitivo.
+Pedido desde el frontend (2026-08-20): la app de administracion quiere ofrecer "eliminar con posibilidad de deshacer" para acciones destructivas, empezando por eliminar estudiante, con una ventana de gracia de unos 7 dias antes del borrado definitivo. Extendido (2026-08-21) al resto de entidades que tenga sentido, mismo patron.
 
-Estado: **implementado y verificado** (2026-08-20).
+Estado por entidad:
 
-- [x] Agregado campo `deletedAt` (timestamp nullable) a la entidad `Student` (`V8__add_student_deleted_at.sql`). `Parent`, `Material` y `ScheduleSlot` quedan fuera de alcance por ahora (el frontend tiene una accion de "desactivar" para padres/tutores que es distinta a eliminar).
+- [x] `Student` — implementado y verificado (2026-08-20).
+- [x] `Material` — implementado y verificado (2026-08-21). Unica diferencia: `material_movements` tiene `ON DELETE CASCADE` (no `RESTRICT` como `student_charges`), asi que la purga automatica si borra el historial de movimientos — aceptable, no es dato financiero.
+- [ ] `ScheduleSlot` (horarios) — pendiente. Sin FKs que referencien `schedule_slots`, deberia ser el mas simple de los tres (purga sin ningun caso de "no se pudo borrar").
+- [ ] `Parent` (padres/tutores) — pendiente, a discutir: ya tiene `status` ACTIVE/INACTIVE (activar/desactivar) como mecanismo de baja logica. Definir si un `deletedAt` aparte tiene sentido o si conviene reusar/aclarar la relacion con `status` antes de implementar.
+
+Patron usado para `Student` y `Material` (replicar igual para `ScheduleSlot` y, si aplica, `Parent`):
+
+- [x] Agregado campo `deletedAt` (timestamp nullable) a la entidad `Student` (`V8__add_student_deleted_at.sql`) y a `Material` (`V9__add_material_deleted_at.sql`).
 - [x] `DELETE /api/students/{id}` ahora hace soft-delete: setea `deletedAt = now()` en vez de eliminar la fila.
 - [x] `GET /api/students` y `GET /api/students/{id}` excluyen por defecto los registros con `deletedAt` no nulo.
 - [x] Nuevo endpoint `POST /api/students/{id}/restore`: limpia `deletedAt` si todavia esta dentro de la ventana de gracia (7 dias); responde `404` si el estudiante no existe o no esta eliminado, `409` si la ventana ya expiro.
@@ -215,6 +222,7 @@ El preescolar podra ver rapidamente quien ha pagado, quien esta pendiente y que 
 - [x] Endpoint para registrar ajuste por conteo fisico.
 - [x] Endpoint para consultar movimientos.
 - [x] Endpoint y filtro de materiales bajo stock minimo.
+- [x] Eliminar material: soft-delete con restauracion y ventana de gracia de 7 dias, igual que estudiantes (`DELETE /api/materials/{id}`, `POST /api/materials/{id}/restore`, `GET /api/materials?includeDeleted=true`). A diferencia de estudiantes, `material_movements` tiene `ON DELETE CASCADE` (no `RESTRICT`), asi que la purga automatica si borra el historial de movimientos del material purgado — aceptable porque no es informacion financiera.
 - [x] Seguridad por roles internos.
 - [x] Tests de servicio.
 - [x] Actualizar `api-test.http`.
