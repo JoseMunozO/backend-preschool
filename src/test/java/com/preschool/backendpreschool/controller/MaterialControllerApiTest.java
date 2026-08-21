@@ -2,6 +2,7 @@ package com.preschool.backendpreschool.controller;
 
 import com.preschool.backendpreschool.config.JwtAuthenticationFilter;
 import com.preschool.backendpreschool.config.SecurityConfig;
+import com.preschool.backendpreschool.dto.MaterialAuditLogResponse;
 import com.preschool.backendpreschool.dto.MaterialResponse;
 import com.preschool.backendpreschool.dto.MaterialSuggestedMinimumResponse;
 import com.preschool.backendpreschool.model.MaterialConsumptionWindow;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -108,6 +110,34 @@ class MaterialControllerApiTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@school.com", roles = "ADMIN")
+    void adminCanUpdateMaterial() throws Exception {
+        when(materialService.updateMaterial(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("admin@school.com")))
+                .thenReturn(material());
+
+        mockMvc.perform(put("/api/materials/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validMaterialRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.materialId").value(1));
+
+        verify(materialService).updateMaterial(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("admin@school.com"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanGetAuditLog() throws Exception {
+        when(materialService.getAuditLog(1L)).thenReturn(List.of(auditLogEntry()));
+
+        mockMvc.perform(get("/api/materials/1/audit-log"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].materialAuditLogId").value(1))
+                .andExpect(jsonPath("$[0].newValues").value("minimumQuantity=7"));
+
+        verify(materialService).getAuditLog(1L);
+    }
+
+    @Test
     @WithMockUser(roles = "PARENT")
     void parentCannotAccessMaterials() throws Exception {
         mockMvc.perform(get("/api/materials"))
@@ -129,6 +159,20 @@ class MaterialControllerApiTest {
                 LocalDateTime.now(),
                 LocalDateTime.now(),
                 null
+        );
+    }
+
+    private MaterialAuditLogResponse auditLogEntry() {
+        return new MaterialAuditLogResponse(
+                1L,
+                1L,
+                "Paper",
+                4L,
+                "admin@school.com",
+                "Ana Admin",
+                LocalDateTime.now(),
+                "minimumQuantity=5",
+                "minimumQuantity=7"
         );
     }
 
