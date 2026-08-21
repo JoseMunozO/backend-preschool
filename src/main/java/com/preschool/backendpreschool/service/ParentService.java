@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.ParentRequest;
 import com.preschool.backendpreschool.dto.ParentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.ParentStatus;
@@ -14,23 +15,29 @@ import com.preschool.backendpreschool.repository.ParentRepository;
 import com.preschool.backendpreschool.repository.RoleRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ParentService {
+
+    static final int RESTORE_GRACE_PERIOD_DAYS = 7;
 
     private final ParentRepository parentRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public List<ParentResponse> getAllParents(ParentStatus status, String search) {
+    public List<ParentResponse> getAllParents(ParentStatus status, String search, Boolean includeDeleted) {
         List<Parent> parents;
 
         if (status != null) {
@@ -48,6 +55,7 @@ public class ParentService {
         }
 
         return parents.stream()
+                .filter(parent -> Boolean.TRUE.equals(includeDeleted) || parent.getDeletedAt() == null)
                 .map(this::toResponse)
                 .toList();
     }
@@ -131,8 +139,41 @@ public class ParentService {
         return toResponse(parentRepository.save(parent));
     }
 
+    @Transactional
+    public void deleteParent(Long parentId) {
+        Parent parent = findParent(parentId);
+        parent.setDeletedAt(LocalDateTime.now());
+        parentRepository.save(parent);
+    }
+
+    @Transactional
+    public ParentResponse restoreParent(Long parentId) {
+        Parent parent = parentRepository.findByParentIdAndDeletedAtIsNotNull(parentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Padre/tutor eliminado no encontrado"));
+
+        LocalDateTime graceWindowStart = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
+        if (parent.getDeletedAt().isBefore(graceWindowStart)) {
+            throw new ConflictException("La ventana de restauración de " + RESTORE_GRACE_PERIOD_DAYS + " días ya expiró");
+        }
+
+        parent.setDeletedAt(null);
+        return toResponse(parentRepository.save(parent));
+    }
+
+    public void purgeExpiredSoftDeletedParents() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
+
+        for (Parent parent : parentRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(cutoff)) {
+            try {
+                parentRepository.delete(parent);
+            } catch (DataIntegrityViolationException ex) {
+                log.warn("No se pudo purgar el padre/tutor {}: tiene registros relacionados", parent.getParentId());
+            }
+        }
+    }
+
     private Parent findParent(Long parentId) {
-        return parentRepository.findById(parentId)
+        return parentRepository.findByParentIdAndDeletedAtIsNull(parentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Padre/tutor no encontrado"));
     }
 
@@ -211,7 +252,8 @@ public class ParentService {
                 parent.getStatus(),
                 parent.getNotes(),
                 parent.getCreatedAt(),
-                parent.getUpdatedAt()
+                parent.getUpdatedAt(),
+                parent.getDeletedAt()
         );
     }
 

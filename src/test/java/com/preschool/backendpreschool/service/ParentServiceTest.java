@@ -2,6 +2,8 @@ package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.ParentRequest;
 import com.preschool.backendpreschool.dto.ParentResponse;
+import com.preschool.backendpreschool.exception.ConflictException;
+import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.ParentStatus;
 import com.preschool.backendpreschool.model.Role;
@@ -17,12 +19,19 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,5 +104,99 @@ class ParentServiceTest {
         assertThat(savedUser.getPasswordHash()).isEqualTo("encoded-password");
         assertThat(savedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(savedUser.getRoles()).extracting(Role::getCode).containsExactly(RoleName.PARENT);
+    }
+
+    @Test
+    void deleteParentSoftDeletesInsteadOfRemovingRow() {
+        Parent parent = buildParent();
+
+        when(parentRepository.findByParentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(parent));
+        when(parentRepository.save(any(Parent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        parentService.deleteParent(1L);
+
+        assertThat(parent.getDeletedAt()).isNotNull();
+        verify(parentRepository, never()).delete(any(Parent.class));
+        verify(parentRepository).save(parent);
+    }
+
+    @Test
+    void restoreParentWithinGraceWindowClearsDeletedAt() {
+        Parent parent = buildParent();
+        parent.setDeletedAt(LocalDateTime.now().minusDays(3));
+
+        when(parentRepository.findByParentIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.of(parent));
+        when(parentRepository.save(any(Parent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ParentResponse response = parentService.restoreParent(1L);
+
+        assertThat(parent.getDeletedAt()).isNull();
+        assertThat(response.deletedAt()).isNull();
+    }
+
+    @Test
+    void restoreParentAfterGraceWindowThrowsConflict() {
+        Parent parent = buildParent();
+        parent.setDeletedAt(LocalDateTime.now().minusDays(8));
+
+        when(parentRepository.findByParentIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.of(parent));
+
+        assertThatThrownBy(() -> parentService.restoreParent(1L))
+                .isInstanceOf(ConflictException.class);
+
+        verify(parentRepository, never()).save(any(Parent.class));
+    }
+
+    @Test
+    void restoreParentNotDeletedThrowsNotFound() {
+        when(parentRepository.findByParentIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> parentService.restoreParent(1L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getAllParentsWithIncludeDeletedTrueReturnsSoftDeletedParents() {
+        Parent deleted = buildParent();
+        deleted.setDeletedAt(LocalDateTime.now().minusDays(1));
+
+        when(parentRepository.findAll()).thenReturn(List.of(deleted));
+
+        List<ParentResponse> response = parentService.getAllParents(null, null, true);
+
+        assertThat(response).extracting(ParentResponse::parentId).containsExactly(1L);
+    }
+
+    @Test
+    void purgeExpiredSoftDeletedParentsDeletesExpiredAndSkipsRestrictedOnes() {
+        Parent purgeable = buildParent();
+        Parent restricted = Parent.builder()
+                .parentId(2L)
+                .firstName("Sofia")
+                .lastName("Guardian")
+                .status(ParentStatus.ACTIVE)
+                .build();
+
+        when(parentRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(any(LocalDateTime.class)))
+                .thenReturn(List.of(purgeable, restricted));
+        doNothing().when(parentRepository).delete(purgeable);
+        doThrow(new DataIntegrityViolationException("has related consents"))
+                .when(parentRepository).delete(restricted);
+
+        parentService.purgeExpiredSoftDeletedParents();
+
+        verify(parentRepository).delete(purgeable);
+        verify(parentRepository).delete(restricted);
+    }
+
+    private Parent buildParent() {
+        return Parent.builder()
+                .parentId(1L)
+                .firstName("Maria")
+                .lastName("Andersson")
+                .email("maria@example.com")
+                .phone("0701234567")
+                .status(ParentStatus.ACTIVE)
+                .build();
     }
 }

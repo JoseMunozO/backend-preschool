@@ -36,9 +36,10 @@ public class ParentController {
     @GetMapping
     public List<ParentResponse> getAllParents(
             @RequestParam(required = false) ParentStatus status,
-            @RequestParam(required = false) String search
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean includeDeleted
     ) {
-        return parentService.getAllParents(status, search);
+        return parentService.getAllParents(status, search, includeDeleted);
     }
 
     @GetMapping("/me")
@@ -78,6 +79,17 @@ public class ParentController {
     @PatchMapping("/{parentId}/deactivate")
     public ParentResponse deactivateParent(@PathVariable Long parentId) {
         return parentService.deactivateParent(parentId);
+    }
+
+    @DeleteMapping("/{parentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteParent(@PathVariable Long parentId) {
+        parentService.deleteParent(parentId);
+    }
+
+    @PostMapping("/{parentId}/restore")
+    public ParentResponse restoreParent(@PathVariable Long parentId) {
+        return parentService.restoreParent(parentId);
     }
 
     @GetMapping("/{parentId}/students")

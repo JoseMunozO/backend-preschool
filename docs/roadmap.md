@@ -53,18 +53,20 @@ Estado por entidad:
 - [x] `Student` — implementado y verificado (2026-08-20).
 - [x] `Material` — implementado y verificado (2026-08-21). Unica diferencia: `material_movements` tiene `ON DELETE CASCADE` (no `RESTRICT` como `student_charges`), asi que la purga automatica si borra el historial de movimientos — aceptable, no es dato financiero.
 - [x] `ScheduleSlot` — implementado y verificado (2026-08-21). Confirmado: `schedule_slots` no tiene FKs entrantes, asi que la purga automatica nunca queda bloqueada (verificado con `DELETE` directo en MySQL real, sin error de constraint).
-- [ ] `Parent` (padres/tutores) — pendiente, a discutir: ya tiene `status` ACTIVE/INACTIVE (activar/desactivar) como mecanismo de baja logica. Definir si un `deletedAt` aparte tiene sentido o si conviene reusar/aclarar la relacion con `status` antes de implementar.
+- [x] `Parent` (padres/tutores) — implementado y verificado (2026-08-21). Decision de diseño confirmada: `deletedAt` es independiente del campo `status` (ACTIVE/INACTIVE) existente — `status` sigue siendo el toggle operativo (activar/desactivar) y `deletedAt` solo gobierna la mecanica de eliminar/restaurar/purgar en el listado de administracion; el resto de servicios (pagos, consentimientos, etc.) siguen usando `parentRepository.findById` sin filtrar por `deletedAt`, igual que el patron ya usado para `Student`/`Material` en otros servicios. `student_guardians` tiene `ON DELETE CASCADE` (se pierde el vinculo, aceptable), `payments` tiene `ON DELETE SET NULL` (se preserva el historial de pagos), `student_consents` no tiene accion explicita = `RESTRICT` por defecto (protege el registro de consentimientos, igual que los cargos de un estudiante) — verificado con `DELETE` directo en MySQL real en los tres casos.
 
-Patron usado para `Student`, `Material` y `ScheduleSlot` (replicar igual para `Parent` si aplica):
+Patron usado para `Student`, `Material`, `ScheduleSlot` y `Parent`:
 
-- [x] Agregado campo `deletedAt` (timestamp nullable) a la entidad `Student` (`V8__add_student_deleted_at.sql`), `Material` (`V9__add_material_deleted_at.sql`) y `ScheduleSlot` (`V10__add_schedule_slot_deleted_at.sql`).
+- [x] Agregado campo `deletedAt` (timestamp nullable) a la entidad `Student` (`V8__add_student_deleted_at.sql`), `Material` (`V9__add_material_deleted_at.sql`), `ScheduleSlot` (`V10__add_schedule_slot_deleted_at.sql`) y `Parent` (`V11__add_parent_deleted_at.sql`).
 - [x] `DELETE /api/students/{id}` ahora hace soft-delete: setea `deletedAt = now()` en vez de eliminar la fila.
 - [x] `GET /api/students` y `GET /api/students/{id}` excluyen por defecto los registros con `deletedAt` no nulo.
 - [x] Nuevo endpoint `POST /api/students/{id}/restore`: limpia `deletedAt` si todavia esta dentro de la ventana de gracia (7 dias); responde `404` si el estudiante no existe o no esta eliminado, `409` si la ventana ya expiro.
 - [x] Job programado (`StudentPurgeScheduler`, diario 03:00) que purga definitivamente los registros con `deletedAt` mas antiguo que 7 dias. Si el estudiante tiene cargos de pago u otro registro protegido por `ON DELETE RESTRICT`, la purga de esa fila se omite (se loguea) en vez de fallar el job completo o perder historial financiero — queda soft-deleted indefinidamente. Verificado contra MySQL real: intentar borrar un estudiante con cargos da `Error 1451` (constraint), uno sin cargos se borra sin problema.
 - [x] `GET /api/students?includeDeleted=true` para que administracion vea los eliminados recientes (incluye `deletedAt` en la respuesta).
 - [x] Tests: soft-delete no borra la fila, restore dentro/fuera de la ventana, purga respeta registros protegidos por FK, `includeDeleted=true`. Verificado tambien end-to-end contra Docker real (crear, eliminar, confirmar oculto, restaurar, confirmar visible, forzar ventana expirada por SQL y confirmar 409).
-- [x] Mismo patron aplicado a `Material` (`DELETE/POST restore /api/materials/{id}`, `MaterialPurgeScheduler` diario 03:15) y `ScheduleSlot` (`DELETE/POST restore /api/schedules/{id}`, `ScheduleSlotPurgeScheduler` diario 03:30, horarios escalonados para no chocar entre jobs).
+- [x] Mismo patron aplicado a `Material` (`DELETE/POST restore /api/materials/{id}`, `MaterialPurgeScheduler` diario 03:15), `ScheduleSlot` (`DELETE/POST restore /api/schedules/{id}`, `ScheduleSlotPurgeScheduler` diario 03:30) y `Parent` (`DELETE/POST restore /api/parents/{id}`, `ParentPurgeScheduler` diario 03:45) — horarios escalonados para no chocar entre jobs.
+
+Con esto quedan las 4 entidades acordadas (Student, Material, ScheduleSlot, Parent) con soft-delete/restore/purge completo.
 
 Esto desbloquea la funcion de frontend "confirmaciones para acciones sensibles" en su parte de eliminar estudiante (ver `frontend-preschool/docs/frontend-roadmap.md`).
 
