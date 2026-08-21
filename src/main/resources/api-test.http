@@ -809,6 +809,42 @@ Authorization: Bearer {{finance_token}}
 
 ###
 
+### Cancel a charge without registering a payment
+PUT http://localhost:8080/api/payments/charges/{{student_charge_id}}
+Content-Type: application/json
+Authorization: Bearer {{finance_token}}
+
+{
+  "studentId": 1,
+  "chargeTypeId": 1,
+  "dueDate": "2026-06-05",
+  "billingPeriodStart": "2026-06-01",
+  "billingPeriodEnd": "2026-06-30",
+  "amountDue": 1500.00,
+  "status": "CANCELLED",
+  "description": "Cancelado: estudiante se dio de baja"
+}
+
+###
+
+### Reactivate a cancelled charge
+PUT http://localhost:8080/api/payments/charges/{{student_charge_id}}
+Content-Type: application/json
+Authorization: Bearer {{finance_token}}
+
+{
+  "studentId": 1,
+  "chargeTypeId": 1,
+  "dueDate": "2026-06-05",
+  "billingPeriodStart": "2026-06-01",
+  "billingPeriodEnd": "2026-06-30",
+  "amountDue": 1500.00,
+  "status": "PENDING",
+  "description": "Cuota mensual junio 2026"
+}
+
+###
+
 ### Monthly pending/overdue payments report
 GET http://localhost:8080/api/payments/reports/monthly?month=2026-06
 Authorization: Bearer {{finance_token}}

@@ -862,12 +862,15 @@ Endpoints:
 | GET | `/api/payments/charges/{studentChargeId}` | Obtener cargo |
 | GET | `/api/payments/reports/monthly?month=YYYY-MM` | Reporte mensual de cargos pendientes/atrasados (mes opcional, default el actual) |
 | POST | `/api/payments/charges` | Crear cargo |
+| PUT | `/api/payments/charges/{studentChargeId}` | Actualizar cargo (incluye cancelar/reactivar via `status`) |
 | GET | `/api/payments/me` | Pagos del padre actual |
 | GET | `/api/payments/me/charges` | Cargos del padre actual |
 | GET | `/api/payments?parentId=&dateFrom=&dateTo=` | Pagos |
 | GET | `/api/payments/{paymentId}` | Obtener pago |
 | GET | `/api/payments/students/{studentId}` | Pagos por estudiante |
 | POST | `/api/payments` | Crear pago |
+
+Actualizar cargo: `PUT /api/payments/charges/{studentChargeId}` recibe el mismo `StudentChargeRequest` que `POST /api/payments/charges` — reemplaza el cargo completo (fecha, monto, periodo de facturacion, descripcion, estudiante/tipo de cargo), no es un patch parcial: cualquier campo omitido (que no sea `status`) queda `null`. La unica excepcion es `status`: si se omite (`null`), el estado actual del cargo **no se toca** — asi evitas pisar por accidente un `PAID`/`PARTIALLY_PAID` que se calculo automaticamente al pagar, si solo queres editar otro campo. Si se envia `status` explicitamente, se aplica tal cual. Es la unica forma de mover un cargo a `CANCELLED` (antes solo era posible al crearlo). Un cargo `CANCELLED` no puede recibir pagos (`POST /api/payments` responde `400`); para revertir, otro `PUT` con `status: "PENDING"` (u otro valor) lo reactiva. `404` si el cargo no existe.
 
 Types:
 

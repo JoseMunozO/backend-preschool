@@ -4,7 +4,10 @@ import com.preschool.backendpreschool.dto.PaymentAllocationRequest;
 import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
 import com.preschool.backendpreschool.dto.PaymentRequest;
 import com.preschool.backendpreschool.dto.PaymentResponse;
+import com.preschool.backendpreschool.dto.StudentChargeRequest;
+import com.preschool.backendpreschool.dto.StudentChargeResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ChargeRecurrenceType;
 import com.preschool.backendpreschool.model.ChargeType;
 import com.preschool.backendpreschool.model.Parent;
@@ -186,6 +189,78 @@ class PaymentServiceTest {
         assertThat(report.overdueBalance()).isEqualByComparingTo("500.00");
         assertThat(report.overdueCharges()).extracting("studentChargeId").containsExactly(11L);
         assertThat(report.paymentsReceived()).isEqualByComparingTo("1070.00");
+    }
+
+    @Test
+    void updateChargeAppliesFieldsAndExplicitStatus() {
+        StudentCharge charge = buildCharge(new BigDecimal("1500.00"), StudentChargeStatus.PENDING);
+        Student student = charge.getStudent();
+        ChargeType chargeType = charge.getChargeType();
+
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.of(charge));
+        when(studentRepository.findById(5L)).thenReturn(Optional.of(student));
+        when(chargeTypeRepository.findById(1L)).thenReturn(Optional.of(chargeType));
+        when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(BigDecimal.ZERO);
+
+        StudentChargeRequest request = new StudentChargeRequest(
+                5L,
+                1L,
+                LocalDate.of(2026, 7, 5),
+                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, 7, 31),
+                new BigDecimal("1600.00"),
+                StudentChargeStatus.CANCELLED,
+                "Cancelado por cambio de plan"
+        );
+
+        StudentChargeResponse response = paymentService.updateCharge(10L, request);
+
+        assertThat(response.status()).isEqualTo(StudentChargeStatus.CANCELLED);
+        assertThat(response.amountDue()).isEqualByComparingTo("1600.00");
+        assertThat(response.dueDate()).isEqualTo(LocalDate.of(2026, 7, 5));
+        assertThat(response.description()).isEqualTo("Cancelado por cambio de plan");
+    }
+
+    @Test
+    void updateChargeWithNullStatusPreservesCurrentStatus() {
+        StudentCharge charge = buildCharge(new BigDecimal("1500.00"), StudentChargeStatus.PARTIALLY_PAID);
+        Student student = charge.getStudent();
+        ChargeType chargeType = charge.getChargeType();
+
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.of(charge));
+        when(studentRepository.findById(5L)).thenReturn(Optional.of(student));
+        when(chargeTypeRepository.findById(1L)).thenReturn(Optional.of(chargeType));
+        when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(new BigDecimal("500.00"));
+
+        StudentChargeRequest request = new StudentChargeRequest(
+                5L,
+                1L,
+                LocalDate.of(2026, 6, 5),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 30),
+                new BigDecimal("1500.00"),
+                null,
+                "Nota actualizada"
+        );
+
+        StudentChargeResponse response = paymentService.updateCharge(10L, request);
+
+        assertThat(response.status()).isEqualTo(StudentChargeStatus.PARTIALLY_PAID);
+        assertThat(response.description()).isEqualTo("Nota actualizada");
+    }
+
+    @Test
+    void updateChargeNotFoundThrowsNotFound() {
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.empty());
+
+        StudentChargeRequest request = new StudentChargeRequest(
+                5L, 1L, LocalDate.of(2026, 6, 5), null, null, new BigDecimal("100.00"), null, null
+        );
+
+        assertThatThrownBy(() -> paymentService.updateCharge(10L, request))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     private StudentCharge buildCharge(Long chargeId, BigDecimal amountDue, StudentChargeStatus status, int year, int month) {
