@@ -23,7 +23,9 @@ import java.util.List;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,7 +45,7 @@ class ParentControllerApiTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void adminCanListParentsWithFilters() throws Exception {
-        when(parentService.getAllParents(ParentStatus.ACTIVE, "ana")).thenReturn(List.of(parent()));
+        when(parentService.getAllParents(ParentStatus.ACTIVE, "ana", null)).thenReturn(List.of(parent()));
 
         mockMvc.perform(get("/api/parents")
                         .param("status", "ACTIVE")
@@ -52,7 +54,7 @@ class ParentControllerApiTest {
                 .andExpect(jsonPath("$[0].parentId").value(1))
                 .andExpect(jsonPath("$[0].email").value("ana.parent@example.com"));
 
-        verify(parentService).getAllParents(ParentStatus.ACTIVE, "ana");
+        verify(parentService).getAllParents(ParentStatus.ACTIVE, "ana", null);
     }
 
     @Test
@@ -75,6 +77,22 @@ class ParentControllerApiTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanDeleteAndRestoreParent() throws Exception {
+        when(parentService.restoreParent(1L)).thenReturn(parent());
+
+        mockMvc.perform(delete("/api/parents/1"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/parents/1/restore"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.parentId").value(1));
+
+        verify(parentService).deleteParent(1L);
+        verify(parentService).restoreParent(1L);
+    }
+
     private ParentResponse parent() {
         return new ParentResponse(
                 1L,
@@ -88,7 +106,8 @@ class ParentControllerApiTest {
                 ParentStatus.ACTIVE,
                 null,
                 LocalDateTime.now(),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                null
         );
     }
 

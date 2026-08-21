@@ -771,7 +771,7 @@ Endpoints:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/api/parents?status=&search=` | Listar/buscar tutores |
+| GET | `/api/parents?status=&search=&includeDeleted=` | Listar/buscar tutores (excluye eliminados salvo `includeDeleted=true`) |
 | GET | `/api/parents/me` | Perfil del tutor actual |
 | GET | `/api/parents/me/students` | Estudiantes del tutor actual |
 | GET | `/api/parents/{parentId}` | Obtener tutor |
@@ -779,9 +779,13 @@ Endpoints:
 | PUT | `/api/parents/{parentId}` | Actualizar tutor |
 | PATCH | `/api/parents/{parentId}/activate` | Activar tutor |
 | PATCH | `/api/parents/{parentId}/deactivate` | Desactivar tutor |
+| DELETE | `/api/parents/{parentId}` | Eliminar tutor (soft-delete) |
+| POST | `/api/parents/{parentId}/restore` | Restaurar tutor eliminado (dentro de la ventana de gracia) |
 | GET | `/api/parents/{parentId}/students` | Estudiantes vinculados |
 | POST | `/api/parents/{parentId}/students` | Vincular estudiante |
 | DELETE | `/api/parents/{parentId}/students/{studentId}` | Desvincular estudiante |
+
+Eliminar tutor y restauracion: mismo patron que estudiantes, materiales y horarios (ver seccion Students API) — `deletedAt` en vez de borrado fisico, ventana de gracia de **7 dias**, `409` si ya expiro, `404` si no existe/no esta eliminado. `deletedAt` es independiente del campo `status` (ACTIVE/INACTIVE): `status` sigue siendo el toggle operativo de activar/desactivar, `deletedAt` solo controla la papelera/restauracion. Diferencia con las otras entidades: si el tutor tiene consentimientos registrados (`student_consents`), la purga automatica de esa fila se omite (queda soft-deleted indefinidamente), igual que un estudiante con cargos de pago.
 
 Types:
 
@@ -799,6 +803,7 @@ export type Parent = {
   notes: string | null;
   createdAt: ISODateTime | null;
   updatedAt: ISODateTime | null;
+  deletedAt: ISODateTime | null;
 };
 
 export type ParentRequest = {

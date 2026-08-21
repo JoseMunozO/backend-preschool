@@ -354,6 +354,24 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Delete parent (soft-delete)
+DELETE http://localhost:8080/api/parents/{{parent_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
+### List parents including recently deleted ones
+GET http://localhost:8080/api/parents?includeDeleted=true
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Restore a deleted parent (within the 7-day grace window)
+POST http://localhost:8080/api/parents/{{parent_id}}/restore
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Login created PARENT
 POST http://localhost:8080/api/auth/login
 Content-Type: application/json

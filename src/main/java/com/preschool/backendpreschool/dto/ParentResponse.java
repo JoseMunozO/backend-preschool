@@ -16,6 +16,7 @@ public record ParentResponse(
         ParentStatus status,
         String notes,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        LocalDateTime deletedAt
 ) {
 }
