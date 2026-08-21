@@ -17,6 +17,7 @@ public record ParentResponse(
         String notes,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        LocalDateTime deletedAt
+        LocalDateTime deletedAt,
+        LocalDateTime archivedAt
 ) {
 }

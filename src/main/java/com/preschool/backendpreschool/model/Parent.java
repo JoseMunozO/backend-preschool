@@ -64,6 +64,9 @@ public class Parent {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -168,7 +168,29 @@ class ParentServiceTest {
     }
 
     @Test
-    void purgeExpiredSoftDeletedParentsDeletesExpiredAndSkipsRestrictedOnes() {
+    void archiveExpiredSoftDeletedParentsMinimizesFieldsAndKeepsNameAndEmail() {
+        Parent parent = buildParent();
+        parent.setDeletedAt(LocalDateTime.now().minusDays(10));
+
+        when(parentRepository.findAllByDeletedAtIsNotNullAndArchivedAtIsNullAndDeletedAtBefore(any(LocalDateTime.class)))
+                .thenReturn(List.of(parent));
+        when(parentRepository.save(any(Parent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        parentService.archiveExpiredSoftDeletedParents();
+
+        assertThat(parent.getArchivedAt()).isNotNull();
+        assertThat(parent.getPhone()).isNull();
+        assertThat(parent.getAddress()).isNull();
+        assertThat(parent.getPreferredLanguage()).isNull();
+        assertThat(parent.getNotes()).isNull();
+        assertThat(parent.getFirstName()).isEqualTo("Maria");
+        assertThat(parent.getLastName()).isEqualTo("Andersson");
+        assertThat(parent.getEmail()).isEqualTo("maria@example.com");
+        verify(parentRepository, never()).delete(any(Parent.class));
+    }
+
+    @Test
+    void purgeExpiredArchivedParentsDeletesExpiredAndSkipsRestrictedOnes() {
         Parent purgeable = buildParent();
         Parent restricted = Parent.builder()
                 .parentId(2L)
@@ -177,16 +199,78 @@ class ParentServiceTest {
                 .status(ParentStatus.ACTIVE)
                 .build();
 
-        when(parentRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(any(LocalDateTime.class)))
+        when(parentRepository.findAllByArchivedAtIsNotNullAndArchivedAtBefore(any(LocalDateTime.class)))
                 .thenReturn(List.of(purgeable, restricted));
         doNothing().when(parentRepository).delete(purgeable);
         doThrow(new DataIntegrityViolationException("has related consents"))
                 .when(parentRepository).delete(restricted);
 
-        parentService.purgeExpiredSoftDeletedParents();
+        parentService.purgeExpiredArchivedParents();
 
         verify(parentRepository).delete(purgeable);
         verify(parentRepository).delete(restricted);
+    }
+
+    @Test
+    void claimParentWithinArchiveWindowRefillsDataAndClearsFlags() {
+        Parent parent = buildParent();
+        parent.setDeletedAt(LocalDateTime.now().minusDays(30));
+        parent.setArchivedAt(LocalDateTime.now().minusYears(2));
+        parent.setPhone(null);
+        parent.setAddress(null);
+        parent.setPreferredLanguage(null);
+        parent.setNotes(null);
+
+        ParentRequest request = new ParentRequest(
+                "Maria",
+                "Andersson",
+                "maria@example.com",
+                "0709999999",
+                "New Street 5",
+                "es",
+                null,
+                "Returning family",
+                null
+        );
+
+        when(parentRepository.findByParentIdAndArchivedAtIsNotNull(1L)).thenReturn(Optional.of(parent));
+        when(parentRepository.save(any(Parent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ParentResponse response = parentService.claimParent(1L, request);
+
+        assertThat(parent.getDeletedAt()).isNull();
+        assertThat(parent.getArchivedAt()).isNull();
+        assertThat(response.phone()).isEqualTo("0709999999");
+        assertThat(response.address()).isEqualTo("New Street 5");
+    }
+
+    @Test
+    void claimParentAfterArchiveWindowThrowsConflict() {
+        Parent parent = buildParent();
+        parent.setArchivedAt(LocalDateTime.now().minusYears(7));
+
+        when(parentRepository.findByParentIdAndArchivedAtIsNotNull(1L)).thenReturn(Optional.of(parent));
+
+        ParentRequest request = new ParentRequest(
+                "Maria", "Andersson", "maria@example.com", null, null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> parentService.claimParent(1L, request))
+                .isInstanceOf(ConflictException.class);
+
+        verify(parentRepository, never()).save(any(Parent.class));
+    }
+
+    @Test
+    void claimParentNotArchivedThrowsNotFound() {
+        when(parentRepository.findByParentIdAndArchivedAtIsNotNull(1L)).thenReturn(Optional.empty());
+
+        ParentRequest request = new ParentRequest(
+                "Maria", "Andersson", "maria@example.com", null, null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> parentService.claimParent(1L, request))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     private Parent buildParent() {

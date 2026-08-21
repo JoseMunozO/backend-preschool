@@ -31,6 +31,7 @@ import java.util.Set;
 public class ParentService {
 
     static final int RESTORE_GRACE_PERIOD_DAYS = 7;
+    static final int ARCHIVE_RETENTION_YEARS = 6;
 
     private final ParentRepository parentRepository;
     private final UserRepository userRepository;
@@ -93,6 +94,29 @@ public class ParentService {
     @Transactional
     public ParentResponse updateParent(Long parentId, ParentRequest request) {
         Parent parent = findParent(parentId);
+        applyParentFields(parent, request);
+
+        return toResponse(parentRepository.save(parent));
+    }
+
+    @Transactional
+    public ParentResponse claimParent(Long parentId, ParentRequest request) {
+        Parent parent = parentRepository.findByParentIdAndArchivedAtIsNotNull(parentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Padre/tutor archivado no encontrado"));
+
+        LocalDateTime archiveWindowStart = LocalDateTime.now().minusYears(ARCHIVE_RETENTION_YEARS);
+        if (parent.getArchivedAt().isBefore(archiveWindowStart)) {
+            throw new ConflictException("La ventana de recuperación de " + ARCHIVE_RETENTION_YEARS + " años ya expiró");
+        }
+
+        applyParentFields(parent, request);
+        parent.setDeletedAt(null);
+        parent.setArchivedAt(null);
+
+        return toResponse(parentRepository.save(parent));
+    }
+
+    private void applyParentFields(Parent parent, ParentRequest request) {
         User user = parent.getUser();
 
         String email = normalizeEmail(request.email());
@@ -113,8 +137,6 @@ public class ParentService {
         parent.setPreferredLanguage(trimToNull(request.preferredLanguage()));
         parent.setStatus(request.status() != null ? request.status() : ParentStatus.ACTIVE);
         parent.setNotes(trimToNull(request.notes()));
-
-        return toResponse(parentRepository.save(parent));
     }
 
     public ParentResponse deactivateParent(Long parentId) {
@@ -160,14 +182,28 @@ public class ParentService {
         return toResponse(parentRepository.save(parent));
     }
 
-    public void purgeExpiredSoftDeletedParents() {
+    @Transactional
+    public void archiveExpiredSoftDeletedParents() {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
 
-        for (Parent parent : parentRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(cutoff)) {
+        for (Parent parent : parentRepository.findAllByDeletedAtIsNotNullAndArchivedAtIsNullAndDeletedAtBefore(cutoff)) {
+            parent.setPhone(null);
+            parent.setAddress(null);
+            parent.setPreferredLanguage(null);
+            parent.setNotes(null);
+            parent.setArchivedAt(LocalDateTime.now());
+            parentRepository.save(parent);
+        }
+    }
+
+    public void purgeExpiredArchivedParents() {
+        LocalDateTime cutoff = LocalDateTime.now().minusYears(ARCHIVE_RETENTION_YEARS);
+
+        for (Parent parent : parentRepository.findAllByArchivedAtIsNotNullAndArchivedAtBefore(cutoff)) {
             try {
                 parentRepository.delete(parent);
             } catch (DataIntegrityViolationException ex) {
-                log.warn("No se pudo purgar el padre/tutor {}: tiene registros relacionados", parent.getParentId());
+                log.warn("No se pudo purgar el padre/tutor archivado {}: tiene registros relacionados", parent.getParentId());
             }
         }
     }
@@ -253,7 +289,8 @@ public class ParentService {
                 parent.getNotes(),
                 parent.getCreatedAt(),
                 parent.getUpdatedAt(),
-                parent.getDeletedAt()
+                parent.getDeletedAt(),
+                parent.getArchivedAt()
         );
     }
 

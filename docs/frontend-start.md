@@ -780,12 +780,23 @@ Endpoints:
 | PATCH | `/api/parents/{parentId}/activate` | Activar tutor |
 | PATCH | `/api/parents/{parentId}/deactivate` | Desactivar tutor |
 | DELETE | `/api/parents/{parentId}` | Eliminar tutor (soft-delete) |
-| POST | `/api/parents/{parentId}/restore` | Restaurar tutor eliminado (dentro de la ventana de gracia) |
+| POST | `/api/parents/{parentId}/restore` | Restaurar tutor eliminado (dentro de la ventana de gracia de 7 dias) |
+| POST | `/api/parents/{parentId}/claim` | Reclamar un tutor archivado (familia que vuelve) |
 | GET | `/api/parents/{parentId}/students` | Estudiantes vinculados |
 | POST | `/api/parents/{parentId}/students` | Vincular estudiante |
 | DELETE | `/api/parents/{parentId}/students/{studentId}` | Desvincular estudiante |
 
-Eliminar tutor y restauracion: mismo patron que estudiantes, materiales y horarios (ver seccion Students API) — `deletedAt` en vez de borrado fisico, ventana de gracia de **7 dias**, `409` si ya expiro, `404` si no existe/no esta eliminado. `deletedAt` es independiente del campo `status` (ACTIVE/INACTIVE): `status` sigue siendo el toggle operativo de activar/desactivar, `deletedAt` solo controla la papelera/restauracion. Diferencia con las otras entidades: si el tutor tiene consentimientos registrados (`student_consents`), la purga automatica de esa fila se omite (queda soft-deleted indefinidamente), igual que un estudiante con cargos de pago.
+Eliminar tutor y restauracion: mismo patron base que estudiantes, materiales y horarios (ver seccion Students API) — `deletedAt` en vez de borrado fisico, ventana de gracia de **7 dias** para `POST /restore`, `409` si ya expiro, `404` si no existe/no esta eliminado. `deletedAt` es independiente del campo `status` (ACTIVE/INACTIVE): `status` sigue siendo el toggle operativo de activar/desactivar, `deletedAt` solo controla la papelera/restauracion.
+
+**Diferencia importante con las otras 3 entidades: `Parent` no se purga a los 7 dias.** Tiene un tercer estado, "archivado", pensado para familias que podrian volver a inscribirse:
+
+- A los 7 dias sin restaurar, un job minimiza el registro en vez de borrarlo: se conservan `firstName`, `lastName`, `email` y la cuenta de login (`User`, contraseña intacta); se limpian `phone`, `address`, `preferredLanguage`, `notes`. Se marca `archivedAt`.
+- El vinculo con los hijos (`student_guardians`) se conserva automaticamente durante todo el archivado (util para elegibilidad de descuentos/beneficios a futuro), porque la fila no se borra, solo se vacian campos.
+- `POST /api/parents/{parentId}/claim` reactiva un archivado: recibe los datos completos (nombre/email ya estaban, hay que rellenar el resto), limpia `deletedAt` y `archivedAt`, y reactiva el mismo `parentId` — mismo shape de request que `ParentRequest` (igual que `PUT`). Responde `404` si no esta archivado, `409` si ya pasaron los **6 anios** desde `archivedAt`.
+- Recien despues de esos 6 anios se purga la fila para siempre (con el mismo bloqueo por FK si tiene consentimientos registrados que ya aplicaba antes).
+- `POST /restore` no cambio: sigue siendo solo el "deshacer rapido" de los primeros 7 dias; una vez archivado, `restore` da `409` automaticamente (hay que usar `claim` en su lugar).
+
+Sugerencia de UI: en la papelera (0-7 dias) sigue teniendo sentido el toast "Eliminado — Deshacer". Pasado ese punto, si el admin busca un tutor archivado (por nombre o email), la pantalla deberia pedir los datos faltantes (telefono, direccion, etc.) y llamar a `claim` en vez de a `restore`.
 
 Types:
 
@@ -804,6 +815,7 @@ export type Parent = {
   createdAt: ISODateTime | null;
   updatedAt: ISODateTime | null;
   deletedAt: ISODateTime | null;
+  archivedAt: ISODateTime | null;
 };
 
 export type ParentRequest = {

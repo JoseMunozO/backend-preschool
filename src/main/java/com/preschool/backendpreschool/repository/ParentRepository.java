@@ -31,5 +31,9 @@ public interface ParentRepository extends JpaRepository<Parent, Long> {
 
     Optional<Parent> findByParentIdAndDeletedAtIsNotNull(Long parentId);
 
-    List<Parent> findAllByDeletedAtIsNotNullAndDeletedAtBefore(LocalDateTime cutoff);
+    Optional<Parent> findByParentIdAndArchivedAtIsNotNull(Long parentId);
+
+    List<Parent> findAllByDeletedAtIsNotNullAndArchivedAtIsNullAndDeletedAtBefore(LocalDateTime cutoff);
+
+    List<Parent> findAllByArchivedAtIsNotNullAndArchivedAtBefore(LocalDateTime cutoff);
 }
