@@ -5,6 +5,8 @@ import com.preschool.backendpreschool.dto.ScheduleSlotResponse;
 import com.preschool.backendpreschool.dto.StaffGroupAssignmentRequest;
 import com.preschool.backendpreschool.dto.StaffGroupAssignmentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
+import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.ScheduleSlot;
 import com.preschool.backendpreschool.model.Staff;
@@ -19,15 +21,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -152,6 +159,98 @@ class ScheduleServiceTest {
 
         verify(staffRepository, never()).findById(any(Long.class));
         verify(staffGroupAssignmentRepository, never()).save(any(StaffGroupAssignment.class));
+    }
+
+    @Test
+    void deleteScheduleSlotSoftDeletesInsteadOfRemovingRow() {
+        ScheduleSlot slot = buildScheduleSlot();
+
+        when(scheduleSlotRepository.findByScheduleSlotIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(slot));
+        when(scheduleSlotRepository.save(any(ScheduleSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        scheduleService.deleteScheduleSlot(1L);
+
+        assertThat(slot.getDeletedAt()).isNotNull();
+        verify(scheduleSlotRepository, never()).delete(any(ScheduleSlot.class));
+        verify(scheduleSlotRepository).save(slot);
+    }
+
+    @Test
+    void restoreScheduleSlotWithinGraceWindowClearsDeletedAt() {
+        ScheduleSlot slot = buildScheduleSlot();
+        slot.setDeletedAt(LocalDateTime.now().minusDays(3));
+
+        when(scheduleSlotRepository.findByScheduleSlotIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.of(slot));
+        when(scheduleSlotRepository.save(any(ScheduleSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ScheduleSlotResponse response = scheduleService.restoreScheduleSlot(1L);
+
+        assertThat(slot.getDeletedAt()).isNull();
+        assertThat(response.deletedAt()).isNull();
+    }
+
+    @Test
+    void restoreScheduleSlotAfterGraceWindowThrowsConflict() {
+        ScheduleSlot slot = buildScheduleSlot();
+        slot.setDeletedAt(LocalDateTime.now().minusDays(8));
+
+        when(scheduleSlotRepository.findByScheduleSlotIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.of(slot));
+
+        assertThatThrownBy(() -> scheduleService.restoreScheduleSlot(1L))
+                .isInstanceOf(ConflictException.class);
+
+        verify(scheduleSlotRepository, never()).save(any(ScheduleSlot.class));
+    }
+
+    @Test
+    void restoreScheduleSlotNotDeletedThrowsNotFound() {
+        when(scheduleSlotRepository.findByScheduleSlotIdAndDeletedAtIsNotNull(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> scheduleService.restoreScheduleSlot(1L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getScheduleSlotsWithIncludeDeletedTrueReturnsSoftDeletedSlots() {
+        ScheduleSlot deleted = buildScheduleSlot();
+        deleted.setDeletedAt(LocalDateTime.now().minusDays(1));
+
+        when(scheduleSlotRepository.findAll()).thenReturn(List.of(deleted));
+
+        List<ScheduleSlotResponse> response = scheduleService.getScheduleSlots(null, null, true);
+
+        assertThat(response).extracting(ScheduleSlotResponse::scheduleSlotId).containsExactly(1L);
+    }
+
+    @Test
+    void purgeExpiredSoftDeletedScheduleSlotsDeletesExpiredSlots() {
+        ScheduleSlot purgeable = buildScheduleSlot();
+        ScheduleSlot restricted = buildScheduleSlot();
+        restricted.setScheduleSlotId(2L);
+
+        when(scheduleSlotRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(any(LocalDateTime.class)))
+                .thenReturn(List.of(purgeable, restricted));
+        doNothing().when(scheduleSlotRepository).delete(purgeable);
+        doThrow(new DataIntegrityViolationException("has related records"))
+                .when(scheduleSlotRepository).delete(restricted);
+
+        scheduleService.purgeExpiredSoftDeletedScheduleSlots();
+
+        verify(scheduleSlotRepository).delete(purgeable);
+        verify(scheduleSlotRepository).delete(restricted);
+    }
+
+    private ScheduleSlot buildScheduleSlot() {
+        return ScheduleSlot.builder()
+                .scheduleSlotId(1L)
+                .classGroup(buildClassGroup())
+                .primaryStaff(buildStaff())
+                .dayOfWeek(DayOfWeek.MONDAY)
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(10, 0))
+                .activityTitle("Actividad educativa")
+                .roomName("Aula Azul")
+                .build();
     }
 
     private ClassGroup buildClassGroup() {

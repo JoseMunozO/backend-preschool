@@ -8,6 +8,7 @@ import com.preschool.backendpreschool.service.ScheduleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,9 +32,10 @@ public class ScheduleController {
     @GetMapping
     public List<ScheduleSlotResponse> getScheduleSlots(
             @RequestParam(required = false) Long groupId,
-            @RequestParam(required = false) DayOfWeek dayOfWeek
+            @RequestParam(required = false) DayOfWeek dayOfWeek,
+            @RequestParam(required = false) Boolean includeDeleted
     ) {
-        return scheduleService.getScheduleSlots(groupId, dayOfWeek);
+        return scheduleService.getScheduleSlots(groupId, dayOfWeek, includeDeleted);
     }
 
     @GetMapping("/{scheduleSlotId}")
@@ -43,12 +45,12 @@ public class ScheduleController {
 
     @GetMapping("/groups/{groupId}")
     public List<ScheduleSlotResponse> getScheduleByGroup(@PathVariable Long groupId) {
-        return scheduleService.getScheduleSlots(groupId, null);
+        return scheduleService.getScheduleSlots(groupId, null, null);
     }
 
     @GetMapping("/days/{dayOfWeek}")
     public List<ScheduleSlotResponse> getScheduleByDay(@PathVariable DayOfWeek dayOfWeek) {
-        return scheduleService.getScheduleSlots(null, dayOfWeek);
+        return scheduleService.getScheduleSlots(null, dayOfWeek, null);
     }
 
     @GetMapping("/groups/{groupId}/days/{dayOfWeek}")
@@ -56,7 +58,18 @@ public class ScheduleController {
             @PathVariable Long groupId,
             @PathVariable DayOfWeek dayOfWeek
     ) {
-        return scheduleService.getScheduleSlots(groupId, dayOfWeek);
+        return scheduleService.getScheduleSlots(groupId, dayOfWeek, null);
+    }
+
+    @DeleteMapping("/{scheduleSlotId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteScheduleSlot(@PathVariable Long scheduleSlotId) {
+        scheduleService.deleteScheduleSlot(scheduleSlotId);
+    }
+
+    @PostMapping("/{scheduleSlotId}/restore")
+    public ScheduleSlotResponse restoreScheduleSlot(@PathVariable Long scheduleSlotId) {
+        return scheduleService.restoreScheduleSlot(scheduleSlotId);
     }
 
     @PostMapping

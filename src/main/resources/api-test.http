@@ -1098,6 +1098,24 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Delete schedule slot (soft-delete)
+DELETE http://localhost:8080/api/schedules/{{schedule_slot_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
+### List schedule slots including recently deleted ones
+GET http://localhost:8080/api/schedules?includeDeleted=true
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Restore a deleted schedule slot (within the 7-day grace window)
+POST http://localhost:8080/api/schedules/{{schedule_slot_id}}/restore
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Get staff group assignments
 GET http://localhost:8080/api/schedules/staff-assignments
 Authorization: Bearer {{admin_token}}
