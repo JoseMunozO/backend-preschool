@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -27,10 +28,13 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -109,6 +113,29 @@ class PaymentControllerApiTest {
                 .andExpect(jsonPath("$.paymentsReceived").value(1070.0));
 
         verify(paymentService).getMonthlyReport(YearMonth.of(2026, 6));
+    }
+
+    @Test
+    @WithMockUser(roles = "FINANCE")
+    void financeCanUpdateChargeToCancelIt() throws Exception {
+        when(paymentService.updateCharge(eq(10L), any())).thenReturn(charge());
+
+        mockMvc.perform(put("/api/payments/charges/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "studentId": 1,
+                                  "chargeTypeId": 1,
+                                  "dueDate": "2026-05-31",
+                                  "amountDue": 100.00,
+                                  "status": "CANCELLED",
+                                  "description": "Cancelado por cambio de plan"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studentChargeId").value(10));
+
+        verify(paymentService).updateCharge(eq(10L), any());
     }
 
     @Test

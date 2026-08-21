@@ -113,6 +113,30 @@ public class PaymentService {
         return toStudentChargeResponse(studentChargeRepository.save(charge));
     }
 
+    @Transactional
+    public StudentChargeResponse updateCharge(Long studentChargeId, StudentChargeRequest request) {
+        StudentCharge charge = findCharge(studentChargeId);
+
+        Student student = studentRepository.findById(request.studentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
+        ChargeType chargeType = chargeTypeRepository.findById(request.chargeTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tipo de cargo no encontrado"));
+
+        charge.setStudent(student);
+        charge.setChargeType(chargeType);
+        charge.setDueDate(request.dueDate());
+        charge.setBillingPeriodStart(request.billingPeriodStart());
+        charge.setBillingPeriodEnd(request.billingPeriodEnd());
+        charge.setAmountDue(request.amountDue());
+        charge.setDescription(trimToNull(request.description()));
+
+        if (request.status() != null) {
+            charge.setStatus(request.status());
+        }
+
+        return toStudentChargeResponse(studentChargeRepository.save(charge));
+    }
+
     public List<PaymentResponse> getPayments(Long parentId, LocalDate dateFrom, LocalDate dateTo) {
         return paymentRepository.findAll()
                 .stream()

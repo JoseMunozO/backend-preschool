@@ -211,7 +211,7 @@ El centro sabra rapidamente a quien contactar y quien es responsable de cada est
 - [x] Seguridad por roles para `ADMIN`, `DIRECTOR`, `FINANCE` y `PARENT`.
 - [x] Tests de servicio.
 - [x] Actualizar `api-test.http`.
-- [ ] Endpoint explicito para actualizar/cancelar estado de cargo sin registrar pago.
+- [x] Endpoint explicito para actualizar/cancelar estado de cargo sin registrar pago (2026-08-21): `PUT /api/payments/charges/{studentChargeId}`, reusa el mismo `StudentChargeRequest` que `POST /api/payments/charges`. Permite editar cualquier campo del cargo (fecha, monto, periodo de facturacion, descripcion, estudiante/tipo de cargo) y cambiar el `status` explicitamente — util sobre todo para `CANCELLED`, que hasta ahora solo era alcanzable al crear el cargo, nunca despues. Si `status` viene `null` en el request, el estado actual no se toca (evita pisar por accidente un `PAID`/`PARTIALLY_PAID` calculado automaticamente al editar otro campo). Verificado: cancelar bloquea pagos posteriores sobre ese cargo (`No se puede pagar un cargo cancelado`, ya existia esa regla), reactivar (`status: PENDING` explicito) vuelve a permitir pagos, `404` si el cargo no existe.
 - [x] Reporte/resumen mensual de pagos pendientes y atrasados: `GET /api/payments/reports/monthly?month=YYYY-MM` (mes opcional, default el mes actual). Devuelve conteo, saldo y detalle de cargos pendientes y atrasados de ese mes, mas el total de pagos recibidos.
 - [x] Tests de controller/API.
 - [ ] Revisar optimizacion de queries si el volumen de pagos crece.

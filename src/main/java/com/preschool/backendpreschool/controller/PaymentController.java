@@ -16,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -67,6 +68,14 @@ public class PaymentController {
             Authentication authentication
     ) {
         return paymentService.createCharge(request, authentication.getName());
+    }
+
+    @PutMapping("/charges/{studentChargeId}")
+    public StudentChargeResponse updateCharge(
+            @PathVariable Long studentChargeId,
+            @Valid @RequestBody StudentChargeRequest request
+    ) {
+        return paymentService.updateCharge(studentChargeId, request);
     }
 
     @GetMapping("/me")
