@@ -4,6 +4,8 @@ import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialRequest;
 import com.preschool.backendpreschool.dto.MaterialResponse;
+import com.preschool.backendpreschool.dto.MaterialSuggestedMinimumResponse;
+import com.preschool.backendpreschool.model.MaterialConsumptionWindow;
 import com.preschool.backendpreschool.model.MaterialStatus;
 import com.preschool.backendpreschool.service.MaterialService;
 import jakarta.validation.Valid;
@@ -74,6 +76,14 @@ public class MaterialController {
     @PostMapping("/{materialId}/restore")
     public MaterialResponse restoreMaterial(@PathVariable Long materialId) {
         return materialService.restoreMaterial(materialId);
+    }
+
+    @GetMapping("/{materialId}/suggested-minimum")
+    public MaterialSuggestedMinimumResponse getSuggestedMinimum(
+            @PathVariable Long materialId,
+            @RequestParam(required = false) MaterialConsumptionWindow window
+    ) {
+        return materialService.getSuggestedMinimum(materialId, window);
     }
 
     @GetMapping("/movements")

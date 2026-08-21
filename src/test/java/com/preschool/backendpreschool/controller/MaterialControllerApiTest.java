@@ -3,6 +3,8 @@ package com.preschool.backendpreschool.controller;
 import com.preschool.backendpreschool.config.JwtAuthenticationFilter;
 import com.preschool.backendpreschool.config.SecurityConfig;
 import com.preschool.backendpreschool.dto.MaterialResponse;
+import com.preschool.backendpreschool.dto.MaterialSuggestedMinimumResponse;
+import com.preschool.backendpreschool.model.MaterialConsumptionWindow;
 import com.preschool.backendpreschool.model.MaterialStatus;
 import com.preschool.backendpreschool.service.CustomUserDetailsService;
 import com.preschool.backendpreschool.service.JwtService;
@@ -87,6 +89,22 @@ class MaterialControllerApiTest {
 
         verify(materialService).deleteMaterial(1L);
         verify(materialService).restoreMaterial(1L);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanGetSuggestedMinimum() throws Exception {
+        when(materialService.getSuggestedMinimum(1L, MaterialConsumptionWindow.THREE_MONTHS)).thenReturn(
+                new MaterialSuggestedMinimumResponse(1L, 5, MaterialConsumptionWindow.THREE_MONTHS, 12.0, 12, true)
+        );
+
+        mockMvc.perform(get("/api/materials/1/suggested-minimum")
+                        .param("window", "THREE_MONTHS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.suggestedMinimumQuantity").value(12))
+                .andExpect(jsonPath("$.hasData").value(true));
+
+        verify(materialService).getSuggestedMinimum(1L, MaterialConsumptionWindow.THREE_MONTHS);
     }
 
     @Test

@@ -3,10 +3,12 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialResponse;
+import com.preschool.backendpreschool.dto.MaterialSuggestedMinimumResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Material;
+import com.preschool.backendpreschool.model.MaterialConsumptionWindow;
 import com.preschool.backendpreschool.model.MaterialMovement;
 import com.preschool.backendpreschool.model.MaterialMovementType;
 import com.preschool.backendpreschool.model.MaterialStatus;
@@ -28,6 +30,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -198,6 +201,57 @@ class MaterialServiceTest {
 
         verify(materialRepository).delete(purgeable);
         verify(materialRepository).delete(restricted);
+    }
+
+    @Test
+    void getSuggestedMinimumDefaultsToMonthWindowAndReturnsAverage() {
+        Material material = buildMaterial(8, 5);
+
+        when(materialRepository.findByMaterialIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(material));
+        when(materialMovementRepository.sumOutQuantitySince(eq(1L), any(LocalDateTime.class))).thenReturn(60);
+
+        MaterialSuggestedMinimumResponse response = materialService.getSuggestedMinimum(1L, null);
+
+        assertThat(response.window()).isEqualTo(MaterialConsumptionWindow.MONTH);
+        assertThat(response.averageMonthlyConsumption()).isEqualTo(60.0);
+        assertThat(response.suggestedMinimumQuantity()).isEqualTo(60);
+        assertThat(response.hasData()).isTrue();
+    }
+
+    @Test
+    void getSuggestedMinimumNormalizesShorterWindowToMonthlyAverage() {
+        Material material = buildMaterial(8, 5);
+
+        when(materialRepository.findByMaterialIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(material));
+        when(materialMovementRepository.sumOutQuantitySince(eq(1L), any(LocalDateTime.class))).thenReturn(14);
+
+        MaterialSuggestedMinimumResponse response = materialService.getSuggestedMinimum(1L, MaterialConsumptionWindow.WEEK);
+
+        assertThat(response.window()).isEqualTo(MaterialConsumptionWindow.WEEK);
+        assertThat(response.averageMonthlyConsumption()).isEqualTo(60.0);
+        assertThat(response.suggestedMinimumQuantity()).isEqualTo(60);
+    }
+
+    @Test
+    void getSuggestedMinimumWithNoMovementsReturnsNoData() {
+        Material material = buildMaterial(8, 5);
+
+        when(materialRepository.findByMaterialIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(material));
+        when(materialMovementRepository.sumOutQuantitySince(eq(1L), any(LocalDateTime.class))).thenReturn(0);
+
+        MaterialSuggestedMinimumResponse response = materialService.getSuggestedMinimum(1L, MaterialConsumptionWindow.THREE_MONTHS);
+
+        assertThat(response.hasData()).isFalse();
+        assertThat(response.suggestedMinimumQuantity()).isNull();
+        assertThat(response.averageMonthlyConsumption()).isEqualTo(0.0);
+    }
+
+    @Test
+    void getSuggestedMinimumMaterialNotFoundThrowsNotFound() {
+        when(materialRepository.findByMaterialIdAndDeletedAtIsNull(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> materialService.getSuggestedMinimum(1L, null))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     private Material buildMaterial(Integer quantityOnHand, Integer minimumQuantity) {

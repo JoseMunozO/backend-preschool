@@ -1040,6 +1040,18 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Get suggested minimum stock (default MONTH window)
+GET http://localhost:8080/api/materials/{{material_id}}/suggested-minimum
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get suggested minimum stock (specific window)
+GET http://localhost:8080/api/materials/{{material_id}}/suggested-minimum?window=THREE_MONTHS
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Get all schedule slots with ADMIN token
 GET http://localhost:8080/api/schedules
 Authorization: Bearer {{admin_token}}
