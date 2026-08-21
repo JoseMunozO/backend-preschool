@@ -12,7 +12,12 @@ public class ParentPurgeScheduler {
     private final ParentService parentService;
 
     @Scheduled(cron = "0 45 3 * * *")
-    public void purgeExpiredSoftDeletedParents() {
-        parentService.purgeExpiredSoftDeletedParents();
+    public void archiveExpiredSoftDeletedParents() {
+        parentService.archiveExpiredSoftDeletedParents();
+    }
+
+    @Scheduled(cron = "0 50 3 * * *")
+    public void purgeExpiredArchivedParents() {
+        parentService.purgeExpiredArchivedParents();
     }
 }

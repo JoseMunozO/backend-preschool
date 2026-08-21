@@ -372,6 +372,23 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Claim an archived parent (returning family, after the 7-day window, within 6 years)
+POST http://localhost:8080/api/parents/{{parent_id}}/claim
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "firstName": "Maria",
+  "lastName": "Andersson",
+  "email": "maria.andersson@example.com",
+  "phone": "0701234567",
+  "address": "New Street 5",
+  "preferredLanguage": "es",
+  "notes": "Returning family"
+}
+
+###
+
 ### Login created PARENT
 POST http://localhost:8080/api/auth/login
 Content-Type: application/json

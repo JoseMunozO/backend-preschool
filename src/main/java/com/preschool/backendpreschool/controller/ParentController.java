@@ -92,6 +92,14 @@ public class ParentController {
         return parentService.restoreParent(parentId);
     }
 
+    @PostMapping("/{parentId}/claim")
+    public ParentResponse claimParent(
+            @PathVariable Long parentId,
+            @Valid @RequestBody ParentRequest request
+    ) {
+        return parentService.claimParent(parentId, request);
+    }
+
     @GetMapping("/{parentId}/students")
     public List<StudentGuardianResponse> getLinkedStudents(@PathVariable Long parentId) {
         return studentGuardianService.getGuardiansByParent(parentId);

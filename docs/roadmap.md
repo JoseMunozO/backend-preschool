@@ -65,10 +65,31 @@ Patron usado para `Student`, `Material`, `ScheduleSlot` y `Parent`:
 - [x] `GET /api/students?includeDeleted=true` para que administracion vea los eliminados recientes (incluye `deletedAt` en la respuesta).
 - [x] Tests: soft-delete no borra la fila, restore dentro/fuera de la ventana, purga respeta registros protegidos por FK, `includeDeleted=true`. Verificado tambien end-to-end contra Docker real (crear, eliminar, confirmar oculto, restaurar, confirmar visible, forzar ventana expirada por SQL y confirmar 409).
 - [x] Mismo patron aplicado a `Material` (`DELETE/POST restore /api/materials/{id}`, `MaterialPurgeScheduler` diario 03:15), `ScheduleSlot` (`DELETE/POST restore /api/schedules/{id}`, `ScheduleSlotPurgeScheduler` diario 03:30) y `Parent` (`DELETE/POST restore /api/parents/{id}`, `ParentPurgeScheduler` diario 03:45) — horarios escalonados para no chocar entre jobs.
+- [x] `Parent` extendido con un tercer estado, "archivado" (2026-08-21): a diferencia de las otras 3 entidades, `Parent` no se purga a los 7 dias — pasa a un estado intermedio de retencion larga (6 anios) pensado para familias que podrian volver a inscribirse. Ver detalle en la seccion "Ciclo de vida extendido de Parent" mas abajo.
 
 Con esto quedan las 4 entidades acordadas (Student, Material, ScheduleSlot, Parent) con soft-delete/restore/purge completo.
 
 Esto desbloquea la funcion de frontend "confirmaciones para acciones sensibles" en su parte de eliminar estudiante (ver `frontend-preschool/docs/frontend-roadmap.md`).
+
+### Ciclo de vida extendido de Parent (2026-08-21)
+
+Pedido especifico del cliente: si una familia deja el preschool y despues vuelve (con el mismo hijo u otro), seria mejor poder recuperar el registro anterior del padre/tutor en vez de crear uno nuevo desde cero — asi se mantiene el historial de hijos vinculados (util para elegibilidad de descuentos o beneficios a futuro) y no hay que volver a crear cuenta de acceso.
+
+Por eso `Parent` tiene 4 estados en vez de los 2 simples (activo/eliminado) de las otras entidades:
+
+1. **Activo** — normal.
+2. **Papelera (0-7 dias)** — igual que las otras 3 entidades: `deletedAt` seteado, datos completos intactos, visible con `includeDeleted=true`, deshacer total con `POST /api/parents/{id}/restore` (sin cambios respecto al comportamiento original).
+3. **Archivado (dia 7 en adelante, nuevo)** — en vez de purgar a los 7 dias como las demas entidades, un job (`ParentPurgeScheduler.archiveExpiredSoftDeletedParents`, diario 03:45) minimiza el registro:
+   - Se conservan: `firstName`, `lastName`, `email` (para poder buscar visualmente en el archivo) y la cuenta de login vinculada (`User`, con su contraseña intacta). El vinculo con los hijos (`student_guardians`) tambien se conserva automaticamente porque la fila del padre/tutor no se borra, solo se vacian campos.
+   - Se limpian: `phone`, `address`, `preferredLanguage`, `notes`.
+   - Se marca con el nuevo campo `archivedAt`.
+4. **Purga definitiva** — recien 6 anios despues de `archivedAt` (no del soft-delete original), un job nuevo (`ParentPurgeScheduler.purgeExpiredArchivedParents`, diario 03:50) borra la fila para siempre, respetando el mismo bloqueo por FK que ya existia (si tiene consentimientos registrados, se omite y se loguea en vez de fallar).
+
+Si la familia vuelve durante el estado archivado: nuevo endpoint `POST /api/parents/{id}/claim` — recibe los datos completos (nombre/email ya estaban, hay que rellenar telefono/direccion/etc.), limpia `deletedAt` y `archivedAt`, y reactiva el mismo `parentId` de siempre (por eso el historial de hijos queda vinculado). Responde `404` si el padre/tutor no esta archivado, `409` si ya pasaron los 6 anios desde `archivedAt`.
+
+`POST /restore` no cambio: sigue siendo exclusivamente el "deshacer rapido" de los primeros 7 dias, ya rechaza automaticamente (409) una vez que el registro pasa a archivado, sin necesidad de tocar su logica.
+
+Verificado end-to-end contra Docker real: eliminar, forzar ventana de 7 dias expirada por SQL, simular archivado (campos minimizados via SQL, nombre/email intactos), confirmar 404 en `GET` directo, confirmar visible con `includeDeleted=true` mostrando `archivedAt`, reclamar con `claim` y confirmar que vuelve a ser un parent activo normal, forzar `archivedAt` a 7 anios y confirmar `409` en `claim`, y confirmar que la purga final (`DELETE` directo en MySQL) no encuentra bloqueos de FK.
 
 ## Version inicial recomendada
 

@@ -93,6 +93,30 @@ class ParentControllerApiTest {
         verify(parentService).restoreParent(1L);
     }
 
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanClaimArchivedParent() throws Exception {
+        when(parentService.claimParent(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(parent());
+
+        mockMvc.perform(post("/api/parents/1/claim")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName": "Ana",
+                                  "lastName": "Parent",
+                                  "email": "ana.parent@example.com",
+                                  "phone": "0700000000",
+                                  "address": "Street 1",
+                                  "preferredLanguage": "sv"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.parentId").value(1));
+
+        verify(parentService).claimParent(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any());
+    }
+
     private ParentResponse parent() {
         return new ParentResponse(
                 1L,
@@ -107,6 +131,7 @@ class ParentControllerApiTest {
                 null,
                 LocalDateTime.now(),
                 LocalDateTime.now(),
+                null,
                 null
         );
     }
