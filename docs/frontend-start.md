@@ -1002,7 +1002,7 @@ Endpoints:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/api/schedules?groupId=&dayOfWeek=` | Listar horarios |
+| GET | `/api/schedules?groupId=&dayOfWeek=&includeDeleted=` | Listar horarios (excluye eliminados salvo `includeDeleted=true`) |
 | GET | `/api/schedules/{scheduleSlotId}` | Obtener actividad |
 | GET | `/api/schedules/groups/{groupId}` | Horarios por grupo |
 | GET | `/api/schedules/days/{dayOfWeek}` | Horarios por dia |
@@ -1010,8 +1010,12 @@ Endpoints:
 | POST | `/api/schedules` | Crear actividad |
 | PUT | `/api/schedules/{scheduleSlotId}` | Actualizar actividad |
 | PUT | `/api/schedules/{scheduleSlotId}/primary-staff/{staffId}` | Asignar responsable |
+| DELETE | `/api/schedules/{scheduleSlotId}` | Eliminar actividad (soft-delete) |
+| POST | `/api/schedules/{scheduleSlotId}/restore` | Restaurar actividad eliminada (dentro de la ventana de gracia) |
 | GET | `/api/schedules/staff-assignments?groupId=&staffId=` | Asignaciones |
 | POST | `/api/schedules/staff-assignments` | Crear asignacion |
+
+Eliminar actividad y restauracion: mismo patron que estudiantes y materiales (ver seccion Students API) — `deletedAt` en vez de borrado fisico, ventana de gracia de **7 dias**, `409` si ya expiro, `404` si no existe/no esta eliminado. Diferencia: `schedule_slots` no tiene tablas que lo referencien, asi que la purga automatica nunca queda bloqueada por datos relacionados.
 
 Types:
 
@@ -1030,6 +1034,7 @@ export type ScheduleSlot = {
   notes: string | null;
   createdAt: ISODateTime | null;
   updatedAt: ISODateTime | null;
+  deletedAt: ISODateTime | null;
 };
 
 export type ScheduleSlotRequest = {

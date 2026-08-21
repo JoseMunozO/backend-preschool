@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -46,7 +47,7 @@ class ScheduleControllerApiTest {
     @Test
     @WithMockUser(roles = "TEACHER")
     void teacherCanReadAndCreateSchedulesUnderCurrentSecurityRules() throws Exception {
-        when(scheduleService.getScheduleSlots(1L, DayOfWeek.MONDAY)).thenReturn(List.of(slot()));
+        when(scheduleService.getScheduleSlots(1L, DayOfWeek.MONDAY, null)).thenReturn(List.of(slot()));
         when(scheduleService.createScheduleSlot(any())).thenReturn(slot());
 
         mockMvc.perform(get("/api/schedules")
@@ -60,7 +61,7 @@ class ScheduleControllerApiTest {
                         .content(validScheduleRequest()))
                 .andExpect(status().isCreated());
 
-        verify(scheduleService).getScheduleSlots(1L, DayOfWeek.MONDAY);
+        verify(scheduleService).getScheduleSlots(1L, DayOfWeek.MONDAY, null);
     }
 
     @Test
@@ -84,6 +85,22 @@ class ScheduleControllerApiTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanDeleteAndRestoreScheduleSlot() throws Exception {
+        when(scheduleService.restoreScheduleSlot(1L)).thenReturn(slot());
+
+        mockMvc.perform(delete("/api/schedules/1"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/schedules/1/restore"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scheduleSlotId").value(1));
+
+        verify(scheduleService).deleteScheduleSlot(1L);
+        verify(scheduleService).restoreScheduleSlot(1L);
+    }
+
+    @Test
     @WithMockUser(roles = "PARENT")
     void parentCannotAccessSchedules() throws Exception {
         mockMvc.perform(get("/api/schedules"))
@@ -104,7 +121,8 @@ class ScheduleControllerApiTest {
                 "Room 1",
                 null,
                 LocalDateTime.now(),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                null
         );
     }
 

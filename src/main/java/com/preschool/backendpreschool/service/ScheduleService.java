@@ -5,6 +5,7 @@ import com.preschool.backendpreschool.dto.ScheduleSlotResponse;
 import com.preschool.backendpreschool.dto.StaffGroupAssignmentRequest;
 import com.preschool.backendpreschool.dto.StaffGroupAssignmentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.ScheduleSlot;
@@ -16,22 +17,28 @@ import com.preschool.backendpreschool.repository.ScheduleSlotRepository;
 import com.preschool.backendpreschool.repository.StaffGroupAssignmentRepository;
 import com.preschool.backendpreschool.repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScheduleService {
+
+    static final int RESTORE_GRACE_PERIOD_DAYS = 7;
 
     private final ScheduleSlotRepository scheduleSlotRepository;
     private final StaffGroupAssignmentRepository staffGroupAssignmentRepository;
     private final ClassGroupRepository classGroupRepository;
     private final StaffRepository staffRepository;
 
-    public List<ScheduleSlotResponse> getScheduleSlots(Long groupId, DayOfWeek dayOfWeek) {
+    public List<ScheduleSlotResponse> getScheduleSlots(Long groupId, DayOfWeek dayOfWeek, Boolean includeDeleted) {
         if (groupId != null && !classGroupRepository.existsById(groupId)) {
             throw new ResourceNotFoundException("Grupo no encontrado");
         }
@@ -54,6 +61,7 @@ public class ScheduleService {
         }
 
         return slots.stream()
+                .filter(slot -> Boolean.TRUE.equals(includeDeleted) || slot.getDeletedAt() == null)
                 .map(this::toScheduleSlotResponse)
                 .toList();
     }
@@ -155,8 +163,41 @@ public class ScheduleService {
         }
     }
 
+    @Transactional
+    public void deleteScheduleSlot(Long scheduleSlotId) {
+        ScheduleSlot slot = findScheduleSlot(scheduleSlotId);
+        slot.setDeletedAt(LocalDateTime.now());
+        scheduleSlotRepository.save(slot);
+    }
+
+    @Transactional
+    public ScheduleSlotResponse restoreScheduleSlot(Long scheduleSlotId) {
+        ScheduleSlot slot = scheduleSlotRepository.findByScheduleSlotIdAndDeletedAtIsNotNull(scheduleSlotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Actividad de horario eliminada no encontrada"));
+
+        LocalDateTime graceWindowStart = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
+        if (slot.getDeletedAt().isBefore(graceWindowStart)) {
+            throw new ConflictException("La ventana de restauración de " + RESTORE_GRACE_PERIOD_DAYS + " días ya expiró");
+        }
+
+        slot.setDeletedAt(null);
+        return toScheduleSlotResponse(scheduleSlotRepository.save(slot));
+    }
+
+    public void purgeExpiredSoftDeletedScheduleSlots() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(RESTORE_GRACE_PERIOD_DAYS);
+
+        for (ScheduleSlot slot : scheduleSlotRepository.findAllByDeletedAtIsNotNullAndDeletedAtBefore(cutoff)) {
+            try {
+                scheduleSlotRepository.delete(slot);
+            } catch (DataIntegrityViolationException ex) {
+                log.warn("No se pudo purgar la actividad de horario {}: tiene registros relacionados", slot.getScheduleSlotId());
+            }
+        }
+    }
+
     private ScheduleSlot findScheduleSlot(Long scheduleSlotId) {
-        return scheduleSlotRepository.findById(scheduleSlotId)
+        return scheduleSlotRepository.findByScheduleSlotIdAndDeletedAtIsNull(scheduleSlotId)
                 .orElseThrow(() -> new ResourceNotFoundException("Actividad de horario no encontrada"));
     }
 
@@ -191,7 +232,8 @@ public class ScheduleService {
                 slot.getRoomName(),
                 slot.getNotes(),
                 slot.getCreatedAt(),
-                slot.getUpdatedAt()
+                slot.getUpdatedAt(),
+                slot.getDeletedAt()
         );
     }
 

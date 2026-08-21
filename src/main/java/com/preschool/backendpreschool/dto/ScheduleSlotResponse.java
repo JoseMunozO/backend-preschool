@@ -17,6 +17,7 @@ public record ScheduleSlotResponse(
         String roomName,
         String notes,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        LocalDateTime deletedAt
 ) {
 }
