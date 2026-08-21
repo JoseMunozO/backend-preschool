@@ -23,6 +23,7 @@ import java.util.List;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,7 +42,7 @@ class MaterialControllerApiTest {
     @Test
     @WithMockUser(roles = "TEACHER")
     void teacherCanReadMaterialsButCannotCreate() throws Exception {
-        when(materialService.getMaterials("paper", "classroom", MaterialStatus.ACTIVE, true))
+        when(materialService.getMaterials("paper", "classroom", MaterialStatus.ACTIVE, true, null))
                 .thenReturn(List.of(material()));
 
         mockMvc.perform(get("/api/materials")
@@ -57,7 +58,7 @@ class MaterialControllerApiTest {
                         .content(validMaterialRequest()))
                 .andExpect(status().isForbidden());
 
-        verify(materialService).getMaterials("paper", "classroom", MaterialStatus.ACTIVE, true);
+        verify(materialService).getMaterials("paper", "classroom", MaterialStatus.ACTIVE, true, null);
     }
 
     @Test
@@ -70,6 +71,22 @@ class MaterialControllerApiTest {
                         .content(validMaterialRequest()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.materialId").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void adminCanDeleteAndRestoreMaterial() throws Exception {
+        when(materialService.restoreMaterial(1L)).thenReturn(material());
+
+        mockMvc.perform(delete("/api/materials/1"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/materials/1/restore"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.materialId").value(1));
+
+        verify(materialService).deleteMaterial(1L);
+        verify(materialService).restoreMaterial(1L);
     }
 
     @Test
@@ -92,7 +109,8 @@ class MaterialControllerApiTest {
                 MaterialStatus.ACTIVE,
                 null,
                 LocalDateTime.now(),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                null
         );
     }
 

@@ -934,13 +934,17 @@ Endpoints:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/api/materials?search=&category=&status=&lowStock=` | Listar/buscar materiales |
+| GET | `/api/materials?search=&category=&status=&lowStock=&includeDeleted=` | Listar/buscar materiales (excluye eliminados salvo `includeDeleted=true`) |
 | GET | `/api/materials/low-stock` | Materiales con stock bajo |
 | GET | `/api/materials/{materialId}` | Obtener material |
 | POST | `/api/materials` | Crear material |
 | PUT | `/api/materials/{materialId}` | Actualizar material |
 | GET | `/api/materials/movements?materialId=` | Movimientos |
 | POST | `/api/materials/{materialId}/movements` | Registrar movimiento |
+| DELETE | `/api/materials/{materialId}` | Eliminar material (soft-delete, ver abajo) |
+| POST | `/api/materials/{materialId}/restore` | Restaurar material eliminado (dentro de la ventana de gracia) |
+
+Eliminar material y restauracion: mismo patron que estudiantes (`DELETE /api/students/{id}`, ver seccion Students API) — `deletedAt` en vez de borrado fisico, ventana de gracia de **7 dias**, `409` si ya expiro, `404` si no existe/no esta eliminado. Diferencia: los movimientos de un material purgado despues de los 7 dias tambien se borran (no estan protegidos como los cargos de pago de un estudiante).
 
 Types:
 
@@ -958,6 +962,7 @@ export type Material = {
   notes: string | null;
   createdAt: ISODateTime | null;
   updatedAt: ISODateTime | null;
+  deletedAt: ISODateTime | null;
 };
 
 export type MaterialRequest = {

@@ -54,6 +54,9 @@ public class Material {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 

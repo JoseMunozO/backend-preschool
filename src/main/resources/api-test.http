@@ -1004,6 +1004,24 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Delete material (soft-delete)
+DELETE http://localhost:8080/api/materials/{{material_id}}
+Authorization: Bearer {{admin_token}}
+
+###
+
+### List materials including recently deleted ones
+GET http://localhost:8080/api/materials?includeDeleted=true
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Restore a deleted material (within the 7-day grace window)
+POST http://localhost:8080/api/materials/{{material_id}}/restore
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Get all schedule slots with ADMIN token
 GET http://localhost:8080/api/schedules
 Authorization: Bearer {{admin_token}}

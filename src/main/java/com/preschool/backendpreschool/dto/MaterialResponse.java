@@ -16,6 +16,7 @@ public record MaterialResponse(
         MaterialStatus status,
         String notes,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        LocalDateTime deletedAt
 ) {
 }
