@@ -13,6 +13,7 @@ public record MaterialMovementResponse(
         LocalDateTime movementDate,
         Long performedByUserId,
         String performedByEmail,
+        String performedByName,
         String notes,
         LocalDateTime createdAt
 ) {

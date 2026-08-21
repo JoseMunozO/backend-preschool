@@ -949,10 +949,15 @@ Endpoints:
 | DELETE | `/api/materials/{materialId}` | Eliminar material (soft-delete, ver abajo) |
 | POST | `/api/materials/{materialId}/restore` | Restaurar material eliminado (dentro de la ventana de gracia) |
 | GET | `/api/materials/{materialId}/suggested-minimum?window=` | Sugerencia de stock minimo basada en consumo real |
+| GET | `/api/materials/{materialId}/audit-log` | Historial de ediciones al material |
 
 Eliminar material y restauracion: mismo patron que estudiantes (`DELETE /api/students/{id}`, ver seccion Students API) — `deletedAt` en vez de borrado fisico, ventana de gracia de **7 dias**, `409` si ya expiro, `404` si no existe/no esta eliminado. Diferencia: los movimientos de un material purgado despues de los 7 dias tambien se borran (no estan protegidos como los cargos de pago de un estudiante).
 
 Minimo sugerido: calcula el consumo real (solo movimientos `OUT`) del material dentro de una ventana elegida por el usuario y lo normaliza a un promedio mensual, para que el numero sea comparable sin importar la ventana. `window` es opcional (default `MONTH`); valores: `WEEK`, `MONTH`, `THREE_MONTHS`, `SIX_MONTHS`, `TWELVE_MONTHS`. Es solo una sugerencia — nunca escribe `minimumQuantity` automaticamente; el frontend la muestra como hint junto al campo del formulario y el admin decide si la usa (guardando normalmente con `PUT /api/materials/{id}`) o pone otro valor a mano. Si no hay movimientos `OUT` en la ventana elegida, `hasData: false` y `suggestedMinimumQuantity: null` — no se inventa un numero sin datos.
+
+Auditoria de ediciones: cada `PUT /api/materials/{materialId}` guarda automaticamente un snapshot antes/despues en `material_audit_log` — quien lo edito (si tiene `Staff` asociado), cuando, y el estado completo del material antes y despues del cambio (como texto plano `campo=valor; campo=valor...`, no JSON estructurado). `GET /api/materials/{materialId}/audit-log` lo lista, mas reciente primero. Retencion: 3 anios, despues se borra automaticamente (job diario) — es historial operativo, no un comprobante fiscal, asi que no aplica la retencion legal de pagos.
+
+`performedByName` en movimientos: si quien registro el movimiento tiene un registro `Staff` vinculado, se resuelve su nombre; si no (ej. una cuenta admin sin perfil de staff), queda `null` y solo esta disponible `performedByEmail` como antes.
 
 Types:
 
@@ -993,8 +998,21 @@ export type MaterialMovement = {
   movementDate: ISODateTime;
   performedByUserId: number | null;
   performedByEmail: string | null;
+  performedByName: string | null;
   notes: string | null;
   createdAt: ISODateTime | null;
+};
+
+export type MaterialAuditLog = {
+  materialAuditLogId: number;
+  materialId: number;
+  materialName: string;
+  changedByUserId: number | null;
+  changedByEmail: string | null;
+  changedByName: string | null;
+  changedAt: ISODateTime;
+  previousValues: string;
+  newValues: string;
 };
 
 export type MaterialConsumptionWindow =

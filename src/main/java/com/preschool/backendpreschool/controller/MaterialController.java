@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.controller;
 
+import com.preschool.backendpreschool.dto.MaterialAuditLogResponse;
 import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialRequest;
@@ -62,9 +63,10 @@ public class MaterialController {
     @PutMapping("/{materialId}")
     public MaterialResponse updateMaterial(
             @PathVariable Long materialId,
-            @Valid @RequestBody MaterialRequest request
+            @Valid @RequestBody MaterialRequest request,
+            Authentication authentication
     ) {
-        return materialService.updateMaterial(materialId, request);
+        return materialService.updateMaterial(materialId, request, authentication.getName());
     }
 
     @DeleteMapping("/{materialId}")
@@ -84,6 +86,11 @@ public class MaterialController {
             @RequestParam(required = false) MaterialConsumptionWindow window
     ) {
         return materialService.getSuggestedMinimum(materialId, window);
+    }
+
+    @GetMapping("/{materialId}/audit-log")
+    public List<MaterialAuditLogResponse> getAuditLog(@PathVariable Long materialId) {
+        return materialService.getAuditLog(materialId);
     }
 
     @GetMapping("/movements")

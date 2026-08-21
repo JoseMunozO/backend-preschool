@@ -1,23 +1,29 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.MaterialAuditLogResponse;
 import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
+import com.preschool.backendpreschool.dto.MaterialRequest;
 import com.preschool.backendpreschool.dto.MaterialResponse;
 import com.preschool.backendpreschool.dto.MaterialSuggestedMinimumResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Material;
+import com.preschool.backendpreschool.model.MaterialAuditLog;
 import com.preschool.backendpreschool.model.MaterialConsumptionWindow;
 import com.preschool.backendpreschool.model.MaterialMovement;
 import com.preschool.backendpreschool.model.MaterialMovementType;
 import com.preschool.backendpreschool.model.MaterialStatus;
 import com.preschool.backendpreschool.model.User;
+import com.preschool.backendpreschool.repository.MaterialAuditLogRepository;
 import com.preschool.backendpreschool.repository.MaterialMovementRepository;
 import com.preschool.backendpreschool.repository.MaterialRepository;
+import com.preschool.backendpreschool.repository.StaffRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -47,7 +53,13 @@ class MaterialServiceTest {
     private MaterialMovementRepository materialMovementRepository;
 
     @Mock
+    private MaterialAuditLogRepository materialAuditLogRepository;
+
+    @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private StaffRepository staffRepository;
 
     @InjectMocks
     private MaterialService materialService;
@@ -115,6 +127,75 @@ class MaterialServiceTest {
         );
 
         assertThat(material.getQuantityOnHand()).isEqualTo(6);
+    }
+
+    @Test
+    void updateMaterialRecordsAuditLogWithBeforeAfterSnapshot() {
+        Material material = buildMaterial(8, 5);
+        User user = User.builder()
+                .userId(4L)
+                .email("admin@school.com")
+                .build();
+
+        when(materialRepository.findByMaterialIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(material));
+        when(materialRepository.save(any(Material.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(user));
+
+        MaterialRequest request = new MaterialRequest(
+                "MAT-001",
+                "Toallas de papel premium",
+                "limpieza",
+                "paquete",
+                8,
+                7,
+                MaterialStatus.ACTIVE,
+                "Material de prueba"
+        );
+
+        materialService.updateMaterial(1L, request, "admin@school.com");
+
+        ArgumentCaptor<MaterialAuditLog> auditCaptor = ArgumentCaptor.forClass(MaterialAuditLog.class);
+        verify(materialAuditLogRepository).save(auditCaptor.capture());
+
+        MaterialAuditLog savedAudit = auditCaptor.getValue();
+        assertThat(savedAudit.getChangedByUser()).isEqualTo(user);
+        assertThat(savedAudit.getPreviousValues()).contains("name=Toallas de papel").doesNotContain("premium");
+        assertThat(savedAudit.getNewValues()).contains("name=Toallas de papel premium").contains("minimumQuantity=7");
+    }
+
+    @Test
+    void getAuditLogReturnsEntriesForMaterial() {
+        Material material = buildMaterial(8, 5);
+        MaterialAuditLog auditLog = MaterialAuditLog.builder()
+                .materialAuditLogId(1L)
+                .material(material)
+                .previousValues("minimumQuantity=5")
+                .newValues("minimumQuantity=7")
+                .build();
+
+        when(materialRepository.existsById(1L)).thenReturn(true);
+        when(materialAuditLogRepository.findByMaterialMaterialIdOrderByChangedAtDesc(1L)).thenReturn(List.of(auditLog));
+
+        List<MaterialAuditLogResponse> response = materialService.getAuditLog(1L);
+
+        assertThat(response).extracting(MaterialAuditLogResponse::materialAuditLogId).containsExactly(1L);
+        assertThat(response.get(0).newValues()).isEqualTo("minimumQuantity=7");
+    }
+
+    @Test
+    void getAuditLogMaterialNotFoundThrowsNotFound() {
+        when(materialRepository.existsById(1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> materialService.getAuditLog(1L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void purgeExpiredMaterialHistoryDeletesOldMovementsAndAuditLog() {
+        materialService.purgeExpiredMaterialHistory();
+
+        verify(materialMovementRepository).deleteAllByMovementDateBefore(any(LocalDateTime.class));
+        verify(materialAuditLogRepository).deleteAllByChangedAtBefore(any(LocalDateTime.class));
     }
 
     @Test

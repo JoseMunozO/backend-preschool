@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.MaterialAuditLogResponse;
 import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialRequest;
@@ -9,13 +10,16 @@ import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Material;
+import com.preschool.backendpreschool.model.MaterialAuditLog;
 import com.preschool.backendpreschool.model.MaterialConsumptionWindow;
 import com.preschool.backendpreschool.model.MaterialMovement;
 import com.preschool.backendpreschool.model.MaterialMovementType;
 import com.preschool.backendpreschool.model.MaterialStatus;
 import com.preschool.backendpreschool.model.User;
+import com.preschool.backendpreschool.repository.MaterialAuditLogRepository;
 import com.preschool.backendpreschool.repository.MaterialMovementRepository;
 import com.preschool.backendpreschool.repository.MaterialRepository;
+import com.preschool.backendpreschool.repository.StaffRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,10 +36,13 @@ import java.util.List;
 public class MaterialService {
 
     static final int RESTORE_GRACE_PERIOD_DAYS = 7;
+    static final int HISTORY_RETENTION_YEARS = 3;
 
     private final MaterialRepository materialRepository;
     private final MaterialMovementRepository materialMovementRepository;
+    private final MaterialAuditLogRepository materialAuditLogRepository;
     private final UserRepository userRepository;
+    private final StaffRepository staffRepository;
 
     public List<MaterialResponse> getMaterials(String search, String category, MaterialStatus status, Boolean lowStock, Boolean includeDeleted) {
         List<Material> baseMaterials = Boolean.TRUE.equals(includeDeleted)
@@ -85,12 +92,14 @@ public class MaterialService {
     }
 
     @Transactional
-    public MaterialResponse updateMaterial(Long materialId, MaterialRequest request) {
+    public MaterialResponse updateMaterial(Long materialId, MaterialRequest request, String performedByEmail) {
         Material material = findMaterial(materialId);
         String sku = trimToNull(request.sku());
         if (sku != null && !sku.equals(material.getSku()) && materialRepository.existsBySku(sku)) {
             throw new BadRequestException("Ya existe un material con ese SKU");
         }
+
+        String previousValues = snapshotMaterial(material);
 
         material.setSku(sku);
         material.setName(request.name().trim());
@@ -101,7 +110,21 @@ public class MaterialService {
         material.setStatus(request.status() != null ? request.status() : MaterialStatus.ACTIVE);
         material.setNotes(trimToNull(request.notes()));
 
-        return toMaterialResponse(materialRepository.save(material));
+        Material savedMaterial = materialRepository.save(material);
+        recordAuditLog(savedMaterial, previousValues, snapshotMaterial(savedMaterial), performedByEmail);
+
+        return toMaterialResponse(savedMaterial);
+    }
+
+    public List<MaterialAuditLogResponse> getAuditLog(Long materialId) {
+        if (!materialRepository.existsById(materialId)) {
+            throw new ResourceNotFoundException("Material no encontrado");
+        }
+
+        return materialAuditLogRepository.findByMaterialMaterialIdOrderByChangedAtDesc(materialId)
+                .stream()
+                .map(this::toAuditLogResponse)
+                .toList();
     }
 
     public MaterialSuggestedMinimumResponse getSuggestedMinimum(Long materialId, MaterialConsumptionWindow window) {
@@ -210,6 +233,37 @@ public class MaterialService {
         }
     }
 
+    @Transactional
+    public void purgeExpiredMaterialHistory() {
+        LocalDateTime cutoff = LocalDateTime.now().minusYears(HISTORY_RETENTION_YEARS);
+        materialMovementRepository.deleteAllByMovementDateBefore(cutoff);
+        materialAuditLogRepository.deleteAllByChangedAtBefore(cutoff);
+    }
+
+    private void recordAuditLog(Material material, String previousValues, String newValues, String performedByEmail) {
+        User changedBy = performedByEmail == null ? null : userRepository.findByEmail(performedByEmail).orElse(null);
+
+        MaterialAuditLog auditLog = MaterialAuditLog.builder()
+                .material(material)
+                .changedByUser(changedBy)
+                .previousValues(previousValues)
+                .newValues(newValues)
+                .build();
+
+        materialAuditLogRepository.save(auditLog);
+    }
+
+    private String snapshotMaterial(Material material) {
+        return "sku=" + material.getSku()
+                + "; name=" + material.getName()
+                + "; category=" + material.getCategory()
+                + "; unit=" + material.getUnit()
+                + "; quantityOnHand=" + material.getQuantityOnHand()
+                + "; minimumQuantity=" + material.getMinimumQuantity()
+                + "; status=" + material.getStatus()
+                + "; notes=" + material.getNotes();
+    }
+
     private Material findMaterial(Long materialId) {
         return materialRepository.findByMaterialIdAndDeletedAtIsNull(materialId)
                 .orElseThrow(() -> new ResourceNotFoundException("Material no encontrado"));
@@ -246,9 +300,37 @@ public class MaterialService {
                 movement.getMovementDate(),
                 performedBy != null ? performedBy.getUserId() : null,
                 performedBy != null ? performedBy.getEmail() : null,
+                staffName(performedBy),
                 movement.getNotes(),
                 movement.getCreatedAt()
         );
+    }
+
+    private MaterialAuditLogResponse toAuditLogResponse(MaterialAuditLog auditLog) {
+        Material material = auditLog.getMaterial();
+        User changedBy = auditLog.getChangedByUser();
+
+        return new MaterialAuditLogResponse(
+                auditLog.getMaterialAuditLogId(),
+                material.getMaterialId(),
+                material.getName(),
+                changedBy != null ? changedBy.getUserId() : null,
+                changedBy != null ? changedBy.getEmail() : null,
+                staffName(changedBy),
+                auditLog.getChangedAt(),
+                auditLog.getPreviousValues(),
+                auditLog.getNewValues()
+        );
+    }
+
+    private String staffName(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        return staffRepository.findByUserEmail(user.getEmail())
+                .map(staff -> staff.getFirstName() + " " + staff.getLastName())
+                .orElse(null);
     }
 
     private boolean matchesSearch(Material material, String search) {

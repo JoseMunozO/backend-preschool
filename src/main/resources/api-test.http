@@ -1052,6 +1052,12 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Get audit log for a material
+GET http://localhost:8080/api/materials/{{material_id}}/audit-log
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Get all schedule slots with ADMIN token
 GET http://localhost:8080/api/schedules
 Authorization: Bearer {{admin_token}}
