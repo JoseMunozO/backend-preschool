@@ -4,10 +4,12 @@ import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialRequest;
 import com.preschool.backendpreschool.dto.MaterialResponse;
+import com.preschool.backendpreschool.dto.MaterialSuggestedMinimumResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Material;
+import com.preschool.backendpreschool.model.MaterialConsumptionWindow;
 import com.preschool.backendpreschool.model.MaterialMovement;
 import com.preschool.backendpreschool.model.MaterialMovementType;
 import com.preschool.backendpreschool.model.MaterialStatus;
@@ -100,6 +102,29 @@ public class MaterialService {
         material.setNotes(trimToNull(request.notes()));
 
         return toMaterialResponse(materialRepository.save(material));
+    }
+
+    public MaterialSuggestedMinimumResponse getSuggestedMinimum(Long materialId, MaterialConsumptionWindow window) {
+        Material material = findMaterial(materialId);
+        MaterialConsumptionWindow effectiveWindow = window != null ? window : MaterialConsumptionWindow.MONTH;
+
+        LocalDateTime since = LocalDateTime.now().minusDays(effectiveWindow.getDays());
+        int totalOutQuantity = materialMovementRepository.sumOutQuantitySince(materialId, since);
+        boolean hasData = totalOutQuantity > 0;
+
+        double averageMonthlyConsumption = hasData
+                ? totalOutQuantity * (30.0 / effectiveWindow.getDays())
+                : 0;
+        Integer suggestedMinimumQuantity = hasData ? (int) Math.ceil(averageMonthlyConsumption) : null;
+
+        return new MaterialSuggestedMinimumResponse(
+                material.getMaterialId(),
+                material.getMinimumQuantity(),
+                effectiveWindow,
+                averageMonthlyConsumption,
+                suggestedMinimumQuantity,
+                hasData
+        );
     }
 
     public List<MaterialMovementResponse> getMovements(Long materialId) {

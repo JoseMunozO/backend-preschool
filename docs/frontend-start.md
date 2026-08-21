@@ -948,8 +948,11 @@ Endpoints:
 | POST | `/api/materials/{materialId}/movements` | Registrar movimiento |
 | DELETE | `/api/materials/{materialId}` | Eliminar material (soft-delete, ver abajo) |
 | POST | `/api/materials/{materialId}/restore` | Restaurar material eliminado (dentro de la ventana de gracia) |
+| GET | `/api/materials/{materialId}/suggested-minimum?window=` | Sugerencia de stock minimo basada en consumo real |
 
 Eliminar material y restauracion: mismo patron que estudiantes (`DELETE /api/students/{id}`, ver seccion Students API) — `deletedAt` en vez de borrado fisico, ventana de gracia de **7 dias**, `409` si ya expiro, `404` si no existe/no esta eliminado. Diferencia: los movimientos de un material purgado despues de los 7 dias tambien se borran (no estan protegidos como los cargos de pago de un estudiante).
+
+Minimo sugerido: calcula el consumo real (solo movimientos `OUT`) del material dentro de una ventana elegida por el usuario y lo normaliza a un promedio mensual, para que el numero sea comparable sin importar la ventana. `window` es opcional (default `MONTH`); valores: `WEEK`, `MONTH`, `THREE_MONTHS`, `SIX_MONTHS`, `TWELVE_MONTHS`. Es solo una sugerencia — nunca escribe `minimumQuantity` automaticamente; el frontend la muestra como hint junto al campo del formulario y el admin decide si la usa (guardando normalmente con `PUT /api/materials/{id}`) o pone otro valor a mano. Si no hay movimientos `OUT` en la ventana elegida, `hasData: false` y `suggestedMinimumQuantity: null` — no se inventa un numero sin datos.
 
 Types:
 
@@ -992,6 +995,22 @@ export type MaterialMovement = {
   performedByEmail: string | null;
   notes: string | null;
   createdAt: ISODateTime | null;
+};
+
+export type MaterialConsumptionWindow =
+  | "WEEK"
+  | "MONTH"
+  | "THREE_MONTHS"
+  | "SIX_MONTHS"
+  | "TWELVE_MONTHS";
+
+export type MaterialSuggestedMinimum = {
+  materialId: number;
+  currentMinimumQuantity: number | null;
+  window: MaterialConsumptionWindow;
+  averageMonthlyConsumption: number;
+  suggestedMinimumQuantity: number | null;
+  hasData: boolean;
 };
 ```
 
