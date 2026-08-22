@@ -20,7 +20,7 @@ public class RoleService {
     public List<RoleResponse> getAllRoles() {
         return roleRepository.findAll()
                 .stream()
-                .sorted(Comparator.comparing(role -> role.getCode().name()))
+                .sorted(Comparator.comparing(Role::getRankLevel).reversed().thenComparing(role -> role.getCode().name()))
                 .map(this::toResponse)
                 .toList();
     }
@@ -38,6 +38,7 @@ public class RoleService {
                 role.getCode(),
                 role.getName(),
                 role.getDescription(),
+                role.getRankLevel(),
                 role.getCreatedAt()
         );
     }

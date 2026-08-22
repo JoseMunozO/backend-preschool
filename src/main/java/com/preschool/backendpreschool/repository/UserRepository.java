@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.repository;
 
+import com.preschool.backendpreschool.model.RoleName;
 import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.model.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +19,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByStatus(UserStatus status);
 
     List<User> findByEmailContainingIgnoreCaseOrPhoneContainingIgnoreCase(String email, String phone);
+
+    long countByRolesCode(RoleName code);
 }

@@ -64,7 +64,7 @@ class RoleControllerApiTest {
     }
 
     private RoleResponse role() {
-        return new RoleResponse(2L, RoleName.ADMIN, "Admin", "Administrative access", LocalDateTime.now());
+        return new RoleResponse(2L, RoleName.ADMIN, "Admin", "Administrative access", 90, LocalDateTime.now());
     }
 
     static class SecurityTestConfig {

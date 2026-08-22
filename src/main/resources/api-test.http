@@ -280,6 +280,64 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Rank guard: DIRECTOR cannot assign SUPER_ADMIN (expect 403)
+POST http://localhost:8080/api/users/1/roles
+Content-Type: application/json
+Authorization: Bearer {{director_token}}
+
+{
+  "role": "SUPER_ADMIN"
+}
+
+###
+
+### List staff with ADMIN token
+GET http://localhost:8080/api/staff
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Get staff by id with ADMIN token
+GET http://localhost:8080/api/staff/1
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create staff position without login access
+POST http://localhost:8080/api/staff
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "firstName": "Nina",
+  "lastName": "Cook",
+  "positionTitle": "Kitchen Staff",
+  "staffType": "support",
+  "hireDate": "2026-08-24"
+}
+
+###
+
+### Create staff position with login access and initial roles (teacher taking on finance duties)
+POST http://localhost:8080/api/staff
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "firstName": "Erik",
+  "lastName": "Nilsson",
+  "email": "erik.nilsson@school.com",
+  "phone": "0709998877",
+  "employeeCode": "STAFF-020",
+  "positionTitle": "Lead Teacher",
+  "staffType": "teacher",
+  "hireDate": "2026-08-24",
+  "password": "123456",
+  "roles": ["TEACHER", "FINANCE"]
+}
+
+###
+
 ### Get all parents with ADMIN token
 GET http://localhost:8080/api/parents
 Authorization: Bearer {{admin_token}}

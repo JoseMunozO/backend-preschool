@@ -70,6 +70,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/parents/*/students").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "TEACHER")
                         .requestMatchers("/api/parents/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
                         .requestMatchers("/api/users/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
+                        .requestMatchers("/api/staff/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
                         .requestMatchers("/api/roles/**").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
                         .requestMatchers(HttpMethod.GET, "/api/payments/me").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "FINANCE", "PARENT")
                         .requestMatchers(HttpMethod.GET, "/api/payments/me/charges").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "FINANCE", "PARENT")

@@ -64,12 +64,12 @@ class UserControllerApiTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(username = "admin@school.com", roles = "ADMIN")
     void adminCanCreateUserAndManageRolesAndStatus() throws Exception {
-        when(userService.createUser(any())).thenReturn(user());
+        when(userService.createUser(any(), eq("admin@school.com"))).thenReturn(user());
         when(userService.updateUser(eq(1L), any())).thenReturn(user());
-        when(userService.assignRole(eq(1L), any())).thenReturn(user());
-        when(userService.removeRole(eq(1L), any())).thenReturn(user());
+        when(userService.assignRole(eq(1L), any(), eq("admin@school.com"))).thenReturn(user());
+        when(userService.removeRole(eq(1L), any(), eq("admin@school.com"))).thenReturn(user());
         when(userService.deactivateUser(1L)).thenReturn(user());
         when(userService.activateUser(1L)).thenReturn(user());
         when(userService.changeStatus(eq(1L), any())).thenReturn(user());
@@ -152,7 +152,7 @@ class UserControllerApiTest {
                 LocalDateTime.now(),
                 LocalDateTime.now(),
                 LocalDateTime.now(),
-                Set.of(new RoleResponse(2L, RoleName.ADMIN, "Admin", "Administrative access", LocalDateTime.now()))
+                Set.of(new RoleResponse(2L, RoleName.ADMIN, "Admin", "Administrative access", 90, LocalDateTime.now()))
         );
     }
 

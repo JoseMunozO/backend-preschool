@@ -7,6 +7,8 @@ import com.preschool.backendpreschool.dto.RoleResponse;
 import com.preschool.backendpreschool.dto.UpdateUserRequest;
 import com.preschool.backendpreschool.dto.UserResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
+import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Role;
 import com.preschool.backendpreschool.model.RoleName;
@@ -54,7 +56,7 @@ public class UserService {
         return toResponse(user);
     }
 
-    public UserResponse createUser(CreateUserRequest request) {
+    public UserResponse createUser(CreateUserRequest request, String requesterEmail) {
         String email = normalizeEmail(request.email());
         String phone = normalizePhone(request.phone());
 
@@ -70,6 +72,9 @@ public class UserService {
                 .stream()
                 .map(this::findRole)
                 .collect(Collectors.toSet());
+
+        User requester = findUser(requesterEmail);
+        roles.forEach(role -> ensureCanAssignRole(requester, role));
 
         User user = User.builder()
                 .email(email)
@@ -105,18 +110,31 @@ public class UserService {
         return toResponse(userRepository.save(user));
     }
 
-    public UserResponse assignRole(Long userId, AssignRoleRequest request) {
-        User user = findUser(userId);
+    public UserResponse assignRole(Long userId, AssignRoleRequest request, String requesterEmail) {
+        User requester = findUser(requesterEmail);
+        Role targetRole = findRole(request.role());
+        ensureCanAssignRole(requester, targetRole);
 
+        User user = findUser(userId);
         Set<Role> roles = new HashSet<>(user.getRoles());
-        roles.add(findRole(request.role()));
+        roles.add(targetRole);
         user.setRoles(roles);
 
         return toResponse(userRepository.save(user));
     }
 
-    public UserResponse removeRole(Long userId, AssignRoleRequest request) {
+    public UserResponse removeRole(Long userId, AssignRoleRequest request, String requesterEmail) {
+        User requester = findUser(requesterEmail);
+        Role targetRole = findRole(request.role());
+        ensureCanAssignRole(requester, targetRole);
+
         User user = findUser(userId);
+
+        if (targetRole.getCode() == RoleName.SUPER_ADMIN
+                && user.getRoles().stream().anyMatch(role -> role.getCode() == RoleName.SUPER_ADMIN)
+                && userRepository.countByRolesCode(RoleName.SUPER_ADMIN) <= 1) {
+            throw new ConflictException("No se puede quitar el rol SUPER_ADMIN del ultimo usuario que lo tiene");
+        }
 
         Set<Role> roles = new HashSet<>(user.getRoles());
         roles.removeIf(role -> role.getCode() == request.role());
@@ -153,9 +171,25 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
     }
 
+    private User findUser(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+    }
+
     private Role findRole(RoleName roleName) {
         return roleRepository.findByCode(roleName)
                 .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado"));
+    }
+
+    private void ensureCanAssignRole(User requester, Role targetRole) {
+        int requesterMaxRank = requester.getRoles().stream()
+                .mapToInt(Role::getRankLevel)
+                .max()
+                .orElse(0);
+
+        if (targetRole.getRankLevel() > requesterMaxRank) {
+            throw new ForbiddenException("No puedes otorgar o quitar un rol de rango superior al tuyo");
+        }
     }
 
     private UserResponse toResponse(User user) {
@@ -166,6 +200,7 @@ public class UserService {
                         role.getCode(),
                         role.getName(),
                         role.getDescription(),
+                        role.getRankLevel(),
                         role.getCreatedAt()
                 ))
                 .collect(Collectors.toSet());
