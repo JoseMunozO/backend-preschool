@@ -7,9 +7,8 @@ public record DashboardTeacherSummaryResponse(
         LocalDate date,
         long activeStudents,
         long todayScheduleSlots,
-        long lowStockMaterials,
         List<DashboardScheduleItemResponse> todaySchedule,
         List<DashboardBirthdayResponse> upcomingBirthdays,
-        List<DashboardMaterialAlertResponse> lowStockMaterialAlerts
+        DashboardAttendanceSummaryResponse todayAttendanceSummary
 ) {
 }

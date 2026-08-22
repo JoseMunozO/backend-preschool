@@ -1237,3 +1237,28 @@ Authorization: Bearer {{admin_token}}
   "startDate": "2026-08-15",
   "endDate": null
 }
+
+###
+
+### Get attendance roster for a group/date (includes unmarked students)
+GET http://localhost:8080/api/attendance?groupId=1&date=2026-08-24
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Save attendance for a group/date
+POST http://localhost:8080/api/attendance
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "groupId": 1,
+  "date": "2026-08-24",
+  "records": [
+    {
+      "studentId": 1,
+      "status": "PRESENT",
+      "notes": null
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.DashboardAdminSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardAttendanceSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardBirthdayResponse;
 import com.preschool.backendpreschool.dto.DashboardFinanceAreaSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardMainSummaryResponse;
@@ -15,6 +16,7 @@ import com.preschool.backendpreschool.model.Payment;
 import com.preschool.backendpreschool.model.ScheduleSlot;
 import com.preschool.backendpreschool.model.Staff;
 import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentAttendanceStatus;
 import com.preschool.backendpreschool.model.StudentCharge;
 import com.preschool.backendpreschool.model.StudentChargeStatus;
 import com.preschool.backendpreschool.model.StudentStatus;
@@ -23,6 +25,7 @@ import com.preschool.backendpreschool.repository.ParentRepository;
 import com.preschool.backendpreschool.repository.PaymentAllocationRepository;
 import com.preschool.backendpreschool.repository.PaymentRepository;
 import com.preschool.backendpreschool.repository.ScheduleSlotRepository;
+import com.preschool.backendpreschool.repository.StudentAttendanceRepository;
 import com.preschool.backendpreschool.repository.StudentChargeRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +53,7 @@ public class DashboardService {
     private final PaymentRepository paymentRepository;
     private final MaterialRepository materialRepository;
     private final ScheduleSlotRepository scheduleSlotRepository;
+    private final StudentAttendanceRepository studentAttendanceRepository;
 
     public DashboardMainSummaryResponse getMainSummary() {
         LocalDate today = LocalDate.now();
@@ -62,17 +66,15 @@ public class DashboardService {
 
     public DashboardTeacherSummaryResponse getTeacherSummary() {
         LocalDate today = LocalDate.now();
-        List<Material> allLowStockMaterials = materialRepository.findActiveLowStock();
         List<ScheduleSlot> todaySchedule = todaySchedule(today);
 
         return new DashboardTeacherSummaryResponse(
                 today,
                 studentRepository.countByStatus(StudentStatus.active),
                 todaySchedule.size(),
-                allLowStockMaterials.size(),
                 todaySchedule.stream().map(this::toScheduleItem).toList(),
                 upcomingBirthdays(today),
-                lowStockMaterialAlerts(allLowStockMaterials)
+                todayAttendanceSummary(today)
         );
     }
 
@@ -110,6 +112,17 @@ public class DashboardService {
                 totalBalance(charges, StudentChargeStatus.OVERDUE),
                 totalPaymentsReceived(currentMonth)
         );
+    }
+
+    private DashboardAttendanceSummaryResponse todayAttendanceSummary(LocalDate today) {
+        long presentCount = studentAttendanceRepository.countByAttendanceDateAndStatus(today, StudentAttendanceStatus.PRESENT);
+        long absentCount = studentAttendanceRepository.countByAttendanceDateAndStatus(today, StudentAttendanceStatus.ABSENT);
+        long sickCount = studentAttendanceRepository.countByAttendanceDateAndStatus(today, StudentAttendanceStatus.SICK);
+        long lateCount = studentAttendanceRepository.countByAttendanceDateAndStatus(today, StudentAttendanceStatus.LATE);
+        long activeStudents = studentRepository.countByStatus(StudentStatus.active);
+        long unmarkedCount = Math.max(activeStudents - (presentCount + absentCount + sickCount + lateCount), 0);
+
+        return new DashboardAttendanceSummaryResponse(presentCount, absentCount, sickCount, lateCount, unmarkedCount);
     }
 
     private List<ScheduleSlot> todaySchedule(LocalDate today) {

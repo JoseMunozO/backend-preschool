@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.controller;
 import com.preschool.backendpreschool.config.JwtAuthenticationFilter;
 import com.preschool.backendpreschool.config.SecurityConfig;
 import com.preschool.backendpreschool.dto.DashboardAdminSummaryResponse;
+import com.preschool.backendpreschool.dto.DashboardAttendanceSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardFinanceAreaSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardMainSummaryResponse;
 import com.preschool.backendpreschool.dto.DashboardTeacherSummaryResponse;
@@ -141,10 +142,9 @@ class DashboardControllerSecurityTest {
                 LocalDate.now(),
                 3,
                 1,
-                0,
                 List.of(),
                 List.of(),
-                List.of()
+                new DashboardAttendanceSummaryResponse(0, 0, 0, 0, 3)
         );
     }
 
