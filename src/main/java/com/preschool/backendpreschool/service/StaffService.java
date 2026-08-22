@@ -4,6 +4,7 @@ import com.preschool.backendpreschool.dto.RoleResponse;
 import com.preschool.backendpreschool.dto.StaffRequest;
 import com.preschool.backendpreschool.dto.StaffResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Role;
@@ -19,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,15 +34,61 @@ public class StaffService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public List<StaffResponse> getAllStaff() {
-        return staffRepository.findAll()
-                .stream()
+    public List<StaffResponse> getAllStaff(Boolean includeDeleted) {
+        List<Staff> staff = Boolean.TRUE.equals(includeDeleted)
+                ? staffRepository.findAll()
+                : staffRepository.findAllByDeletedAtIsNull();
+
+        return staff.stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     public StaffResponse getStaffById(Long staffId) {
         return toResponse(findStaff(staffId));
+    }
+
+    @Transactional
+    public void deleteStaff(Long staffId, String requesterEmail) {
+        Staff staff = findStaff(staffId);
+        User requester = findUser(requesterEmail);
+        ensureCanManageStaffUser(requester, staff.getUser());
+
+        staff.setDeletedAt(LocalDateTime.now());
+        if (staff.getUser() != null) {
+            staff.getUser().setStatus(UserStatus.INACTIVE);
+        }
+        staffRepository.save(staff);
+    }
+
+    @Transactional
+    public StaffResponse restoreStaff(Long staffId) {
+        Staff staff = staffRepository.findByStaffIdAndDeletedAtIsNotNull(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff eliminado no encontrado"));
+
+        staff.setDeletedAt(null);
+        if (staff.getUser() != null) {
+            staff.getUser().setStatus(UserStatus.ACTIVE);
+        }
+
+        return toResponse(staffRepository.save(staff));
+    }
+
+    private void ensureCanManageStaffUser(User requester, User targetUser) {
+        if (targetUser == null) {
+            return;
+        }
+
+        int requesterMaxRank = maxRank(requester);
+        int targetMaxRank = maxRank(targetUser);
+        if (targetMaxRank > requesterMaxRank) {
+            throw new ForbiddenException("No puedes dar de baja un puesto con un rango de acceso superior al tuyo");
+        }
+
+        if (targetUser.getRoles().stream().anyMatch(role -> role.getCode() == RoleName.SUPER_ADMIN)
+                && userRepository.countByRolesCode(RoleName.SUPER_ADMIN) <= 1) {
+            throw new ConflictException("No se puede dar de baja al ultimo SUPER_ADMIN del sistema");
+        }
     }
 
     @Transactional
@@ -108,7 +156,7 @@ public class StaffService {
     }
 
     private Staff findStaff(Long staffId) {
-        return staffRepository.findById(staffId)
+        return staffRepository.findByStaffIdAndDeletedAtIsNull(staffId)
                 .orElseThrow(() -> new ResourceNotFoundException("Staff no encontrado"));
     }
 
@@ -159,7 +207,8 @@ public class StaffService {
                 staff.getNotes(),
                 roles,
                 staff.getCreatedAt(),
-                staff.getUpdatedAt()
+                staff.getUpdatedAt(),
+                staff.getDeletedAt()
         );
     }
 

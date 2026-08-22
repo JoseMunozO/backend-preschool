@@ -338,6 +338,24 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### List staff including deleted ones with ADMIN token
+GET http://localhost:8080/api/staff?includeDeleted=true
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Deactivate a staff position (fired/resigned) with ADMIN token
+DELETE http://localhost:8080/api/staff/1
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Restore a deactivated staff position with ADMIN token
+POST http://localhost:8080/api/staff/1/restore
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Get all parents with ADMIN token
 GET http://localhost:8080/api/parents
 Authorization: Bearer {{admin_token}}
