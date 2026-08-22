@@ -4,15 +4,24 @@ import com.preschool.backendpreschool.dto.ParentRequest;
 import com.preschool.backendpreschool.dto.ParentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ConflictException;
+import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.ParentStatus;
 import com.preschool.backendpreschool.model.Role;
 import com.preschool.backendpreschool.model.RoleName;
+import com.preschool.backendpreschool.model.Staff;
+import com.preschool.backendpreschool.model.StaffGroupAssignment;
+import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentGuardian;
 import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.model.UserStatus;
 import com.preschool.backendpreschool.repository.ParentRepository;
 import com.preschool.backendpreschool.repository.RoleRepository;
+import com.preschool.backendpreschool.repository.StaffGroupAssignmentRepository;
+import com.preschool.backendpreschool.repository.StaffRepository;
+import com.preschool.backendpreschool.repository.StudentGuardianRepository;
+import com.preschool.backendpreschool.repository.StudentRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +30,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -37,8 +47,27 @@ public class ParentService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final StaffRepository staffRepository;
+    private final StaffGroupAssignmentRepository staffGroupAssignmentRepository;
+    private final StudentRepository studentRepository;
+    private final StudentGuardianRepository studentGuardianRepository;
 
-    public List<ParentResponse> getAllParents(ParentStatus status, String search, Boolean includeDeleted) {
+    public List<ParentResponse> getAllParents(ParentStatus status, String search, Boolean includeDeleted, String requesterEmail) {
+        User requester = userRepository.findByEmail(requesterEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        if (hasInternalAdminRole(requester)) {
+            return getAllParentsUnscoped(status, search, includeDeleted);
+        }
+
+        if (hasRole(requester, RoleName.TEACHER)) {
+            return getParentsAssignedToTeacher(requester, status, search, includeDeleted);
+        }
+
+        throw new ForbiddenException("No tienes permiso para listar padres/tutores");
+    }
+
+    private List<ParentResponse> getAllParentsUnscoped(ParentStatus status, String search, Boolean includeDeleted) {
         List<Parent> parents;
 
         if (status != null) {
@@ -59,6 +88,74 @@ public class ParentService {
                 .filter(parent -> Boolean.TRUE.equals(includeDeleted) || parent.getDeletedAt() == null)
                 .map(this::toResponse)
                 .toList();
+    }
+
+    private List<ParentResponse> getParentsAssignedToTeacher(User requester, ParentStatus status, String search, Boolean includeDeleted) {
+        Staff staff = staffRepository.findByUserEmail(requester.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Perfil de staff no encontrado"));
+
+        LocalDate today = LocalDate.now();
+        List<Long> activeGroupIds = staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(staff.getStaffId())
+                .stream()
+                .filter(assignment -> isActiveAssignment(assignment, today))
+                .map(assignment -> assignment.getClassGroup().getGroupId())
+                .distinct()
+                .toList();
+
+        if (activeGroupIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> studentIds = studentRepository.findAllByClassGroupGroupIdInAndDeletedAtIsNull(activeGroupIds)
+                .stream()
+                .map(Student::getStudentId)
+                .toList();
+
+        if (studentIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Parent> parents = studentGuardianRepository.findByStudentStudentIdIn(studentIds)
+                .stream()
+                .map(StudentGuardian::getParent)
+                .distinct()
+                .toList();
+
+        return parents.stream()
+                .filter(parent -> status == null || parent.getStatus() == status)
+                .filter(parent -> matchesSearch(parent, search))
+                .filter(parent -> Boolean.TRUE.equals(includeDeleted) || parent.getDeletedAt() == null)
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private boolean isActiveAssignment(StaffGroupAssignment assignment, LocalDate today) {
+        return !assignment.getStartDate().isAfter(today)
+                && (assignment.getEndDate() == null || !assignment.getEndDate().isBefore(today));
+    }
+
+    private boolean hasInternalAdminRole(User user) {
+        return hasRole(user, RoleName.SUPER_ADMIN) || hasRole(user, RoleName.ADMIN) || hasRole(user, RoleName.DIRECTOR);
+    }
+
+    private boolean hasRole(User user, RoleName roleName) {
+        return user.getRoles() != null && user.getRoles().stream().anyMatch(role -> role.getCode() == roleName);
+    }
+
+    private boolean matchesSearch(Parent parent, String search) {
+        if (search == null || search.isBlank()) {
+            return true;
+        }
+
+        String term = search.trim().toLowerCase();
+        return containsIgnoreCase(parent.getFirstName(), term)
+                || containsIgnoreCase(parent.getLastName(), term)
+                || containsIgnoreCase(parent.getEmail(), term)
+                || containsIgnoreCase(parent.getPhone(), term);
+    }
+
+    private boolean containsIgnoreCase(String value, String term) {
+        return value != null && value.toLowerCase().contains(term);
     }
 
     public ParentResponse getParentById(Long parentId) {

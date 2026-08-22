@@ -43,9 +43,9 @@ class ParentControllerApiTest {
     private StudentGuardianService studentGuardianService;
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
     void adminCanListParentsWithFilters() throws Exception {
-        when(parentService.getAllParents(ParentStatus.ACTIVE, "ana", null)).thenReturn(List.of(parent()));
+        when(parentService.getAllParents(ParentStatus.ACTIVE, "ana", null, "admin@example.com")).thenReturn(List.of(parent()));
 
         mockMvc.perform(get("/api/parents")
                         .param("status", "ACTIVE")
@@ -54,7 +54,19 @@ class ParentControllerApiTest {
                 .andExpect(jsonPath("$[0].parentId").value(1))
                 .andExpect(jsonPath("$[0].email").value("ana.parent@example.com"));
 
-        verify(parentService).getAllParents(ParentStatus.ACTIVE, "ana", null);
+        verify(parentService).getAllParents(ParentStatus.ACTIVE, "ana", null, "admin@example.com");
+    }
+
+    @Test
+    @WithMockUser(username = "teacher@example.com", roles = "TEACHER")
+    void teacherSeesOnlyParentsOfAssignedStudents() throws Exception {
+        when(parentService.getAllParents(null, null, null, "teacher@example.com")).thenReturn(List.of(parent()));
+
+        mockMvc.perform(get("/api/parents"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].parentId").value(1));
+
+        verify(parentService).getAllParents(null, null, null, "teacher@example.com");
     }
 
     @Test
@@ -82,8 +94,6 @@ class ParentControllerApiTest {
                 .andExpect(jsonPath("$.parentId").value(1));
         mockMvc.perform(get("/api/parents/1/students"))
                 .andExpect(status().isOk());
-        mockMvc.perform(get("/api/parents"))
-                .andExpect(status().isForbidden());
 
         verify(parentService).getParentById(1L);
         verify(studentGuardianService).getGuardiansByParent(1L);
