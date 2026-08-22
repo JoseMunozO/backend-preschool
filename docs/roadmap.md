@@ -414,21 +414,20 @@ PATCH /api/students/{studentId}/consents/{consentId}/revoke
 
 ## Puntos a validar con el cliente
 
-- [ ] Que datos exactos necesitan guardar de cada estudiante.
-- [ ] Que tipos de comentarios/notas necesitan: pedagogicas, conducta, incidentes, seguimiento familiar, salud o administrativas.
-- [ ] Como manejan actualmente los pagos y si hay diferentes tipos de cuota.
-- [ ] Confirmar si los metodos de pago son solo efectivo, tarjeta y transferencia.
-- [ ] Confirmar si "transferencia" necesita numero de referencia, banco o comprobante.
-- [ ] Confirmar politica de privacidad y permisos para almacenar fotos de ninos.
-- [ ] Confirmar flujo de consentimiento: que tutor acepta, como se revoca y que pasa con fotos ya subidas.
-- [ ] Confirmar si las fotos se organizan por estudiante, grupo, fecha, evento o album manual.
-- [ ] Confirmar si profesores solo pueden modificar fotos/notas de sus propios grupos o estudiantes asignados.
-- [ ] Confirmar cuantos dias antes debe avisar el sistema de cumpleanos proximos.
-- [ ] Si los padres necesitan acceso directo a la aplicacion desde la primera version o mas adelante.
-- [ ] Que tipos de materiales quieren controlar en el inventario.
-- [ ] Como se organizan los grupos, aulas y horarios actualmente.
-- [ ] Quienes usaran el sistema: administracion, profesores, contabilidad o padres.
-- [ ] Si necesitan documentos imprimibles, recibos o reportes desde el inicio.
+- [ ] Que datos exactos necesitan guardar de cada estudiante. (Abierto: siempre puede haber campos adicionales que el cliente pida.)
+- [x] Que tipos de comentarios/notas necesitan (2026-08-21): ya resuelto por `StudentNoteType` — `PEDAGOGICAL`, `BEHAVIOR`, `INCIDENT`, `HEALTH`, `FAMILY_FOLLOW_UP`, `ADMINISTRATIVE` (coincide con pedagogicas/conducta/incidentes/salud/seguimiento familiar/administrativas).
+- [ ] Como manejan actualmente los pagos y si hay diferentes tipos de cuota. (Abierto: pregunta de proceso del cliente, no de sistema — `ChargeType` ya soporta tipos de cuota flexibles, pero falta confirmar el proceso real.)
+- [x] Confirmar metodos de pago (2026-08-21): ya resuelto por `PaymentMethod` — `CASH`, `CARD`, `TRANSFER`, y ademas `SWISH`, `OTHER`.
+- [x] Confirmar si "transferencia" necesita numero de referencia (2026-08-21): ya resuelto — `Payment.referenceNumber` existe (generico para cualquier metodo, no exclusivo de transferencia).
+- [x] Confirmar politica de privacidad/consentimiento para fotos (2026-08-21): ya resuelto por `StudentConsentType` (`IMAGE_PROFILE_PHOTO`, `PHOTO_ALBUM`, `INTERNAL_DOCUMENTATION`, `MARKETING_PUBLICATION`) con `acceptedAt`/`revokedAt` en `StudentConsent`.
+- [x] Confirmar como se organizan las fotos (2026-08-21): ya resuelto — `PhotoAlbum` por estudiante/grupo con flujo de aprobacion (`PATCH .../photos/{photoId}/approve`).
+- [ ] Confirmar si profesores solo pueden modificar fotos/notas de sus propios grupos o estudiantes asignados. (Genuinamente abierto — no hay restriccion de ese tipo implementada hoy, `TEACHER` tiene acceso parejo, no por grupo asignado.)
+- [ ] Confirmar cuantos dias antes debe avisar el sistema de cumpleanos proximos. (Genuinamente abierto — funcionalidad de aviso de cumpleanos no implementada.)
+- [x] Si los padres necesitan acceso directo a la aplicacion (2026-08-21): ya resuelto — implementado desde el inicio, rol `PARENT` con login y endpoints propios (`/api/parents/me`, `/api/payments/me`, etc.).
+- [x] Que tipos de materiales quieren controlar en el inventario (2026-08-21): ya resuelto — `Material.category` es texto libre sin restriccion, decision de flexibilidad ya tomada.
+- [x] Como se organizan los grupos, aulas y horarios (2026-08-21): ya resuelto — `ClassGroup` y `ScheduleSlot` ya implementados.
+- [x] Quienes usaran el sistema (2026-08-21): ya resuelto — 6 roles implementados (`SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `TEACHER`, `FINANCE`, `PARENT`).
+- [ ] Si necesitan documentos imprimibles, recibos o reportes desde el inicio. (Diferido a fase posterior, ver "Generacion de recibo simple o comprobante en PDF en fase posterior" en Modulo C.)
 
 ## Infraestructura y calidad
 
