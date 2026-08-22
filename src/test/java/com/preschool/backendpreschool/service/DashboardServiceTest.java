@@ -13,6 +13,7 @@ import com.preschool.backendpreschool.model.Payment;
 import com.preschool.backendpreschool.model.ScheduleSlot;
 import com.preschool.backendpreschool.model.Staff;
 import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentAttendanceStatus;
 import com.preschool.backendpreschool.model.StudentCharge;
 import com.preschool.backendpreschool.model.StudentChargeStatus;
 import com.preschool.backendpreschool.model.StudentStatus;
@@ -21,6 +22,7 @@ import com.preschool.backendpreschool.repository.ParentRepository;
 import com.preschool.backendpreschool.repository.PaymentAllocationRepository;
 import com.preschool.backendpreschool.repository.PaymentRepository;
 import com.preschool.backendpreschool.repository.ScheduleSlotRepository;
+import com.preschool.backendpreschool.repository.StudentAttendanceRepository;
 import com.preschool.backendpreschool.repository.StudentChargeRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import org.junit.jupiter.api.Test;
@@ -62,6 +64,9 @@ class DashboardServiceTest {
 
     @Mock
     private ScheduleSlotRepository scheduleSlotRepository;
+
+    @Mock
+    private StudentAttendanceRepository studentAttendanceRepository;
 
     @InjectMocks
     private DashboardService dashboardService;
@@ -123,6 +128,10 @@ class DashboardServiceTest {
         when(paymentAllocationRepository.sumAllocatedByStudentChargeId(11L)).thenReturn(new BigDecimal("30.00"));
         when(paymentAllocationRepository.sumAllocatedByStudentChargeId(12L)).thenReturn(new BigDecimal("10.00"));
         when(paymentRepository.findByPaymentDateBetween(currentMonth.atDay(1), currentMonth.atEndOfMonth())).thenReturn(List.of(payment));
+        when(studentAttendanceRepository.countByAttendanceDateAndStatus(today, StudentAttendanceStatus.PRESENT)).thenReturn(2L);
+        when(studentAttendanceRepository.countByAttendanceDateAndStatus(today, StudentAttendanceStatus.ABSENT)).thenReturn(0L);
+        when(studentAttendanceRepository.countByAttendanceDateAndStatus(today, StudentAttendanceStatus.SICK)).thenReturn(1L);
+        when(studentAttendanceRepository.countByAttendanceDateAndStatus(today, StudentAttendanceStatus.LATE)).thenReturn(0L);
 
         DashboardTeacherSummaryResponse teacherSummary = dashboardService.getTeacherSummary();
         DashboardAdminSummaryResponse adminSummary = dashboardService.getAdminSummary();
@@ -131,7 +140,9 @@ class DashboardServiceTest {
 
         assertThat(teacherSummary.activeStudents()).isEqualTo(3);
         assertThat(teacherSummary.todayScheduleSlots()).isEqualTo(1);
-        assertThat(teacherSummary.lowStockMaterials()).isEqualTo(1);
+        assertThat(teacherSummary.todayAttendanceSummary().presentCount()).isEqualTo(2);
+        assertThat(teacherSummary.todayAttendanceSummary().sickCount()).isEqualTo(1);
+        assertThat(teacherSummary.todayAttendanceSummary().unmarkedCount()).isEqualTo(0);
         assertThat(teacherSummary.todaySchedule()).singleElement()
                 .satisfies(slot -> {
                     assertThat(slot.scheduleSlotId()).isEqualTo(20L);

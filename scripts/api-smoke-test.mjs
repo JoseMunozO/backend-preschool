@@ -856,6 +856,49 @@ async function main() {
     assertStatus(result, 400);
   });
 
+  await runCheck("get student group for attendance smoke test", async () => {
+    const result = await request(`/api/students/${state.refs.studentId}`, { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertField(result.body.groupId, "groupId");
+    state.refs.attendanceGroupId = result.body.groupId;
+  });
+
+  await runCheck("get attendance roster as admin", async () => {
+    const result = await request(`/api/attendance?groupId=${state.refs.attendanceGroupId}&date=${smokeAssignmentDate}`, {
+      token: state.tokens.admin,
+    });
+    assertStatus(result, 200);
+    assertArrayBody(result);
+  });
+
+  await runWriteCheck("save smoke attendance as admin", async () => {
+    const result = await request("/api/attendance", {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        groupId: state.refs.attendanceGroupId,
+        date: smokeAssignmentDate,
+        records: [
+          { studentId: state.refs.studentId, status: "SICK", notes: "Smoke test" },
+        ],
+      },
+    });
+
+    assertStatus(result, 200);
+    assertArrayBody(result);
+    const record = result.body.find((entry) => entry.studentId === state.refs.studentId);
+    if (!record || record.status !== "SICK") {
+      throw new Error(`Expected saved attendance status SICK for student ${state.refs.studentId}. Received: ${formatBody(result.body)}`);
+    }
+  });
+
+  await runCheck("parent cannot access attendance", async () => {
+    const result = await request(`/api/attendance?groupId=${state.refs.attendanceGroupId}`, {
+      token: state.tokens.parent,
+    });
+    assertStatusIn(result, [401, 403]);
+  });
+
   await finish();
 }
 

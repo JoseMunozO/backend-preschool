@@ -324,6 +324,7 @@ El personal podra tener una vision clara de la organizacion diaria y semanal del
 - [x] Tests de servicio.
 - [x] Tests de controller/API.
 - [x] Actualizar `api-test.http`.
+- [x] Dashboard de profesor: tarjeta de materiales bajos reemplazada por resumen de asistencia del dia (2026-08-22) — `todayAttendanceSummary` en `GET /api/dashboard/teacher-summary` (`presentCount`, `absentCount`, `sickCount`, `lateCount`, `unmarkedCount`, calculado sobre estudiantes activos). El resto del dashboard de profesor (estudiantes activos, horarios del dia, cumpleanos) no cambio; el resumen de materiales bajos se mantiene sin cambios en `admin-summary`.
 
 ### Resultado esperado
 
@@ -333,7 +334,7 @@ Al entrar en la aplicacion, el cliente vera lo mas importante sin tener que revi
 
 - [ ] Portal para padres: consultar pagos, horarios o avisos del centro.
 - [ ] Notificaciones automaticas para pagos pendientes o comunicados importantes.
-- [ ] Registro de asistencia diaria.
+- [x] Registro de asistencia diaria (2026-08-22): pedido puntual del cliente vía el equipo de frontend, para un widget de asistencia/ninos enfermos en el dashboard de profesor (reemplazando la tarjeta de materiales bajos ahi). Nueva entidad `student_attendance` (`V14__create_student_attendance.sql`), un registro por estudiante y dia (`status`: `PRESENT`, `ABSENT`, `SICK`, `LATE`, mas notas y quien lo registro). `GET /api/attendance?groupId=&date=` devuelve el roster completo del grupo para esa fecha (incluye estudiantes sin marcar todavia, con `status: null`); `POST /api/attendance` guarda o actualiza varios registros de una vez (upsert por estudiante+fecha). `TEACHER` solo puede leer/guardar asistencia de grupos que tiene asignados activamente (mismo criterio de `staff_group_assignments` ya usado en notas/consentimientos/albumes/padres); `SUPER_ADMIN`/`ADMIN`/`DIRECTOR` sin restriccion de grupo. Verificado end-to-end contra Docker real: profesor marca asistencia de su grupo (200), intenta con un grupo no asignado (403).
 - [ ] Reportes mensuales de pagos, estudiantes o inventario.
 - [ ] Generacion de recibos y documentos en PDF.
 - [ ] Notas estilo comentarios para estudiantes: profesores responsables pueden crear/editar sus comentarios; direccion/admin pueden revisar historial y moderar.
