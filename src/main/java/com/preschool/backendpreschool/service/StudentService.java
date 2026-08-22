@@ -1,7 +1,6 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.StudentRequest;
-import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.dto.StudentGuardianSummary;
 import com.preschool.backendpreschool.exception.BadRequestException;
@@ -20,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +37,7 @@ public class StudentService {
     private final ClassGroupRepository classGroupRepository;
     private final StudentConsentRepository studentConsentRepository;
     private final StudentGuardianRepository studentGuardianRepository;
+    private final FileStorageService fileStorageService;
 
     public List<StudentResponse> getStudents(String search, Long groupId, StudentStatus status, Boolean includeDeleted) {
         List<Student> baseStudents = Boolean.TRUE.equals(includeDeleted)
@@ -156,7 +157,7 @@ public class StudentService {
         }
     }
 
-    public StudentResponse updateProfilePhoto(Long id, StudentProfilePhotoRequest request) {
+    public StudentResponse updateProfilePhoto(Long id, MultipartFile file) {
         Student student = findStudentOrThrow(id);
         if (!studentConsentRepository.existsByStudentStudentIdAndConsentTypeAndGrantedTrueAndRevokedAtIsNull(
                 id,
@@ -165,16 +166,22 @@ public class StudentService {
             throw new BadRequestException("Se requiere consentimiento activo de imagen para asignar foto de perfil");
         }
 
-        student.setProfilePhotoUrl(request.profilePhotoUrl().trim());
+        String previousPhotoUrl = student.getProfilePhotoUrl();
+        student.setProfilePhotoUrl(fileStorageService.store(file, "students/" + id));
+        StudentResponse response = mapToResponse(studentRepository.save(student));
+        fileStorageService.delete(previousPhotoUrl);
 
-        return mapToResponse(studentRepository.save(student));
+        return response;
     }
 
     public StudentResponse removeProfilePhoto(Long id) {
         Student student = findStudentOrThrow(id);
+        String previousPhotoUrl = student.getProfilePhotoUrl();
         student.setProfilePhotoUrl(null);
+        StudentResponse response = mapToResponse(studentRepository.save(student));
+        fileStorageService.delete(previousPhotoUrl);
 
-        return mapToResponse(studentRepository.save(student));
+        return response;
     }
 
     private Student findStudentOrThrow(Long id) {

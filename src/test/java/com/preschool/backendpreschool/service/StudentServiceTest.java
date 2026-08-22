@@ -1,7 +1,6 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.StudentGuardianSummary;
-import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ConflictException;
@@ -22,6 +21,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,6 +52,9 @@ class StudentServiceTest {
 
     @Mock
     private StudentGuardianRepository studentGuardianRepository;
+
+    @Mock
+    private FileStorageService fileStorageService;
 
     @InjectMocks
     private StudentService studentService;
@@ -163,28 +167,29 @@ class StudentServiceTest {
     }
 
     @Test
-    void updateProfilePhotoStoresTrimmedUrl() {
+    void updateProfilePhotoStoresUploadedFileAndDeletesPrevious() {
         Student student = buildStudent();
+        MultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[]{1, 2, 3});
 
         when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
         when(studentConsentRepository.existsByStudentStudentIdAndConsentTypeAndGrantedTrueAndRevokedAtIsNull(
                 1L,
                 StudentConsentType.IMAGE_PROFILE_PHOTO
         )).thenReturn(true);
+        when(fileStorageService.store(file, "students/1")).thenReturn("/uploads/students/1/new-photo.jpg");
         when(studentRepository.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        StudentResponse response = studentService.updateProfilePhoto(
-                1L,
-                new StudentProfilePhotoRequest("  https://cdn.example.com/students/1/profile.jpg  ")
-        );
+        StudentResponse response = studentService.updateProfilePhoto(1L, file);
 
-        assertThat(response.profilePhotoUrl()).isEqualTo("https://cdn.example.com/students/1/profile.jpg");
-        assertThat(student.getProfilePhotoUrl()).isEqualTo("https://cdn.example.com/students/1/profile.jpg");
+        assertThat(response.profilePhotoUrl()).isEqualTo("/uploads/students/1/new-photo.jpg");
+        assertThat(student.getProfilePhotoUrl()).isEqualTo("/uploads/students/1/new-photo.jpg");
+        verify(fileStorageService).delete(null);
     }
 
     @Test
     void updateProfilePhotoRequiresActiveImageConsent() {
         Student student = buildStudent();
+        MultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[]{1, 2, 3});
 
         when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
         when(studentConsentRepository.existsByStudentStudentIdAndConsentTypeAndGrantedTrueAndRevokedAtIsNull(
@@ -192,18 +197,17 @@ class StudentServiceTest {
                 StudentConsentType.IMAGE_PROFILE_PHOTO
         )).thenReturn(false);
 
-        assertThatThrownBy(() -> studentService.updateProfilePhoto(
-                1L,
-                new StudentProfilePhotoRequest("https://cdn.example.com/students/1/profile.jpg")
-        ))
+        assertThatThrownBy(() -> studentService.updateProfilePhoto(1L, file))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Se requiere consentimiento activo de imagen para asignar foto de perfil");
+
+        verify(fileStorageService, never()).store(any(MultipartFile.class), any(String.class));
     }
 
     @Test
-    void removeProfilePhotoClearsUrl() {
+    void removeProfilePhotoClearsUrlAndDeletesFile() {
         Student student = buildStudent();
-        student.setProfilePhotoUrl("https://cdn.example.com/students/1/profile.jpg");
+        student.setProfilePhotoUrl("/uploads/students/1/old-photo.jpg");
 
         when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
         when(studentRepository.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -212,6 +216,7 @@ class StudentServiceTest {
 
         assertThat(response.profilePhotoUrl()).isNull();
         assertThat(student.getProfilePhotoUrl()).isNull();
+        verify(fileStorageService).delete("/uploads/students/1/old-photo.jpg");
     }
 
     @Test

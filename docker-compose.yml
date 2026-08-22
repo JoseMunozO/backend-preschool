@@ -35,9 +35,13 @@ services:
       DB_PASSWORD: preschool
       JWT_SECRET: DockerPreschool_Auth_JWT_SECRET_2026_SuperSecureKey_9xL4pQ8mZ2rT7
       JWT_EXPIRATION_MS: 86400000
+      STORAGE_UPLOAD_DIR: /app/uploads
     ports:
       - "8080:8080"
+    volumes:
+      - preschool_uploads_data:/app/uploads
     restart: unless-stopped
 
 volumes:
   preschool_mysql_data:
+  preschool_uploads_data:

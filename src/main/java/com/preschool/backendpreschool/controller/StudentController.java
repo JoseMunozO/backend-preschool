@@ -7,7 +7,6 @@ import com.preschool.backendpreschool.dto.StudentEmergencyContactResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.dto.StudentRequest;
-import com.preschool.backendpreschool.dto.StudentProfilePhotoRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.dto.StudentGuardianResponse;
 import com.preschool.backendpreschool.model.StudentStatus;
@@ -19,8 +18,10 @@ import com.preschool.backendpreschool.service.StudentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -186,12 +187,12 @@ public class StudentController {
         return studentService.restoreStudent(id);
     }
 
-    @PutMapping("/{id}/profile-photo")
+    @PutMapping(value = "/{id}/profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public StudentResponse updateProfilePhoto(
             @PathVariable Long id,
-            @Valid @RequestBody StudentProfilePhotoRequest request
+            @RequestPart("file") MultipartFile file
     ) {
-        return studentService.updateProfilePhoto(id, request);
+        return studentService.updateProfilePhoto(id, file);
     }
 
     @DeleteMapping("/{id}/profile-photo")

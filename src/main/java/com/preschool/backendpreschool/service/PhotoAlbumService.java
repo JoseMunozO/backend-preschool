@@ -1,6 +1,5 @@
 package com.preschool.backendpreschool.service;
 
-import com.preschool.backendpreschool.dto.PhotoAlbumPhotoRequest;
 import com.preschool.backendpreschool.dto.PhotoAlbumPhotoResponse;
 import com.preschool.backendpreschool.dto.PhotoAlbumRequest;
 import com.preschool.backendpreschool.dto.PhotoAlbumResponse;
@@ -27,6 +26,7 @@ import com.preschool.backendpreschool.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,6 +44,7 @@ public class PhotoAlbumService {
     private final UserRepository userRepository;
     private final StaffRepository staffRepository;
     private final StaffGroupAssignmentRepository staffGroupAssignmentRepository;
+    private final FileStorageService fileStorageService;
 
     public List<PhotoAlbumResponse> getAlbums(Long groupId, Long studentId, String requesterEmail) {
         User requester = findUser(requesterEmail);
@@ -126,22 +127,24 @@ public class PhotoAlbumService {
     }
 
     @Transactional
-    public PhotoAlbumPhotoResponse addPhoto(Long albumId, PhotoAlbumPhotoRequest request, String requesterEmail) {
+    public PhotoAlbumPhotoResponse addPhoto(Long albumId, MultipartFile file, Long studentId, String caption, String requesterEmail) {
         User requester = findUser(requesterEmail);
         PhotoAlbum album = findActiveAlbum(albumId);
         ensureCanAccessAlbum(requester, album);
 
-        Student taggedStudent = findStudent(request.studentId());
+        Student taggedStudent = findStudent(studentId);
         Student consentStudent = taggedStudent != null ? taggedStudent : album.getStudent();
         ensurePhotoConsentIfStudentScoped(consentStudent);
         ensurePhotoStudentFitsAlbum(album, taggedStudent);
+
+        String photoUrl = fileStorageService.store(file, "albums/" + albumId);
 
         PhotoAlbumPhoto photo = PhotoAlbumPhoto.builder()
                 .photoAlbum(album)
                 .student(taggedStudent)
                 .uploadedByUser(requester)
-                .photoUrl(request.photoUrl().trim())
-                .caption(trimToNull(request.caption()))
+                .photoUrl(photoUrl)
+                .caption(trimToNull(caption))
                 .approved(hasInternalAdminRole(requester))
                 .deleted(false)
                 .build();
@@ -174,6 +177,7 @@ public class PhotoAlbumService {
         photo.setDeleted(true);
         photo.setDeletedAt(LocalDateTime.now());
         photoAlbumPhotoRepository.save(photo);
+        fileStorageService.delete(photo.getPhotoUrl());
     }
 
     private void ensurePhotoConsentIfStudentScoped(Student student) {
