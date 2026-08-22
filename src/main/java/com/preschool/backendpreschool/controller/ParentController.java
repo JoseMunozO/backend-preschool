@@ -37,9 +37,10 @@ public class ParentController {
     public List<ParentResponse> getAllParents(
             @RequestParam(required = false) ParentStatus status,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) Boolean includeDeleted
+            @RequestParam(required = false) Boolean includeDeleted,
+            Authentication authentication
     ) {
-        return parentService.getAllParents(status, search, includeDeleted);
+        return parentService.getAllParents(status, search, includeDeleted, authentication.getName());
     }
 
     @GetMapping("/me")

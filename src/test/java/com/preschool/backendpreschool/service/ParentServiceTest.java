@@ -3,15 +3,25 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.ParentRequest;
 import com.preschool.backendpreschool.dto.ParentResponse;
 import com.preschool.backendpreschool.exception.ConflictException;
+import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
+import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.ParentStatus;
 import com.preschool.backendpreschool.model.Role;
 import com.preschool.backendpreschool.model.RoleName;
+import com.preschool.backendpreschool.model.Staff;
+import com.preschool.backendpreschool.model.StaffGroupAssignment;
+import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentGuardian;
 import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.model.UserStatus;
 import com.preschool.backendpreschool.repository.ParentRepository;
 import com.preschool.backendpreschool.repository.RoleRepository;
+import com.preschool.backendpreschool.repository.StaffGroupAssignmentRepository;
+import com.preschool.backendpreschool.repository.StaffRepository;
+import com.preschool.backendpreschool.repository.StudentGuardianRepository;
+import com.preschool.backendpreschool.repository.StudentRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,9 +32,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,6 +61,18 @@ class ParentServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private StaffRepository staffRepository;
+
+    @Mock
+    private StaffGroupAssignmentRepository staffGroupAssignmentRepository;
+
+    @Mock
+    private StudentRepository studentRepository;
+
+    @Mock
+    private StudentGuardianRepository studentGuardianRepository;
 
     @InjectMocks
     private ParentService parentService;
@@ -160,11 +184,62 @@ class ParentServiceTest {
         Parent deleted = buildParent();
         deleted.setDeletedAt(LocalDateTime.now().minusDays(1));
 
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(buildUser(RoleName.ADMIN)));
         when(parentRepository.findAll()).thenReturn(List.of(deleted));
 
-        List<ParentResponse> response = parentService.getAllParents(null, null, true);
+        List<ParentResponse> response = parentService.getAllParents(null, null, true, "admin@example.com");
 
         assertThat(response).extracting(ParentResponse::parentId).containsExactly(1L);
+    }
+
+    @Test
+    void getAllParentsForTeacherReturnsOnlyGuardiansOfAssignedGroupStudents() {
+        User teacherUser = buildUser(RoleName.TEACHER);
+        Staff staff = Staff.builder().staffId(5L).build();
+        ClassGroup group = ClassGroup.builder().groupId(2L).build();
+        StaffGroupAssignment assignment = StaffGroupAssignment.builder()
+                .classGroup(group)
+                .startDate(LocalDate.now().minusMonths(1))
+                .endDate(null)
+                .build();
+        Student student = Student.builder().studentId(9L).classGroup(group).build();
+        Parent guardian = buildParent();
+        StudentGuardian studentGuardian = StudentGuardian.builder()
+                .student(student)
+                .parent(guardian)
+                .build();
+
+        when(userRepository.findByEmail("teacher@example.com")).thenReturn(Optional.of(teacherUser));
+        when(staffRepository.findByUserEmail("teacher@example.com")).thenReturn(Optional.of(staff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(5L)).thenReturn(List.of(assignment));
+        when(studentRepository.findAllByClassGroupGroupIdInAndDeletedAtIsNull(List.of(2L))).thenReturn(List.of(student));
+        when(studentGuardianRepository.findByStudentStudentIdIn(List.of(9L))).thenReturn(List.of(studentGuardian));
+
+        List<ParentResponse> response = parentService.getAllParents(null, null, null, "teacher@example.com");
+
+        assertThat(response).extracting(ParentResponse::parentId).containsExactly(1L);
+    }
+
+    @Test
+    void getAllParentsForTeacherWithNoActiveGroupAssignmentReturnsEmpty() {
+        User teacherUser = buildUser(RoleName.TEACHER);
+        Staff staff = Staff.builder().staffId(5L).build();
+
+        when(userRepository.findByEmail("teacher@example.com")).thenReturn(Optional.of(teacherUser));
+        when(staffRepository.findByUserEmail("teacher@example.com")).thenReturn(Optional.of(staff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(5L)).thenReturn(List.of());
+
+        List<ParentResponse> response = parentService.getAllParents(null, null, null, "teacher@example.com");
+
+        assertThat(response).isEmpty();
+    }
+
+    @Test
+    void getAllParentsForRoleWithoutAccessThrowsForbidden() {
+        when(userRepository.findByEmail("finance@example.com")).thenReturn(Optional.of(buildUser(RoleName.FINANCE)));
+
+        assertThatThrownBy(() -> parentService.getAllParents(null, null, null, "finance@example.com"))
+                .isInstanceOf(ForbiddenException.class);
     }
 
     @Test
@@ -271,6 +346,15 @@ class ParentServiceTest {
 
         assertThatThrownBy(() -> parentService.claimParent(1L, request))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    private User buildUser(RoleName roleName) {
+        Role role = Role.builder().roleId(1L).code(roleName).name(roleName.name()).build();
+        return User.builder()
+                .userId(100L)
+                .email(roleName.name().toLowerCase() + "@example.com")
+                .roles(Set.of(role))
+                .build();
     }
 
     private Parent buildParent() {
