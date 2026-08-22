@@ -72,6 +72,24 @@ class ParentControllerApiTest {
     }
 
     @Test
+    @WithMockUser(roles = "TEACHER")
+    void teacherCanReadSingleParentAndLinkedStudentsOnly() throws Exception {
+        when(parentService.getParentById(1L)).thenReturn(parent());
+        when(studentGuardianService.getGuardiansByParent(1L)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/parents/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.parentId").value(1));
+        mockMvc.perform(get("/api/parents/1/students"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/parents"))
+                .andExpect(status().isForbidden());
+
+        verify(parentService).getParentById(1L);
+        verify(studentGuardianService).getGuardiansByParent(1L);
+    }
+
+    @Test
     void unauthenticatedUserCannotAccessParents() throws Exception {
         mockMvc.perform(get("/api/parents/me"))
                 .andExpect(status().isUnauthorized());
