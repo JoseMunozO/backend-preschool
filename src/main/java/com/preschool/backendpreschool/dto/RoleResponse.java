@@ -9,6 +9,7 @@ public record RoleResponse(
         RoleName code,
         String name,
         String description,
+        Integer rankLevel,
         LocalDateTime createdAt
 ) {
 }

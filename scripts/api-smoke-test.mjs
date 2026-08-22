@@ -542,6 +542,38 @@ async function main() {
   await expectJsonObject("get user by id as admin", `/api/users/${state.refs.userId}`, "admin");
   await expectJsonArray("list roles as admin", "/api/roles", "admin");
   await expectJsonObject("get ADMIN role by code", "/api/roles/ADMIN", "admin");
+  await runCheck("admin cannot assign SUPER_ADMIN role", async () => {
+    const result = await request(`/api/users/${state.refs.userId}/roles`, {
+      method: "POST",
+      token: state.tokens.admin,
+      body: { role: "SUPER_ADMIN" },
+    });
+    assertStatus(result, 403);
+  });
+  await runWriteCheck("create smoke staff without login access", async () => {
+    const result = await request("/api/staff", {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        firstName: "Smoke",
+        lastName: `Staff ${runId}`,
+        positionTitle: "Kitchen Staff",
+        staffType: "support",
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.staffId, "staffId");
+    state.refs.staffId = result.body.staffId;
+  });
+  if (!readOnly) {
+    await expectJsonObject("get smoke staff by id", `/api/staff/${state.refs.staffId}`, "admin");
+  }
+  await expectJsonArray("list staff as admin", "/api/staff", "admin");
+  await runCheck("parent cannot access staff", async () => {
+    const result = await request("/api/staff", { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
   await runCheck("reject invalid login", async () => {
     const result = await request("/api/auth/login", {
       method: "POST",

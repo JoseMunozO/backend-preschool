@@ -10,6 +10,7 @@ import com.preschool.backendpreschool.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,8 +47,8 @@ public class UserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse createUser(@Valid @RequestBody CreateUserRequest request) {
-        return userService.createUser(request);
+    public UserResponse createUser(@Valid @RequestBody CreateUserRequest request, Authentication authentication) {
+        return userService.createUser(request, authentication.getName());
     }
 
     @PutMapping("/{userId}")
@@ -61,17 +62,19 @@ public class UserController {
     @PostMapping("/{userId}/roles")
     public UserResponse assignRole(
             @PathVariable Long userId,
-            @Valid @RequestBody AssignRoleRequest request
+            @Valid @RequestBody AssignRoleRequest request,
+            Authentication authentication
     ) {
-        return userService.assignRole(userId, request);
+        return userService.assignRole(userId, request, authentication.getName());
     }
 
     @DeleteMapping("/{userId}/roles")
     public UserResponse removeRole(
             @PathVariable Long userId,
-            @Valid @RequestBody AssignRoleRequest request
+            @Valid @RequestBody AssignRoleRequest request,
+            Authentication authentication
     ) {
-        return userService.removeRole(userId, request);
+        return userService.removeRole(userId, request, authentication.getName());
     }
 
     @PatchMapping("/{userId}/deactivate")

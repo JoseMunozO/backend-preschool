@@ -29,6 +29,9 @@ public class Role {
     @Column(length = 255)
     private String description;
 
+    @Column(name = "rank_level", nullable = false)
+    private Integer rankLevel;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 }
