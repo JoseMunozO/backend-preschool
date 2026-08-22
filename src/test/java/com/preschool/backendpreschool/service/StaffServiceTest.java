@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.StaffRequest;
 import com.preschool.backendpreschool.dto.StaffResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.model.Role;
 import com.preschool.backendpreschool.model.RoleName;
@@ -127,6 +128,77 @@ class StaffServiceTest {
 
         assertThatThrownBy(() -> staffService.createStaff(request, "admin@school.com"))
                 .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void deleteStaffDeactivatesLinkedUserLoginAndSoftDeletes() {
+        User admin = buildUser(RoleName.ADMIN, 90);
+        User teacherUser = User.builder()
+                .userId(2L)
+                .email("teacher.target@school.com")
+                .status(UserStatus.ACTIVE)
+                .roles(Set.of(role(RoleName.TEACHER, 10)))
+                .build();
+        Staff staff = Staff.builder().staffId(7L).user(teacherUser).build();
+
+        when(staffRepository.findByStaffIdAndDeletedAtIsNull(7L)).thenReturn(Optional.of(staff));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(staffRepository.save(any(Staff.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        staffService.deleteStaff(7L, "admin@school.com");
+
+        assertThat(staff.getDeletedAt()).isNotNull();
+        assertThat(teacherUser.getStatus()).isEqualTo(UserStatus.INACTIVE);
+    }
+
+    @Test
+    void deleteStaffRejectsWhenLinkedUserHasHigherRank() {
+        User director = buildUser(RoleName.DIRECTOR, 90);
+        User superAdminUser = User.builder()
+                .userId(2L)
+                .email("super.target@school.com")
+                .status(UserStatus.ACTIVE)
+                .roles(Set.of(role(RoleName.SUPER_ADMIN, 100)))
+                .build();
+        Staff staff = Staff.builder().staffId(8L).user(superAdminUser).build();
+
+        when(staffRepository.findByStaffIdAndDeletedAtIsNull(8L)).thenReturn(Optional.of(staff));
+        when(userRepository.findByEmail("director@school.com")).thenReturn(Optional.of(director));
+
+        assertThatThrownBy(() -> staffService.deleteStaff(8L, "director@school.com"))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void deleteStaffRejectsRemovingLastSuperAdmin() {
+        User superAdminRequester = buildUser(RoleName.SUPER_ADMIN, 100);
+        Staff staff = Staff.builder().staffId(9L).user(superAdminRequester).build();
+
+        when(staffRepository.findByStaffIdAndDeletedAtIsNull(9L)).thenReturn(Optional.of(staff));
+        when(userRepository.findByEmail("super_admin@school.com")).thenReturn(Optional.of(superAdminRequester));
+        when(userRepository.countByRolesCode(RoleName.SUPER_ADMIN)).thenReturn(1L);
+
+        assertThatThrownBy(() -> staffService.deleteStaff(9L, "super_admin@school.com"))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void restoreStaffReactivatesLinkedUserLogin() {
+        User teacherUser = User.builder()
+                .userId(2L)
+                .email("teacher.target@school.com")
+                .status(UserStatus.INACTIVE)
+                .roles(Set.of(role(RoleName.TEACHER, 10)))
+                .build();
+        Staff staff = Staff.builder().staffId(7L).user(teacherUser).deletedAt(java.time.LocalDateTime.now()).build();
+
+        when(staffRepository.findByStaffIdAndDeletedAtIsNotNull(7L)).thenReturn(Optional.of(staff));
+        when(staffRepository.save(any(Staff.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        staffService.restoreStaff(7L);
+
+        assertThat(staff.getDeletedAt()).isNull();
+        assertThat(teacherUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 
     private User buildUser(RoleName roleName, int rank) {

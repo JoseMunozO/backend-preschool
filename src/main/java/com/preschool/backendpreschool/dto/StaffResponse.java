@@ -19,6 +19,7 @@ public record StaffResponse(
         String notes,
         Set<RoleResponse> roles,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        LocalDateTime deletedAt
 ) {
 }

@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,7 +43,7 @@ class StaffControllerApiTest {
     @Test
     @WithMockUser(username = "admin@school.com", roles = "ADMIN")
     void adminCanListAndCreateStaff() throws Exception {
-        when(staffService.getAllStaff()).thenReturn(List.of(staff()));
+        when(staffService.getAllStaff(null)).thenReturn(List.of(staff()));
         when(staffService.getStaffById(1L)).thenReturn(staff());
         when(staffService.createStaff(any(), eq("admin@school.com"))).thenReturn(staff());
 
@@ -71,6 +72,22 @@ class StaffControllerApiTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@school.com", roles = "ADMIN")
+    void adminCanDeleteAndRestoreStaff() throws Exception {
+        when(staffService.restoreStaff(1L)).thenReturn(staff());
+
+        mockMvc.perform(delete("/api/staff/1"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/staff/1/restore"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.staffId").value(1));
+
+        verify(staffService).deleteStaff(1L, "admin@school.com");
+        verify(staffService).restoreStaff(1L);
+    }
+
+    @Test
     @WithMockUser(roles = "TEACHER")
     void teacherCannotAccessStaff() throws Exception {
         mockMvc.perform(get("/api/staff"))
@@ -86,7 +103,7 @@ class StaffControllerApiTest {
     private StaffResponse staff() {
         return new StaffResponse(
                 1L, null, "STAFF-010", "Sara", "Assistant", null, null,
-                "Assistant Teacher", "teacher", null, "active", null, Set.of(), null, null
+                "Assistant Teacher", "teacher", null, "active", null, Set.of(), null, null, null
         );
     }
 

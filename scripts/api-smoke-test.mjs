@@ -574,6 +574,32 @@ async function main() {
     const result = await request("/api/staff", { token: state.tokens.parent });
     assertStatusIn(result, [401, 403]);
   });
+  await runWriteCheck("deactivate and restore smoke staff", async () => {
+    const deleteResult = await request(`/api/staff/${state.refs.staffId}`, {
+      method: "DELETE",
+      token: state.tokens.admin,
+    });
+    assertStatus(deleteResult, 204);
+
+    const hiddenResult = await request(`/api/staff/${state.refs.staffId}`, { token: state.tokens.admin });
+    assertStatus(hiddenResult, 404);
+
+    const visibleResult = await request("/api/staff?includeDeleted=true", { token: state.tokens.admin });
+    assertStatus(visibleResult, 200);
+    const found = visibleResult.body.find((s) => s.staffId === state.refs.staffId);
+    if (!found || !found.deletedAt) {
+      throw new Error(`Expected smoke staff ${state.refs.staffId} to appear with deletedAt set. Received: ${formatBody(visibleResult.body)}`);
+    }
+
+    const restoreResult = await request(`/api/staff/${state.refs.staffId}/restore`, {
+      method: "POST",
+      token: state.tokens.admin,
+    });
+    assertStatus(restoreResult, 200);
+    if (restoreResult.body.deletedAt !== null) {
+      throw new Error(`Expected deletedAt to be null after restore. Received: ${formatBody(restoreResult.body)}`);
+    }
+  });
   await runCheck("reject invalid login", async () => {
     const result = await request("/api/auth/login", {
       method: "POST",
