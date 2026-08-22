@@ -27,6 +27,8 @@ http://localhost:8080/swagger-ui/index.html
 http://localhost:8080/v3/api-docs
 ```
 
+Uploaded photos (student profile photos and photo albums) are stored on a named volume (`preschool_uploads_data`, mounted at `/app/uploads` in the container), so they survive `docker compose down` (but not `docker compose down -v`).
+
 Docker MySQL is exposed on the host as:
 
 ```text

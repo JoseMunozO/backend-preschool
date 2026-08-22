@@ -1,6 +1,5 @@
 package com.preschool.backendpreschool.service;
 
-import com.preschool.backendpreschool.dto.PhotoAlbumPhotoRequest;
 import com.preschool.backendpreschool.dto.PhotoAlbumPhotoResponse;
 import com.preschool.backendpreschool.dto.PhotoAlbumRequest;
 import com.preschool.backendpreschool.dto.PhotoAlbumResponse;
@@ -31,6 +30,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -40,6 +41,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +70,9 @@ class PhotoAlbumServiceTest {
 
     @Mock
     private StaffGroupAssignmentRepository staffGroupAssignmentRepository;
+
+    @Mock
+    private FileStorageService fileStorageService;
 
     @InjectMocks
     private PhotoAlbumService photoAlbumService;
@@ -140,6 +145,8 @@ class PhotoAlbumServiceTest {
         when(staffRepository.findByUserEmail("teacher@school.com")).thenReturn(Optional.of(staff));
         when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(9L))
                 .thenReturn(List.of(buildAssignment(staff, group)));
+        MultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[]{1, 2, 3});
+        when(fileStorageService.store(file, "albums/20")).thenReturn("/uploads/albums/20/photo.jpg");
         when(photoAlbumPhotoRepository.save(any(PhotoAlbumPhoto.class))).thenAnswer(invocation -> {
             PhotoAlbumPhoto photo = invocation.getArgument(0);
             photo.setPhotoAlbumPhotoId(30L);
@@ -148,12 +155,14 @@ class PhotoAlbumServiceTest {
 
         PhotoAlbumPhotoResponse response = photoAlbumService.addPhoto(
                 20L,
-                new PhotoAlbumPhotoRequest(null, "  https://cdn.example.com/photo.jpg  ", "  Outdoor play  "),
+                file,
+                null,
+                "  Outdoor play  ",
                 "teacher@school.com"
         );
 
         assertThat(response.photoAlbumPhotoId()).isEqualTo(30L);
-        assertThat(response.photoUrl()).isEqualTo("https://cdn.example.com/photo.jpg");
+        assertThat(response.photoUrl()).isEqualTo("/uploads/albums/20/photo.jpg");
         assertThat(response.caption()).isEqualTo("Outdoor play");
         assertThat(response.approved()).isFalse();
     }
@@ -207,6 +216,36 @@ class PhotoAlbumServiceTest {
 
         assertThat(response.approved()).isTrue();
         assertThat(photo.getApproved()).isTrue();
+    }
+
+    @Test
+    void deletePhotoSoftDeletesRowAndRemovesStoredFile() {
+        User admin = buildUser(1L, "admin@school.com", RoleName.ADMIN);
+        PhotoAlbum album = PhotoAlbum.builder()
+                .photoAlbumId(20L)
+                .title("Album")
+                .createdByUser(admin)
+                .active(true)
+                .build();
+        PhotoAlbumPhoto photo = PhotoAlbumPhoto.builder()
+                .photoAlbumPhotoId(30L)
+                .photoAlbum(album)
+                .uploadedByUser(admin)
+                .photoUrl("/uploads/albums/20/photo.jpg")
+                .approved(true)
+                .deleted(false)
+                .build();
+
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(photoAlbumRepository.findById(20L)).thenReturn(Optional.of(album));
+        when(photoAlbumPhotoRepository.findById(30L)).thenReturn(Optional.of(photo));
+        when(photoAlbumPhotoRepository.save(any(PhotoAlbumPhoto.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        photoAlbumService.deletePhoto(20L, 30L, "admin@school.com");
+
+        assertThat(photo.getDeleted()).isTrue();
+        assertThat(photo.getDeletedAt()).isNotNull();
+        verify(fileStorageService).delete("/uploads/albums/20/photo.jpg");
     }
 
     private Student buildStudent(Long studentId, Long groupId) {

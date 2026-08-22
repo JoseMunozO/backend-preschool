@@ -1,6 +1,5 @@
 package com.preschool.backendpreschool.controller;
 
-import com.preschool.backendpreschool.dto.PhotoAlbumPhotoRequest;
 import com.preschool.backendpreschool.dto.PhotoAlbumPhotoResponse;
 import com.preschool.backendpreschool.dto.PhotoAlbumRequest;
 import com.preschool.backendpreschool.dto.PhotoAlbumResponse;
@@ -8,6 +7,7 @@ import com.preschool.backendpreschool.service.PhotoAlbumService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,8 +18,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -74,14 +76,16 @@ public class PhotoAlbumController {
         photoAlbumService.deleteAlbum(albumId, authentication.getName());
     }
 
-    @PostMapping("/{albumId}/photos")
+    @PostMapping(value = "/{albumId}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public PhotoAlbumPhotoResponse addPhoto(
             @PathVariable Long albumId,
-            @Valid @RequestBody PhotoAlbumPhotoRequest request,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(required = false) Long studentId,
+            @RequestParam(required = false) String caption,
             Authentication authentication
     ) {
-        return photoAlbumService.addPhoto(albumId, request, authentication.getName());
+        return photoAlbumService.addPhoto(albumId, file, studentId, caption, authentication.getName());
     }
 
     @PatchMapping("/{albumId}/photos/{photoId}/approve")

@@ -133,11 +133,11 @@ La primera version debe construir una base funcional que permita validar si la a
 - [x] Contactos de emergencia como campo o entidad especifica: entidad `student_emergency_contacts` (nombre, relacion, telefono, telefono alterno, notas, contacto principal), endpoints `GET/POST/PUT/DELETE /api/students/{id}/emergency-contacts`.
 - [x] Respuesta de ficha completa con tutores incluidos: `StudentResponse` ahora incluye `guardians` (lista completa de tutores con datos de contacto) ademas de `primaryGuardianName`, tanto en `GET /api/students` como en `GET /api/students/{id}`.
 - [ ] Revisar si las notas actuales son suficientes o si se necesita historial de notas por fecha/usuario.
-- [ ] Investigar almacenamiento de fotos: base de datos, filesystem local, S3/Cloudinary u otro proveedor.
-- [ ] Definir modelo de album de fotos por estudiante.
-- [ ] Endpoint para subir foto de estudiante.
-- [ ] Endpoint para listar album de estudiante.
-- [ ] Endpoint para eliminar foto de estudiante.
+- [x] Investigar almacenamiento de fotos (2026-08-22): decidido filesystem local por ahora — mas simple para el entorno actual (Docker Compose local, sin credenciales de nube todavia), migrar a S3/Cloudinary despues es viable sin rehacer el modelo de datos porque `profilePhotoUrl`/`photoUrl` ya son URLs. Volumen Docker dedicado (`preschool_uploads_data:/app/uploads`) para que sobreviva a `docker compose down`.
+- [x] Definir modelo de album de fotos por estudiante (2026-08-22): reutiliza el modelo `PhotoAlbum`/`PhotoAlbumPhoto` ya existente (por estudiante o por grupo), no hizo falta un modelo nuevo.
+- [x] Endpoint para subir foto de estudiante (2026-08-22): `PUT /api/students/{id}/profile-photo` ahora acepta `multipart/form-data` (antes solo una URL de texto) — guarda el archivo real en disco, valida JPEG/PNG/WEBP/GIF, sigue exigiendo consentimiento activo `IMAGE_PROFILE_PHOTO`. `POST /api/photo-albums/{albumId}/photos` tambien pasa a `multipart/form-data`.
+- [x] Endpoint para listar album de estudiante (2026-08-22): ya existia (`GET /api/photo-albums?studentId=`), sin cambios.
+- [x] Endpoint para eliminar foto de estudiante (2026-08-22): `DELETE .../profile-photo` y `DELETE /api/photo-albums/{albumId}/photos/{photoId}` ahora tambien borran el archivo fisico del disco (antes no habia archivo real que borrar). Verificado que el purgado libera espacio pero no rompe el registro (queda soft-deleted en la fila).
 - [x] Endpoint o dashboard item para cumpleanos proximos: ya implementado en el dashboard (`upcomingBirthdays` en `teacher-summary` y `admin-summary`), ver seccion F.
 - [x] Tests de controller/API.
 
@@ -338,8 +338,8 @@ Al entrar en la aplicacion, el cliente vera lo mas importante sin tener que revi
 - [ ] Generacion de recibos y documentos en PDF.
 - [ ] Notas estilo comentarios para estudiantes: profesores responsables pueden crear/editar sus comentarios; direccion/admin pueden revisar historial y moderar.
 - [x] Backend base para foto de perfil por estudiante mediante `profilePhotoUrl`.
-- [ ] Subida/almacenamiento real de foto de perfil por estudiante, visible segun permisos internos y consentimiento familiar.
-- [ ] Album de fotos avanzado por estudiante o grupo, con permisos por grupo/estudiante asignado.
+- [x] Subida/almacenamiento real de foto de perfil por estudiante (2026-08-22): ver detalle en seccion A arriba.
+- [x] Album de fotos con almacenamiento real por estudiante o grupo (2026-08-22): permisos por grupo/estudiante asignado ya existian (`ensureCanAccessAlbum`/`ensureCanWriteAlbum`); lo que faltaba era el almacenamiento real de archivos, ya resuelto.
 - [ ] Consentimientos de privacidad/imagen: padres o tutores deben aceptar condiciones antes de permitir uso de fotos del estudiante.
 - [ ] Roles avanzados: administrador, profesor, contabilidad y padre/tutor.
 - [ ] Reglas avanzadas para gestion de roles: definir quien puede crear usuarios, asignar roles, quitar roles y evitar que `ADMIN` o `DIRECTOR` puedan otorgar permisos superiores a los propios.
@@ -363,7 +363,7 @@ Estado actual:
 - [x] Las fotos asociadas a estudiante requieren consentimiento activo `PHOTO_ALBUM`.
 - [ ] Historial detallado de edicion/auditoria avanzada para notas.
 - [ ] UI de consentimientos familiares antes de habilitar foto de perfil/albumes en produccion.
-- [ ] Almacenamiento real de archivos/imagenes para albumes.
+- [x] Almacenamiento real de archivos/imagenes para albumes (2026-08-22): `FileStorageService` guarda en filesystem local, sirve via `/uploads/**` (recurso estatico publico, sin autenticacion — mismo nivel de exposicion que ya tenian las URLs externas tipo Cloudinary/S3 que se guardaban antes como texto plano), y borra el archivo fisico al eliminar la foto o reemplazar la foto de perfil.
 
 Reglas iniciales deseadas:
 
@@ -449,6 +449,7 @@ PATCH /api/students/{studentId}/consents/{consentId}/revoke
 - [x] Revisar warnings de Mockito/Java agent en Java 25 (2026-08-21). El propio warning de auto-attach de Mockito ya estaba resuelto (ver linea 445, `-javaagent` configurado en `pom.xml`). El warning que persiste (`sun.misc.Unsafe::objectFieldOffset ... lombok.permit.Permit`) no es de Mockito, es de Lombok: bug abierto conocido, reportado contra JDK 24 y 25 en el repo oficial de Lombok (issues [#3852](https://github.com/projectlombok/lombok/issues/3852), [#3959](https://github.com/projectlombok/lombok/issues/3959), [#3907](https://github.com/projectlombok/lombok/issues/3907), [#4046](https://github.com/projectlombok/lombok/issues/4046)), persiste incluso en la version mas reciente (1.18.46, la que ya usamos). Java marco esos metodos como "deprecados para eliminacion" ([JEP 471](https://openjdk.org/jeps/471)) pero todavia no los removio — puramente cosmetico, nada que arreglar de nuestro lado hasta que Lombok publique un fix.
 - [x] Revisar warning de Flyway con MySQL (2026-08-21). Metadata de compatibilidad desactualizada en la version de Flyway que trae Spring Boot 4.0.6 (`11.14.1`, verificada oficialmente solo hasta versiones de MySQL mas viejas que la que usamos). La documentacion oficial de Flyway ya verifica hasta MySQL 9.4. Confirmado en esta sesion, repetidas veces, que las migraciones corren sin problema contra MySQL real (docker 8.4) — es solo un aviso informativo al arrancar, no un bloqueo funcional. Forzar una version de Flyway distinta a la que Spring Boot gestiona internamente seria mas riesgo (incompatibilidad) que beneficio (silenciar un warning cosmetico), asi que se deja como esta.
 - [x] Corregir que peticiones denegadas por rol devolvian `401` en vez de `403` en la app real (no se detectaba en tests `@WebMvcTest`): `response.sendError()` disparaba un forward interno a `/error` sin reautenticar, sobreescribiendo el status. Fix: `/error` marcado `permitAll()`. Verificado con un test de integracion con servidor real (`SecurityErrorDispatchIntegrationTest`) que falla sin el fix y pasa con el.
+- [x] Corregir que un archivo estatico faltante en `/uploads/**` devolvia `500` en vez de `404` (2026-08-22): descubierto al implementar el almacenamiento real de fotos — `GlobalExceptionHandler` tenia un `@ExceptionHandler(Exception.class)` generico que interceptaba `NoResourceFoundException` de Spring (que ya trae su propio status 404) y la convertia en 500, ademas de loguearla como "Unhandled exception". Fix: handler especifico para `NoResourceFoundException` que responde 404. Verificado contra Docker real: pedir una foto ya eliminada ahora da 404 en vez de 500.
 
 ## Propuesta de cierre
 

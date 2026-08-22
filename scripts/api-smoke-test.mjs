@@ -91,6 +91,12 @@ function parseBoolean(value) {
   return value === "true" || value === "1" || value === "yes";
 }
 
+function smokePhotoBytes() {
+  // Minimal valid 1x1 transparent PNG, used as a real uploaded file for the photo-album smoke check.
+  const base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  return Buffer.from(base64, "base64");
+}
+
 function buildSmokeAssignmentDate(date) {
   const baseDate = Date.UTC(2090, 0, 1);
   const dayOffset = Math.floor(date.getTime() / 1000) % 3000;
@@ -113,7 +119,7 @@ function formatDate(date) {
 async function request(path, options = {}) {
   const url = normalizeUrl(path);
   const headers = {
-    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(options.body && !options.formData ? { "Content-Type": "application/json" } : {}),
     ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
     ...(options.headers ?? {}),
   };
@@ -123,7 +129,7 @@ async function request(path, options = {}) {
     response = await fetch(url, {
       method: options.method ?? "GET",
       headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: options.formData ?? (options.body ? JSON.stringify(options.body) : undefined),
     });
   } catch (error) {
     const cause = error.cause?.message ? ` Cause: ${error.cause.message}` : "";
@@ -410,13 +416,14 @@ async function main() {
       assertObjectBody(result);
     });
     await runCheck("add smoke photo to album as admin", async () => {
+      const formData = new FormData();
+      formData.append("file", new Blob([smokePhotoBytes()], { type: "image/png" }), `${runId}.png`);
+      formData.append("caption", "Smoke photo");
+
       const result = await request(`/api/photo-albums/${state.refs.photoAlbumId}/photos`, {
         method: "POST",
         token: state.tokens.admin,
-        body: {
-          photoUrl: `https://example.com/smoke/photos/${runId}.jpg`,
-          caption: "Smoke photo",
-        },
+        formData,
       });
       assertStatus(result, 201);
       assertObjectBody(result);
