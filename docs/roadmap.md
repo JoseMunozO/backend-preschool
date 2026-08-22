@@ -174,6 +174,7 @@ El personal podra consultar rapidamente la informacion de cada nino sin depender
 - [x] Tests de servicio principales.
 - [ ] Revisar payloads finales para frontend.
 - [x] Agregar tests de controller/API: `ParentControllerApiTest` (filtros de admin, acceso propio de padre, rechazo sin autenticar).
+- [x] Acceso de `TEACHER` a padres/tutores (2026-08-22), pedido para poder contactar a la familia en una emergencia: lectura de un tutor puntual (`GET /api/parents/{parentId}`, `GET /api/parents/{parentId}/students`), y listado general (`GET /api/parents`) filtrado automaticamente a los tutores de estudiantes cuyo grupo el profesor tiene asignado activamente. Gestion de tutores (crear/editar/activar/desactivar/eliminar) sigue exclusiva de `SUPER_ADMIN`/`ADMIN`/`DIRECTOR`. Coordinado con el frontend: los tutores del estudiante ahora aparecen automaticamente como primeros contactos de emergencia en la ficha (a partir de `guardians[]`, ya expuesto en `GET /api/students/{id}`), sin necesitar que el profesor los tipee a mano.
 
 ### Resultado esperado
 
@@ -421,7 +422,7 @@ PATCH /api/students/{studentId}/consents/{consentId}/revoke
 - [x] Confirmar si "transferencia" necesita numero de referencia (2026-08-21): ya resuelto — `Payment.referenceNumber` existe (generico para cualquier metodo, no exclusivo de transferencia).
 - [x] Confirmar politica de privacidad/consentimiento para fotos (2026-08-21): ya resuelto por `StudentConsentType` (`IMAGE_PROFILE_PHOTO`, `PHOTO_ALBUM`, `INTERNAL_DOCUMENTATION`, `MARKETING_PUBLICATION`) con `acceptedAt`/`revokedAt` en `StudentConsent`.
 - [x] Confirmar como se organizan las fotos (2026-08-21): ya resuelto — `PhotoAlbum` por estudiante/grupo con flujo de aprobacion (`PATCH .../photos/{photoId}/approve`).
-- [ ] Confirmar si profesores solo pueden modificar fotos/notas de sus propios grupos o estudiantes asignados. (Genuinamente abierto — no hay restriccion de ese tipo implementada hoy, `TEACHER` tiene acceso parejo, no por grupo asignado.)
+- [x] Confirmar si profesores solo pueden modificar fotos/notas de sus propios grupos o estudiantes asignados (2026-08-22): ya resuelto — `StudentNoteService`, `StudentConsentService` y `PhotoAlbumService` ya restringen a `TEACHER` a estudiantes cuyo grupo tiene asignado activamente (`staff_group_assignments`, mismo criterio reutilizado hoy para el listado de padres/tutores). Ver lineas 356 y 361 arriba.
 - [ ] Confirmar cuantos dias antes debe avisar el sistema de cumpleanos proximos. (Genuinamente abierto — funcionalidad de aviso de cumpleanos no implementada.)
 - [x] Si los padres necesitan acceso directo a la aplicacion (2026-08-21): ya resuelto — implementado desde el inicio, rol `PARENT` con login y endpoints propios (`/api/parents/me`, `/api/payments/me`, etc.).
 - [x] Que tipos de materiales quieren controlar en el inventario (2026-08-21): ya resuelto — `Material.category` es texto libre sin restriccion, decision de flexibilidad ya tomada.
