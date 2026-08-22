@@ -587,14 +587,19 @@ Authorization: Bearer {{admin_token}}
 
 ### Add photo to album
 POST http://localhost:8080/api/photo-albums/{{photo_album_id}}/photos
-Content-Type: application/json
+Content-Type: multipart/form-data; boundary=WebAppBoundary
 Authorization: Bearer {{admin_token}}
 
-{
-  "studentId": null,
-  "photoUrl": "https://example.com/demo/photo-album/photo-1.jpg",
-  "caption": "Foto demo"
-}
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample-photo.png"
+Content-Type: image/png
+
+< ./sample-data/sample-photo.png
+--WebAppBoundary
+Content-Disposition: form-data; name="caption"
+
+Foto demo
+--WebAppBoundary--
 
 > {%
     client.global.set("photo_album_photo_id", response.body.photoAlbumPhotoId);
@@ -708,8 +713,7 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
-### Update student profile photo URL
-### Requires active IMAGE_PROFILE_PHOTO consent for this student
+### Grant IMAGE_PROFILE_PHOTO consent, required before uploading a profile photo
 POST http://localhost:8080/api/students/1/consents
 Content-Type: application/json
 Authorization: Bearer {{admin_token}}
@@ -722,18 +726,21 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
-### Update student profile photo URL
+### Upload student profile photo
 PUT http://localhost:8080/api/students/1/profile-photo
-Content-Type: application/json
+Content-Type: multipart/form-data; boundary=WebAppBoundary
 Authorization: Bearer {{admin_token}}
 
-{
-  "profilePhotoUrl": "https://example.com/demo/students/1/profile.jpg"
-}
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample-photo.png"
+Content-Type: image/png
+
+< ./sample-data/sample-photo.png
+--WebAppBoundary--
 
 ###
 
-### Remove student profile photo URL
+### Remove student profile photo
 DELETE http://localhost:8080/api/students/1/profile-photo
 Authorization: Bearer {{admin_token}}
 
