@@ -13,6 +13,7 @@ const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const logFile = join(logsDir, `api-smoke-test-${timestamp}.log`);
 const runId = timestamp.replace(/[^0-9TZ-]/g, "").slice(0, 24);
 const smokeAssignmentDate = buildSmokeAssignmentDate(new Date());
+const todayDate = formatDate(new Date());
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   printHelp();
@@ -922,7 +923,7 @@ async function main() {
   });
 
   await runCheck("get attendance roster as admin", async () => {
-    const result = await request(`/api/attendance?groupId=${state.refs.attendanceGroupId}&date=${smokeAssignmentDate}`, {
+    const result = await request(`/api/attendance?groupId=${state.refs.attendanceGroupId}&date=${todayDate}`, {
       token: state.tokens.admin,
     });
     assertStatus(result, 200);
@@ -935,7 +936,7 @@ async function main() {
       token: state.tokens.admin,
       body: {
         groupId: state.refs.attendanceGroupId,
-        date: smokeAssignmentDate,
+        date: todayDate,
         records: [
           { studentId: state.refs.studentId, status: "SICK", notes: "Smoke test" },
         ],
@@ -948,6 +949,23 @@ async function main() {
     if (!record || record.status !== "SICK") {
       throw new Error(`Expected saved attendance status SICK for student ${state.refs.studentId}. Received: ${formatBody(result.body)}`);
     }
+  });
+
+  await runWriteCheck("reject saving attendance for a past date", async () => {
+    const yesterday = addDays(todayDate, -1);
+    const result = await request("/api/attendance", {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        groupId: state.refs.attendanceGroupId,
+        date: yesterday,
+        records: [
+          { studentId: state.refs.studentId, status: "PRESENT", notes: null },
+        ],
+      },
+    });
+
+    assertStatus(result, 409);
   });
 
   await runCheck("parent cannot access attendance", async () => {

@@ -4,6 +4,7 @@ import com.preschool.backendpreschool.dto.StudentAttendanceBulkRequest;
 import com.preschool.backendpreschool.dto.StudentAttendanceEntry;
 import com.preschool.backendpreschool.dto.StudentAttendanceResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ClassGroup;
@@ -123,7 +124,7 @@ class StudentAttendanceServiceTest {
 
     @Test
     void saveAttendanceCreatesAndUpdatesRecordsForGroupStudentsOnly() {
-        LocalDate date = LocalDate.of(2026, 8, 24);
+        LocalDate date = LocalDate.now();
         User admin = buildUser(RoleName.ADMIN);
         ClassGroup group = ClassGroup.builder().groupId(5L).name("Group A").build();
         Student ana = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").classGroup(group).build();
@@ -163,6 +164,42 @@ class StudentAttendanceServiceTest {
                 5L,
                 LocalDate.now(),
                 List.of(new StudentAttendanceEntry(999L, StudentAttendanceStatus.PRESENT, null))
+        );
+
+        assertThatThrownBy(() -> studentAttendanceService.saveAttendance(request, "admin@school.com"))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void saveAttendanceRejectsPastDateAsAlreadyArchived() {
+        User admin = buildUser(RoleName.ADMIN);
+        ClassGroup group = ClassGroup.builder().groupId(5L).name("Group A").build();
+        Student ana = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").classGroup(group).build();
+
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(classGroupRepository.existsById(5L)).thenReturn(true);
+
+        StudentAttendanceBulkRequest request = new StudentAttendanceBulkRequest(
+                5L,
+                LocalDate.now().minusDays(1),
+                List.of(new StudentAttendanceEntry(1L, StudentAttendanceStatus.PRESENT, null))
+        );
+
+        assertThatThrownBy(() -> studentAttendanceService.saveAttendance(request, "admin@school.com"))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void saveAttendanceRejectsFutureDate() {
+        User admin = buildUser(RoleName.ADMIN);
+
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(classGroupRepository.existsById(5L)).thenReturn(true);
+
+        StudentAttendanceBulkRequest request = new StudentAttendanceBulkRequest(
+                5L,
+                LocalDate.now().plusDays(1),
+                List.of(new StudentAttendanceEntry(1L, StudentAttendanceStatus.PRESENT, null))
         );
 
         assertThatThrownBy(() -> studentAttendanceService.saveAttendance(request, "admin@school.com"))

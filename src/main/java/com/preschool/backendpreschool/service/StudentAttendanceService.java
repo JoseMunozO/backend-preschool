@@ -4,6 +4,7 @@ import com.preschool.backendpreschool.dto.StudentAttendanceBulkRequest;
 import com.preschool.backendpreschool.dto.StudentAttendanceEntry;
 import com.preschool.backendpreschool.dto.StudentAttendanceResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.RoleName;
@@ -60,6 +61,7 @@ public class StudentAttendanceService {
     public List<StudentAttendanceResponse> saveAttendance(StudentAttendanceBulkRequest request, String requesterEmail) {
         User requester = findUser(requesterEmail);
         ensureCanAccessGroup(requester, request.groupId());
+        ensureDateIsEditable(request.date());
 
         Map<Long, Student> groupStudentsById = studentRepository
                 .findAllByClassGroupGroupIdInAndDeletedAtIsNull(List.of(request.groupId()))
@@ -88,6 +90,16 @@ public class StudentAttendanceService {
         }
 
         return responses;
+    }
+
+    private void ensureDateIsEditable(LocalDate date) {
+        LocalDate today = LocalDate.now();
+        if (date.isBefore(today)) {
+            throw new ConflictException("No se puede modificar la asistencia de un dia anterior; queda archivado a partir de la medianoche");
+        }
+        if (date.isAfter(today)) {
+            throw new BadRequestException("No se puede registrar asistencia de un dia futuro");
+        }
     }
 
     private void ensureCanAccessGroup(User requester, Long groupId) {
