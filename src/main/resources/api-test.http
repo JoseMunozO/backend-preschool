@@ -934,6 +934,55 @@ Authorization: Bearer {{finance_token}}
 
 ###
 
+### Manually trigger monthly charge generation for a given month (idempotent, safe to re-run)
+### Also runs automatically every day at 02:00 for the current month
+POST http://localhost:8080/api/payments/generate-monthly-charges?month=2026-08
+Authorization: Bearer {{admin_token}}
+
+###
+
+### List a student's discount rules (history)
+GET http://localhost:8080/api/payments/students/1/discounts
+Authorization: Bearer {{admin_token}}
+
+###
+
+### Create a recurring discount for a student (percentage, indefinite until deactivated)
+POST http://localhost:8080/api/payments/students/1/discounts
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "discountType": "PERCENTAGE",
+  "value": 10,
+  "reason": "Hermanos inscritos en el centro",
+  "validFrom": "2026-08-01",
+  "validUntil": null
+}
+
+###
+
+### Create a one-time fixed-amount discount for a student, valid for a limited period
+POST http://localhost:8080/api/payments/students/1/discounts
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "discountType": "FIXED_AMOUNT",
+  "value": 100,
+  "reason": "Referido: trajo dos familias nuevas",
+  "validFrom": "2026-08-01",
+  "validUntil": "2026-10-31"
+}
+
+###
+
+### Deactivate a discount early
+PATCH http://localhost:8080/api/payments/students/1/discounts/1/deactivate
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Create cash payment with FINANCE token
 POST http://localhost:8080/api/payments
 Content-Type: application/json

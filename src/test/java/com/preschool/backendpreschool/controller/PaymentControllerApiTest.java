@@ -11,6 +11,7 @@ import com.preschool.backendpreschool.model.PaymentMethod;
 import com.preschool.backendpreschool.model.StudentChargeStatus;
 import com.preschool.backendpreschool.service.CustomUserDetailsService;
 import com.preschool.backendpreschool.service.JwtService;
+import com.preschool.backendpreschool.service.MonthlyChargeGenerationService;
 import com.preschool.backendpreschool.service.PaymentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,6 +49,9 @@ class PaymentControllerApiTest {
 
     @MockitoBean
     private PaymentService paymentService;
+
+    @MockitoBean
+    private MonthlyChargeGenerationService monthlyChargeGenerationService;
 
     @Test
     @WithMockUser(roles = "FINANCE")
@@ -136,6 +141,18 @@ class PaymentControllerApiTest {
                 .andExpect(jsonPath("$.studentChargeId").value(10));
 
         verify(paymentService).updateCharge(eq(10L), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "FINANCE")
+    void financeCanTriggerMonthlyChargeGeneration() throws Exception {
+        when(monthlyChargeGenerationService.generateMonthlyCharges(YearMonth.of(2026, 6))).thenReturn(List.of(charge()));
+
+        mockMvc.perform(post("/api/payments/generate-monthly-charges").param("month", "2026-06"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].studentChargeId").value(10));
+
+        verify(monthlyChargeGenerationService).generateMonthlyCharges(YearMonth.of(2026, 6));
     }
 
     @Test
