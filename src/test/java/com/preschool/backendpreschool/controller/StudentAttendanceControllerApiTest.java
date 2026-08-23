@@ -71,6 +71,23 @@ class StudentAttendanceControllerApiTest {
     }
 
     @Test
+    @WithMockUser(username = "admin@school.com", roles = "ADMIN")
+    void adminCanReadStudentAttendanceHistory() throws Exception {
+        LocalDate date = LocalDate.now();
+        StudentAttendanceResponse response = new StudentAttendanceResponse(
+                1L, 10L, "Ana Diaz", date, StudentAttendanceStatus.PRESENT, null, 2L, "admin@school.com", null, null
+        );
+        when(studentAttendanceService.getStudentAttendanceHistory(10L, null, null, "admin@school.com"))
+                .thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/attendance/students/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].studentId").value(10));
+
+        verify(studentAttendanceService).getStudentAttendanceHistory(10L, null, null, "admin@school.com");
+    }
+
+    @Test
     @WithMockUser(username = "parent.demo@school.com", roles = "PARENT")
     void parentCannotAccessAttendance() throws Exception {
         mockMvc.perform(get("/api/attendance").param("groupId", "5"))

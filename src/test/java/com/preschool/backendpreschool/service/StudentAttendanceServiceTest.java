@@ -36,6 +36,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -204,6 +205,77 @@ class StudentAttendanceServiceTest {
 
         assertThatThrownBy(() -> studentAttendanceService.saveAttendance(request, "admin@school.com"))
                 .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void getStudentAttendanceHistoryReturnsRecordsForAssignedTeacher() {
+        User teacher = buildUser(RoleName.TEACHER);
+        Staff staff = Staff.builder().staffId(9L).build();
+        ClassGroup group = ClassGroup.builder().groupId(5L).name("Group A").build();
+        Student ana = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").classGroup(group).build();
+        StudentAttendance record1 = StudentAttendance.builder()
+                .studentAttendanceId(30L)
+                .student(ana)
+                .attendanceDate(LocalDate.now())
+                .status(StudentAttendanceStatus.PRESENT)
+                .recordedByUser(teacher)
+                .build();
+
+        when(userRepository.findByEmail("teacher@school.com")).thenReturn(Optional.of(teacher));
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(ana));
+        when(staffRepository.findByUserEmail("teacher@school.com")).thenReturn(Optional.of(staff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(9L))
+                .thenReturn(List.of(buildAssignment(group, LocalDate.of(2026, 1, 1), null)));
+        when(studentAttendanceRepository.findByStudentStudentIdAndAttendanceDateBetweenOrderByAttendanceDateDesc(
+                eq(1L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(record1));
+
+        List<StudentAttendanceResponse> response = studentAttendanceService.getStudentAttendanceHistory(1L, null, null, "teacher@school.com");
+
+        assertThat(response).singleElement().satisfies(entry -> {
+            assertThat(entry.studentAttendanceId()).isEqualTo(30L);
+            assertThat(entry.status()).isEqualTo(StudentAttendanceStatus.PRESENT);
+        });
+    }
+
+    @Test
+    void getStudentAttendanceHistoryRejectsTeacherOutsideAssignedGroup() {
+        User teacher = buildUser(RoleName.TEACHER);
+        Staff staff = Staff.builder().staffId(9L).build();
+        ClassGroup group = ClassGroup.builder().groupId(5L).name("Group A").build();
+        Student ana = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").classGroup(group).build();
+
+        when(userRepository.findByEmail("teacher@school.com")).thenReturn(Optional.of(teacher));
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(ana));
+        when(staffRepository.findByUserEmail("teacher@school.com")).thenReturn(Optional.of(staff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(9L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> studentAttendanceService.getStudentAttendanceHistory(1L, null, null, "teacher@school.com"))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void getStudentAttendanceHistoryRejectsFromAfterTo() {
+        User admin = buildUser(RoleName.ADMIN);
+        Student ana = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").build();
+
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(ana));
+
+        assertThatThrownBy(() -> studentAttendanceService.getStudentAttendanceHistory(
+                1L, LocalDate.now(), LocalDate.now().minusDays(1), "admin@school.com"))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void getStudentAttendanceHistoryForMissingStudentThrowsNotFound() {
+        User admin = buildUser(RoleName.ADMIN);
+
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studentAttendanceService.getStudentAttendanceHistory(999L, null, null, "admin@school.com"))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     private StaffGroupAssignment buildAssignment(ClassGroup group, LocalDate startDate, LocalDate endDate) {

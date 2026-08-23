@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +31,16 @@ public class StudentAttendanceController {
             Authentication authentication
     ) {
         return studentAttendanceService.getAttendance(groupId, date != null ? date : LocalDate.now(), authentication.getName());
+    }
+
+    @GetMapping("/students/{studentId}")
+    public List<StudentAttendanceResponse> getStudentAttendanceHistory(
+            @PathVariable Long studentId,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            Authentication authentication
+    ) {
+        return studentAttendanceService.getStudentAttendanceHistory(studentId, from, to, authentication.getName());
     }
 
     @PostMapping

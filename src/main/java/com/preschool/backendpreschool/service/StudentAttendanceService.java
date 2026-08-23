@@ -57,6 +57,27 @@ public class StudentAttendanceService {
                 .toList();
     }
 
+    private static final int DEFAULT_HISTORY_WINDOW_DAYS = 30;
+
+    public List<StudentAttendanceResponse> getStudentAttendanceHistory(Long studentId, LocalDate from, LocalDate to, String requesterEmail) {
+        User requester = findUser(requesterEmail);
+        Student student = studentRepository.findByStudentIdAndDeletedAtIsNull(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
+        ensureCanAccessStudentAttendance(requester, student);
+
+        LocalDate effectiveTo = to != null ? to : LocalDate.now();
+        LocalDate effectiveFrom = from != null ? from : effectiveTo.minusDays(DEFAULT_HISTORY_WINDOW_DAYS - 1);
+        if (effectiveFrom.isAfter(effectiveTo)) {
+            throw new BadRequestException("La fecha 'from' no puede ser posterior a 'to'");
+        }
+
+        return studentAttendanceRepository
+                .findByStudentStudentIdAndAttendanceDateBetweenOrderByAttendanceDateDesc(studentId, effectiveFrom, effectiveTo)
+                .stream()
+                .map(attendance -> toResponse(student, attendance.getAttendanceDate(), attendance))
+                .toList();
+    }
+
     @Transactional
     public List<StudentAttendanceResponse> saveAttendance(StudentAttendanceBulkRequest request, String requesterEmail) {
         User requester = findUser(requesterEmail);
@@ -100,6 +121,19 @@ public class StudentAttendanceService {
         if (date.isAfter(today)) {
             throw new BadRequestException("No se puede registrar asistencia de un dia futuro");
         }
+    }
+
+    private void ensureCanAccessStudentAttendance(User requester, Student student) {
+        if (hasInternalAdminRole(requester)) {
+            return;
+        }
+
+        Long groupId = student.getClassGroup() != null ? student.getClassGroup().getGroupId() : null;
+        if (groupId != null && hasRole(requester, RoleName.TEACHER) && isAssignedToGroup(requester, groupId)) {
+            return;
+        }
+
+        throw new ForbiddenException("No tienes permiso para consultar la asistencia de este estudiante");
     }
 
     private void ensureCanAccessGroup(User requester, Long groupId) {
