@@ -968,6 +968,18 @@ async function main() {
     assertStatus(result, 409);
   });
 
+  await runCheck("get student attendance history as admin", async () => {
+    const result = await request(`/api/attendance/students/${state.refs.studentId}`, { token: state.tokens.admin });
+    assertStatus(result, 200);
+    assertArrayBody(result);
+    if (!readOnly) {
+      const record = result.body.find((entry) => entry.date === todayDate);
+      if (!record) {
+        throw new Error(`Expected today's (${todayDate}) attendance record in history. Received: ${formatBody(result.body)}`);
+      }
+    }
+  });
+
   await runCheck("parent cannot access attendance", async () => {
     const result = await request(`/api/attendance?groupId=${state.refs.attendanceGroupId}`, {
       token: state.tokens.parent,
