@@ -7,6 +7,7 @@ import com.preschool.backendpreschool.dto.PaymentResponse;
 import com.preschool.backendpreschool.dto.StudentChargeRequest;
 import com.preschool.backendpreschool.dto.StudentChargeResponse;
 import com.preschool.backendpreschool.model.StudentChargeStatus;
+import com.preschool.backendpreschool.service.MonthlyChargeGenerationService;
 import com.preschool.backendpreschool.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ import java.util.List;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final MonthlyChargeGenerationService monthlyChargeGenerationService;
 
     @GetMapping("/charge-types")
     public List<ChargeTypeResponse> getChargeTypes(
@@ -76,6 +78,12 @@ public class PaymentController {
             @Valid @RequestBody StudentChargeRequest request
     ) {
         return paymentService.updateCharge(studentChargeId, request);
+    }
+
+    @PostMapping("/generate-monthly-charges")
+    public List<StudentChargeResponse> generateMonthlyCharges(@RequestParam(required = false) String month) {
+        YearMonth yearMonth = month != null ? YearMonth.parse(month) : YearMonth.now();
+        return monthlyChargeGenerationService.generateMonthlyCharges(yearMonth);
     }
 
     @GetMapping("/me")

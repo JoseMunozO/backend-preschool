@@ -17,4 +17,10 @@ public interface StudentChargeRepository extends JpaRepository<StudentCharge, Lo
             LocalDate start,
             LocalDate end
     );
+
+    boolean existsByStudentStudentIdAndChargeTypeChargeTypeIdAndBillingPeriodStart(
+            Long studentId,
+            Long chargeTypeId,
+            LocalDate billingPeriodStart
+    );
 }

@@ -700,6 +700,63 @@ async function main() {
   });
   await expectJsonArray("list current parent charges", "/api/payments/me/charges", "parent");
   await expectJsonArray("list current parent payments", "/api/payments/me", "parent");
+  await runWriteCheck("create smoke discount for student", async () => {
+    const result = await request(`/api/payments/students/${state.refs.studentId}/discounts`, {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        discountType: "PERCENTAGE",
+        value: 10,
+        reason: `Smoke test discount ${runId}`,
+        validFrom: todayDate,
+        validUntil: null,
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.studentDiscountId, "studentDiscountId");
+    state.refs.studentDiscountId = result.body.studentDiscountId;
+  });
+  if (!readOnly) {
+    await runCheck("list student discounts as admin", async () => {
+      const result = await request(`/api/payments/students/${state.refs.studentId}/discounts`, { token: state.tokens.admin });
+      assertStatus(result, 200);
+      assertNonEmptyArray(result);
+      const found = result.body.find((d) => d.studentDiscountId === state.refs.studentDiscountId);
+      if (!found) {
+        throw new Error(`Expected discount ${state.refs.studentDiscountId} in list. Received: ${formatBody(result.body)}`);
+      }
+    });
+    await runWriteCheck("deactivate smoke discount", async () => {
+      const result = await request(`/api/payments/students/${state.refs.studentId}/discounts/${state.refs.studentDiscountId}/deactivate`, {
+        method: "PATCH",
+        token: state.tokens.admin,
+      });
+      assertStatus(result, 200);
+      if (result.body.active !== false) {
+        throw new Error(`Expected discount to be deactivated. Received: ${formatBody(result.body)}`);
+      }
+    });
+  }
+  await runCheck("parent cannot access student discounts", async () => {
+    const result = await request(`/api/payments/students/${state.refs.studentId}/discounts`, { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+  await runWriteCheck("trigger monthly charge generation as admin", async () => {
+    const result = await request("/api/payments/generate-monthly-charges", {
+      method: "POST",
+      token: state.tokens.admin,
+    });
+    assertStatus(result, 200);
+    assertArrayBody(result);
+  });
+  await runCheck("parent cannot trigger monthly charge generation", async () => {
+    const result = await request("/api/payments/generate-monthly-charges", {
+      method: "POST",
+      token: state.tokens.parent,
+    });
+    assertStatusIn(result, [401, 403]);
+  });
   await runCheck("list materials as admin", async () => {
     const result = await request("/api/materials", { token: state.tokens.admin });
     assertStatus(result, 200);
