@@ -1317,19 +1317,22 @@ Authorization: Bearer {{admin_token}}
 ###
 
 ### Get attendance roster for a group/date (includes unmarked students)
-GET http://localhost:8080/api/attendance?groupId=1&date=2026-08-24
+### date is optional, defaults to today; past dates are viewable but read-only
+GET http://localhost:8080/api/attendance?groupId=1
 Authorization: Bearer {{admin_token}}
 
 ###
 
 ### Save attendance for a group/date
+### Only today's date is accepted: 409 if date is in the past ("already archived"),
+### 400 if it's in the future. Replace "date" below with today's actual date.
 POST http://localhost:8080/api/attendance
 Content-Type: application/json
 Authorization: Bearer {{admin_token}}
 
 {
   "groupId": 1,
-  "date": "2026-08-24",
+  "date": "2026-08-23",
   "records": [
     {
       "studentId": 1,
