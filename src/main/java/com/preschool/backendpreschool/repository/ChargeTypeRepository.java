@@ -11,4 +11,6 @@ public interface ChargeTypeRepository extends JpaRepository<ChargeType, Long> {
     Optional<ChargeType> findByCode(String code);
 
     List<ChargeType> findByActiveTrue();
+
+    boolean existsByCode(String code);
 }

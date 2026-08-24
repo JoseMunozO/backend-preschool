@@ -122,6 +122,60 @@ class PaymentControllerApiTest {
 
     @Test
     @WithMockUser(roles = "FINANCE")
+    void financeCanCreateAndUpdateChargeType() throws Exception {
+        when(paymentService.createChargeType(any())).thenReturn(chargeType());
+        when(paymentService.updateChargeType(eq(1L), any())).thenReturn(chargeType());
+
+        mockMvc.perform(post("/api/payments/charge-types")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code": "MONTHLY_FEE",
+                                  "name": "Monthly fee",
+                                  "recurrenceType": "MONTHLY",
+                                  "defaultAmount": 6000.00,
+                                  "active": true
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value("MONTHLY"));
+
+        mockMvc.perform(put("/api/payments/charge-types/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code": "MONTHLY_FEE",
+                                  "name": "Monthly fee",
+                                  "recurrenceType": "MONTHLY",
+                                  "defaultAmount": 6500.00,
+                                  "active": true
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(paymentService).createChargeType(any());
+        verify(paymentService).updateChargeType(eq(1L), any());
+    }
+
+    @Test
+    @WithMockUser(username = "parent@example.com", roles = "PARENT")
+    void parentCannotCreateChargeType() throws Exception {
+        mockMvc.perform(post("/api/payments/charge-types")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code": "TEST",
+                                  "name": "Test",
+                                  "recurrenceType": "ONE_TIME",
+                                  "defaultAmount": 100.00,
+                                  "active": true
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "FINANCE")
     void financeCanUpdateChargeToCancelIt() throws Exception {
         when(paymentService.updateCharge(eq(10L), any())).thenReturn(charge());
 

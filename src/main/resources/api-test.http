@@ -846,6 +846,36 @@ Authorization: Bearer {{finance_token}}
 
 ###
 
+### Create a new charge type (e.g. uniform fee)
+POST http://localhost:8080/api/payments/charge-types
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "code": "UNIFORM",
+  "name": "Uniform fee",
+  "recurrenceType": "ONE_TIME",
+  "defaultAmount": 1200.00,
+  "active": true
+}
+
+###
+
+### Update a charge type's price (e.g. adjust monthly tuition)
+PUT http://localhost:8080/api/payments/charge-types/1
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "code": "MONTHLY_FEE",
+  "name": "Monthly fee",
+  "recurrenceType": "MONTHLY",
+  "defaultAmount": 6500.00,
+  "active": true
+}
+
+###
+
 ### Get all student charges with FINANCE token
 GET http://localhost:8080/api/payments/charges
 Authorization: Bearer {{finance_token}}

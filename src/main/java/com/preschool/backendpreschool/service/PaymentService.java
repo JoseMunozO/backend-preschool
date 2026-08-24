@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.ChargeTypeRequest;
 import com.preschool.backendpreschool.dto.ChargeTypeResponse;
 import com.preschool.backendpreschool.dto.PaymentAllocationRequest;
 import com.preschool.backendpreschool.dto.PaymentAllocationResponse;
@@ -59,6 +60,43 @@ public class PaymentService {
         return chargeTypes.stream()
                 .map(this::toChargeTypeResponse)
                 .toList();
+    }
+
+    @Transactional
+    public ChargeTypeResponse createChargeType(ChargeTypeRequest request) {
+        if (chargeTypeRepository.existsByCode(request.code())) {
+            throw new BadRequestException("El codigo de tipo de cargo ya existe");
+        }
+
+        ChargeType chargeType = ChargeType.builder()
+                .code(request.code().trim())
+                .name(request.name().trim())
+                .recurrenceType(request.recurrenceType())
+                .defaultAmount(request.defaultAmount())
+                .active(request.active() != null ? request.active() : true)
+                .build();
+
+        return toChargeTypeResponse(chargeTypeRepository.save(chargeType));
+    }
+
+    @Transactional
+    public ChargeTypeResponse updateChargeType(Long chargeTypeId, ChargeTypeRequest request) {
+        ChargeType chargeType = chargeTypeRepository.findById(chargeTypeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tipo de cargo no encontrado"));
+
+        if (!chargeType.getCode().equalsIgnoreCase(request.code()) && chargeTypeRepository.existsByCode(request.code())) {
+            throw new BadRequestException("El codigo de tipo de cargo ya existe");
+        }
+
+        chargeType.setCode(request.code().trim());
+        chargeType.setName(request.name().trim());
+        chargeType.setRecurrenceType(request.recurrenceType());
+        chargeType.setDefaultAmount(request.defaultAmount());
+        if (request.active() != null) {
+            chargeType.setActive(request.active());
+        }
+
+        return toChargeTypeResponse(chargeTypeRepository.save(chargeType));
     }
 
     public List<StudentChargeResponse> getCharges(Long studentId, StudentChargeStatus status, YearMonth month) {
