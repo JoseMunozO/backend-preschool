@@ -198,6 +198,131 @@ class StudentNoteServiceTest {
     }
 
     @Test
+    void assignedTeacherCanUpdateOwnNote() {
+        Student student = buildStudent(1L, 10L);
+        User teacher = buildUser(3L, "teacher@school.com", RoleName.TEACHER);
+        Staff staff = Staff.builder().staffId(7L).user(teacher).build();
+        StudentNote note = StudentNote.builder()
+                .studentNoteId(8L)
+                .student(student)
+                .authorUser(teacher)
+                .noteType(StudentNoteType.BEHAVIOR)
+                .content("Original content")
+                .moderated(false)
+                .deleted(false)
+                .build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("teacher@school.com")).thenReturn(Optional.of(teacher));
+        when(staffRepository.findByUserEmail("teacher@school.com")).thenReturn(Optional.of(staff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(7L))
+                .thenReturn(List.of(buildAssignment(staff, student.getClassGroup())));
+        when(studentNoteRepository.findById(8L)).thenReturn(Optional.of(note));
+        when(studentNoteRepository.save(any(StudentNote.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudentNoteResponse response = studentNoteService.updateNote(
+                1L,
+                8L,
+                new StudentNoteRequest(StudentNoteType.BEHAVIOR, "Updated by author"),
+                "teacher@school.com"
+        );
+
+        assertThat(response.content()).isEqualTo("Updated by author");
+    }
+
+    @Test
+    void teacherCannotUpdateAnotherTeachersNote() {
+        Student student = buildStudent(1L, 10L);
+        User author = buildUser(3L, "author-teacher@school.com", RoleName.TEACHER);
+        User otherTeacher = buildUser(6L, "other-teacher@school.com", RoleName.TEACHER);
+        Staff otherStaff = Staff.builder().staffId(9L).user(otherTeacher).build();
+        StudentNote note = StudentNote.builder()
+                .studentNoteId(8L)
+                .student(student)
+                .authorUser(author)
+                .noteType(StudentNoteType.BEHAVIOR)
+                .content("Original content")
+                .moderated(false)
+                .deleted(false)
+                .build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("other-teacher@school.com")).thenReturn(Optional.of(otherTeacher));
+        when(staffRepository.findByUserEmail("other-teacher@school.com")).thenReturn(Optional.of(otherStaff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(9L))
+                .thenReturn(List.of(buildAssignment(otherStaff, student.getClassGroup())));
+        when(studentNoteRepository.findById(8L)).thenReturn(Optional.of(note));
+
+        assertThatThrownBy(() -> studentNoteService.updateNote(
+                1L,
+                8L,
+                new StudentNoteRequest(StudentNoteType.BEHAVIOR, "Trying to edit someone else's note"),
+                "other-teacher@school.com"
+        ))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessage("Solo puedes editar o eliminar las notas que tu creaste");
+    }
+
+    @Test
+    void teacherCannotDeleteAnotherTeachersNote() {
+        Student student = buildStudent(1L, 10L);
+        User author = buildUser(3L, "author-teacher@school.com", RoleName.TEACHER);
+        User otherTeacher = buildUser(6L, "other-teacher@school.com", RoleName.TEACHER);
+        Staff otherStaff = Staff.builder().staffId(9L).user(otherTeacher).build();
+        StudentNote note = StudentNote.builder()
+                .studentNoteId(8L)
+                .student(student)
+                .authorUser(author)
+                .noteType(StudentNoteType.BEHAVIOR)
+                .content("Original content")
+                .moderated(false)
+                .deleted(false)
+                .build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("other-teacher@school.com")).thenReturn(Optional.of(otherTeacher));
+        when(staffRepository.findByUserEmail("other-teacher@school.com")).thenReturn(Optional.of(otherStaff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(9L))
+                .thenReturn(List.of(buildAssignment(otherStaff, student.getClassGroup())));
+        when(studentNoteRepository.findById(8L)).thenReturn(Optional.of(note));
+
+        assertThatThrownBy(() -> studentNoteService.deleteNote(1L, 8L, "other-teacher@school.com"))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessage("Solo puedes editar o eliminar las notas que tu creaste");
+    }
+
+    @Test
+    void directorCanUpdateNoteAuthoredByATeacher() {
+        Student student = buildStudent(1L, 10L);
+        User teacher = buildUser(3L, "teacher@school.com", RoleName.TEACHER);
+        User director = buildUser(5L, "director@school.com", RoleName.DIRECTOR);
+        StudentNote note = StudentNote.builder()
+                .studentNoteId(8L)
+                .student(student)
+                .authorUser(teacher)
+                .noteType(StudentNoteType.BEHAVIOR)
+                .content("Original content")
+                .moderated(false)
+                .deleted(false)
+                .build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("director@school.com")).thenReturn(Optional.of(director));
+        when(studentNoteRepository.findById(8L)).thenReturn(Optional.of(note));
+        when(studentNoteRepository.save(any(StudentNote.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudentNoteResponse response = studentNoteService.updateNote(
+                1L,
+                8L,
+                new StudentNoteRequest(StudentNoteType.ADMINISTRATIVE, "Updated by director"),
+                "director@school.com"
+        );
+
+        assertThat(response.content()).isEqualTo("Updated by director");
+        assertThat(response.moderated()).isTrue();
+    }
+
+    @Test
     void updateNoteRecordsAuditLogWithPreviousAndNewValues() {
         Student student = buildStudent(1L, 10L);
         User director = buildUser(5L, "director@school.com", RoleName.DIRECTOR);

@@ -71,10 +71,9 @@ public class StudentNoteService {
     public StudentNoteResponse updateNote(Long studentId, Long noteId, StudentNoteRequest request, String requesterEmail) {
         Student student = findStudent(studentId);
         User requester = findUser(requesterEmail);
-        ensureCanAccessStudentNotes(requester, student);
-
         StudentNote note = findNote(noteId);
         ensureNoteBelongsToStudent(note, studentId);
+        ensureCanModifyNote(requester, student, note);
 
         String previousValues = snapshotNote(note);
 
@@ -122,10 +121,9 @@ public class StudentNoteService {
     public void deleteNote(Long studentId, Long noteId, String requesterEmail) {
         Student student = findStudent(studentId);
         User requester = findUser(requesterEmail);
-        ensureCanAccessStudentNotes(requester, student);
-
         StudentNote note = findNote(noteId);
         ensureNoteBelongsToStudent(note, studentId);
+        ensureCanModifyNote(requester, student, note);
 
         note.setDeleted(true);
         note.setDeletedAt(LocalDateTime.now());
@@ -156,6 +154,18 @@ public class StudentNoteService {
     private void ensureNoteBelongsToStudent(StudentNote note, Long studentId) {
         if (!note.getStudent().getStudentId().equals(studentId)) {
             throw new ResourceNotFoundException("Nota no encontrada");
+        }
+    }
+
+    private void ensureCanModifyNote(User requester, Student student, StudentNote note) {
+        if (hasInternalAdminRole(requester)) {
+            return;
+        }
+
+        ensureCanAccessStudentNotes(requester, student);
+
+        if (note.getAuthorUser() == null || !note.getAuthorUser().getUserId().equals(requester.getUserId())) {
+            throw new ForbiddenException("Solo puedes editar o eliminar las notas que tu creaste");
         }
     }
 
