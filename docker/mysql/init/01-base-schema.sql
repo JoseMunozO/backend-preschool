@@ -334,11 +334,15 @@ INSERT INTO staff_group_assignments (staff_group_assignment_id, staff_id, group_
     (6, 2, 2, 'coordinator', FALSE, '2026-01-01'),
     (7, 2, 3, 'coordinator', FALSE, '2026-01-01');
 
+-- Default amounts reflect Dominican Republic market pricing (RD$) researched 2026-08-24:
+-- guarderia/preescolar tuition typically RD$4,500-7,500/month (midpoint used here);
+-- meal plan, field trip and material fee are estimates, not sourced market averages
+-- (see docs/roadmap.md for detail and sources) -- adjust once confirmed with the client.
 INSERT INTO charge_types (charge_type_id, code, name, recurrence_type, default_amount, active) VALUES
-    (1, 'MONTHLY_FEE', 'Monthly fee', 'monthly', 950.00, TRUE),
-    (2, 'MEAL_PLAN', 'Meal plan', 'monthly', 120.00, TRUE),
-    (3, 'FIELD_TRIP', 'Field trip', 'one_time', 35.00, TRUE),
-    (4, 'MATERIAL_FEE', 'Material fee', 'custom', 45.00, TRUE);
+    (1, 'MONTHLY_FEE', 'Monthly fee', 'monthly', 6000.00, TRUE),
+    (2, 'MEAL_PLAN', 'Meal plan', 'monthly', 1500.00, TRUE),
+    (3, 'FIELD_TRIP', 'Field trip', 'one_time', 500.00, TRUE),
+    (4, 'MATERIAL_FEE', 'Material fee', 'custom', 2000.00, TRUE);
 
 INSERT INTO student_charges (student_charge_id, student_id, charge_type_id, due_date, billing_period_start, billing_period_end, amount_due, status, description, created_by_user_id) VALUES
     (1, 1, 1, '2026-05-31', '2026-05-01', '2026-05-31', 950.00, 'pending', 'May tuition', 1),
