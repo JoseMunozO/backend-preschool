@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.StudentNoteAuditLogResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.exception.ForbiddenException;
@@ -11,16 +12,19 @@ import com.preschool.backendpreschool.model.StaffGroupAssignment;
 import com.preschool.backendpreschool.model.StaffGroupRole;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentNote;
+import com.preschool.backendpreschool.model.StudentNoteAuditLog;
 import com.preschool.backendpreschool.model.StudentNoteType;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.repository.StaffGroupAssignmentRepository;
 import com.preschool.backendpreschool.repository.StaffRepository;
+import com.preschool.backendpreschool.repository.StudentNoteAuditLogRepository;
 import com.preschool.backendpreschool.repository.StudentNoteRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,6 +37,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,6 +57,9 @@ class StudentNoteServiceTest {
 
     @Mock
     private StaffGroupAssignmentRepository staffGroupAssignmentRepository;
+
+    @Mock
+    private StudentNoteAuditLogRepository studentNoteAuditLogRepository;
 
     @InjectMocks
     private StudentNoteService studentNoteService;
@@ -187,6 +195,97 @@ class StudentNoteServiceTest {
 
         assertThat(note.getDeleted()).isTrue();
         assertThat(note.getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    void updateNoteRecordsAuditLogWithPreviousAndNewValues() {
+        Student student = buildStudent(1L, 10L);
+        User director = buildUser(5L, "director@school.com", RoleName.DIRECTOR);
+        StudentNote note = StudentNote.builder()
+                .studentNoteId(8L)
+                .student(student)
+                .authorUser(director)
+                .noteType(StudentNoteType.ADMINISTRATIVE)
+                .content("Original content")
+                .moderated(true)
+                .deleted(false)
+                .build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("director@school.com")).thenReturn(Optional.of(director));
+        when(studentNoteRepository.findById(8L)).thenReturn(Optional.of(note));
+        when(studentNoteRepository.save(any(StudentNote.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudentNoteResponse response = studentNoteService.updateNote(
+                1L,
+                8L,
+                new StudentNoteRequest(StudentNoteType.BEHAVIOR, "Updated content"),
+                "director@school.com"
+        );
+
+        assertThat(response.content()).isEqualTo("Updated content");
+
+        ArgumentCaptor<StudentNoteAuditLog> captor = ArgumentCaptor.forClass(StudentNoteAuditLog.class);
+        verify(studentNoteAuditLogRepository).save(captor.capture());
+
+        StudentNoteAuditLog savedAuditLog = captor.getValue();
+        assertThat(savedAuditLog.getStudentNote()).isEqualTo(note);
+        assertThat(savedAuditLog.getChangedByUser()).isEqualTo(director);
+        assertThat(savedAuditLog.getPreviousValues())
+                .isEqualTo("noteType=ADMINISTRATIVE; content=Original content");
+        assertThat(savedAuditLog.getNewValues())
+                .isEqualTo("noteType=BEHAVIOR; content=Updated content");
+    }
+
+    @Test
+    void getAuditLogReturnsRecordedEntriesForAuthorizedUser() {
+        Student student = buildStudent(1L, 10L);
+        User director = buildUser(5L, "director@school.com", RoleName.DIRECTOR);
+        StudentNote note = StudentNote.builder()
+                .studentNoteId(8L)
+                .student(student)
+                .authorUser(director)
+                .noteType(StudentNoteType.ADMINISTRATIVE)
+                .content("Updated content")
+                .moderated(true)
+                .deleted(false)
+                .build();
+        StudentNoteAuditLog auditLog = StudentNoteAuditLog.builder()
+                .studentNoteAuditLogId(30L)
+                .studentNote(note)
+                .changedByUser(director)
+                .previousValues("noteType=ADMINISTRATIVE; content=Original content")
+                .newValues("noteType=ADMINISTRATIVE; content=Updated content")
+                .build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("director@school.com")).thenReturn(Optional.of(director));
+        when(studentNoteRepository.findById(8L)).thenReturn(Optional.of(note));
+        when(studentNoteAuditLogRepository.findByStudentNoteStudentNoteIdOrderByChangedAtDesc(8L))
+                .thenReturn(List.of(auditLog));
+
+        List<StudentNoteAuditLogResponse> response = studentNoteService.getAuditLog(1L, 8L, "director@school.com");
+
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).studentNoteAuditLogId()).isEqualTo(30L);
+        assertThat(response.get(0).changedByEmail()).isEqualTo("director@school.com");
+        assertThat(response.get(0).previousValues()).isEqualTo("noteType=ADMINISTRATIVE; content=Original content");
+        assertThat(response.get(0).newValues()).isEqualTo("noteType=ADMINISTRATIVE; content=Updated content");
+    }
+
+    @Test
+    void getAuditLogRejectsTeacherOutsideAssignedGroup() {
+        Student student = buildStudent(1L, 10L);
+        User teacher = buildUser(3L, "teacher@school.com", RoleName.TEACHER);
+        Staff staff = Staff.builder().staffId(7L).user(teacher).build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("teacher@school.com")).thenReturn(Optional.of(teacher));
+        when(staffRepository.findByUserEmail("teacher@school.com")).thenReturn(Optional.of(staff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(7L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> studentNoteService.getAuditLog(1L, 8L, "teacher@school.com"))
+                .isInstanceOf(ForbiddenException.class);
     }
 
     private Student buildStudent(Long studentId, Long groupId) {

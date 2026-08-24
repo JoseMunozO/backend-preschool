@@ -580,6 +580,12 @@ Authorization: Bearer {{admin_token}}
 
 ###
 
+### Get student note audit log
+GET http://localhost:8080/api/students/1/notes/{{student_note_id}}/audit-log
+Authorization: Bearer {{admin_token}}
+
+###
+
 ### Delete student note
 DELETE http://localhost:8080/api/students/1/notes/{{student_note_id}}
 Authorization: Bearer {{admin_token}}

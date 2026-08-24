@@ -4,6 +4,7 @@ import com.preschool.backendpreschool.dto.StudentConsentRequest;
 import com.preschool.backendpreschool.dto.StudentConsentResponse;
 import com.preschool.backendpreschool.dto.StudentEmergencyContactRequest;
 import com.preschool.backendpreschool.dto.StudentEmergencyContactResponse;
+import com.preschool.backendpreschool.dto.StudentNoteAuditLogResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.dto.StudentRequest;
@@ -114,6 +115,15 @@ public class StudentController {
             Authentication authentication
     ) {
         return studentNoteService.updateNote(id, noteId, request, authentication.getName());
+    }
+
+    @GetMapping("/{id}/notes/{noteId}/audit-log")
+    public List<StudentNoteAuditLogResponse> getStudentNoteAuditLog(
+            @PathVariable Long id,
+            @PathVariable Long noteId,
+            Authentication authentication
+    ) {
+        return studentNoteService.getAuditLog(id, noteId, authentication.getName());
     }
 
     @PatchMapping("/{id}/notes/{noteId}/moderate")
