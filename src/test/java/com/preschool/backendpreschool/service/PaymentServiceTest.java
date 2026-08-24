@@ -9,6 +9,7 @@ import com.preschool.backendpreschool.dto.PaymentResponse;
 import com.preschool.backendpreschool.dto.StudentChargeRequest;
 import com.preschool.backendpreschool.dto.StudentChargeResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ChargeRecurrenceType;
 import com.preschool.backendpreschool.model.ChargeType;
@@ -16,11 +17,14 @@ import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.Payment;
 import com.preschool.backendpreschool.model.PaymentAllocation;
 import com.preschool.backendpreschool.model.PaymentMethod;
+import com.preschool.backendpreschool.model.Role;
+import com.preschool.backendpreschool.model.RoleName;
 import com.preschool.backendpreschool.model.Staff;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentCharge;
 import com.preschool.backendpreschool.model.StudentChargeStatus;
 import com.preschool.backendpreschool.model.StudentStatus;
+import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.repository.ChargeTypeRepository;
 import com.preschool.backendpreschool.repository.ParentRepository;
 import com.preschool.backendpreschool.repository.PaymentAllocationRepository;
@@ -29,6 +33,7 @@ import com.preschool.backendpreschool.repository.StaffRepository;
 import com.preschool.backendpreschool.repository.StudentChargeRepository;
 import com.preschool.backendpreschool.repository.StudentGuardianRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
+import com.preschool.backendpreschool.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,10 +47,13 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,6 +82,15 @@ class PaymentServiceTest {
 
     @Mock
     private StudentGuardianRepository studentGuardianRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private ReceiptPdfService receiptPdfService;
+
+    @Mock
+    private ReceiptStorageService receiptStorageService;
 
     @InjectMocks
     private PaymentService paymentService;
@@ -191,6 +208,120 @@ class PaymentServiceTest {
         assertThat(response.paymentId()).isEqualTo(20L);
         assertThat(response.allocations()).hasSize(1);
         assertThat(charge.getStatus()).isEqualTo(StudentChargeStatus.PAID);
+    }
+
+    @Test
+    void createPaymentGeneratesAndStoresReceiptPdf() {
+        Parent parent = Parent.builder().parentId(1L).firstName("Carolina").lastName("Demo").build();
+        Staff staff = Staff.builder().staffId(3L).firstName("Finance").lastName("User").build();
+        StudentCharge charge = buildCharge(new BigDecimal("1500.00"), StudentChargeStatus.PENDING);
+        byte[] pdfBytes = "pdf-content".getBytes();
+
+        when(parentRepository.findById(1L)).thenReturn(Optional.of(parent));
+        when(staffRepository.findById(3L)).thenReturn(Optional.of(staff));
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.of(charge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L))
+                .thenReturn(BigDecimal.ZERO)
+                .thenReturn(new BigDecimal("1500.00"));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> {
+            Payment payment = invocation.getArgument(0);
+            if (payment.getPaymentId() == null) {
+                payment.setPaymentId(20L);
+            }
+            return payment;
+        });
+        when(paymentAllocationRepository.save(any(PaymentAllocation.class))).thenAnswer(invocation -> {
+            PaymentAllocation allocation = invocation.getArgument(0);
+            allocation.setPaymentAllocationId(30L);
+            savedAllocations.add(allocation);
+            return allocation;
+        });
+        when(paymentAllocationRepository.findByPaymentPaymentId(20L)).thenReturn(savedAllocations);
+        when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(receiptPdfService.generateReceipt(any(Payment.class), any())).thenReturn(pdfBytes);
+        when(receiptStorageService.store(pdfBytes)).thenReturn("receipt-file.pdf");
+
+        paymentService.createPayment(new PaymentRequest(
+                1L,
+                3L,
+                LocalDate.of(2026, 6, 5),
+                new BigDecimal("1500.00"),
+                PaymentMethod.CASH,
+                "CASH-JUN-002",
+                "Pago completo",
+                List.of(new PaymentAllocationRequest(10L, new BigDecimal("1500.00")))
+        ));
+
+        verify(receiptPdfService).generateReceipt(any(Payment.class), any());
+        verify(receiptStorageService).store(pdfBytes);
+        assertThat(savedAllocations).isNotEmpty();
+    }
+
+    @Test
+    void getReceiptPdfReturnsStoredFileWhenAvailableWithoutRegenerating() {
+        Parent parent = Parent.builder().parentId(1L).build();
+        Payment payment = Payment.builder().paymentId(20L).parent(parent).receiptFileName("existing.pdf").build();
+        User admin = buildUser(2L, "admin@school.com", RoleName.ADMIN);
+
+        when(paymentRepository.findById(20L)).thenReturn(Optional.of(payment));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(receiptStorageService.readIfExists("existing.pdf")).thenReturn("stored-bytes".getBytes());
+
+        byte[] result = paymentService.getReceiptPdf(20L, "admin@school.com");
+
+        assertThat(result).isEqualTo("stored-bytes".getBytes());
+        verify(receiptPdfService, never()).generateReceipt(any(), any());
+    }
+
+    @Test
+    void getReceiptPdfRegeneratesWhenStoredFileIsMissing() {
+        Parent parent = Parent.builder().parentId(1L).build();
+        Payment payment = Payment.builder().paymentId(20L).parent(parent).receiptFileName(null).build();
+        User admin = buildUser(2L, "admin@school.com", RoleName.ADMIN);
+        byte[] pdfBytes = "regenerated".getBytes();
+
+        when(paymentRepository.findById(20L)).thenReturn(Optional.of(payment));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(paymentAllocationRepository.findByPaymentPaymentId(20L)).thenReturn(List.of());
+        when(receiptPdfService.generateReceipt(payment, List.of())).thenReturn(pdfBytes);
+        when(receiptStorageService.store(pdfBytes)).thenReturn("new-file.pdf");
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        byte[] result = paymentService.getReceiptPdf(20L, "admin@school.com");
+
+        assertThat(result).isEqualTo(pdfBytes);
+        assertThat(payment.getReceiptFileName()).isEqualTo("new-file.pdf");
+    }
+
+    @Test
+    void getReceiptPdfAllowsParentToDownloadOwnReceipt() {
+        Parent parent = Parent.builder().parentId(1L).build();
+        Payment payment = Payment.builder().paymentId(20L).parent(parent).receiptFileName("file.pdf").build();
+        User parentUser = buildUser(4L, "parent@school.com", RoleName.PARENT);
+
+        when(paymentRepository.findById(20L)).thenReturn(Optional.of(payment));
+        when(userRepository.findByEmail("parent@school.com")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserEmail("parent@school.com")).thenReturn(Optional.of(parent));
+        when(receiptStorageService.readIfExists("file.pdf")).thenReturn("bytes".getBytes());
+
+        byte[] result = paymentService.getReceiptPdf(20L, "parent@school.com");
+
+        assertThat(result).isEqualTo("bytes".getBytes());
+    }
+
+    @Test
+    void getReceiptPdfRejectsParentAccessingAnotherFamilysReceipt() {
+        Parent owner = Parent.builder().parentId(1L).build();
+        Parent requesterParent = Parent.builder().parentId(2L).build();
+        Payment payment = Payment.builder().paymentId(20L).parent(owner).receiptFileName("file.pdf").build();
+        User parentUser = buildUser(4L, "other-parent@school.com", RoleName.PARENT);
+
+        when(paymentRepository.findById(20L)).thenReturn(Optional.of(payment));
+        when(userRepository.findByEmail("other-parent@school.com")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserEmail("other-parent@school.com")).thenReturn(Optional.of(requesterParent));
+
+        assertThatThrownBy(() -> paymentService.getReceiptPdf(20L, "other-parent@school.com"))
+                .isInstanceOf(ForbiddenException.class);
     }
 
     @Test
@@ -348,6 +479,14 @@ class PaymentServiceTest {
                 .billingPeriodEnd(LocalDate.of(year, month, 28))
                 .amountDue(amountDue)
                 .status(status)
+                .build();
+    }
+
+    private User buildUser(Long userId, String email, RoleName roleName) {
+        return User.builder()
+                .userId(userId)
+                .email(email)
+                .roles(Set.of(Role.builder().roleId(userId).code(roleName).name(roleName.name()).build()))
                 .build();
     }
 

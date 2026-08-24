@@ -1092,6 +1092,12 @@ Authorization: Bearer {{finance_token}}
 
 ###
 
+### Download PDF receipt for a payment (FINANCE token, or the owning parent's token)
+GET http://localhost:8080/api/payments/{{payment_id}}/receipt
+Authorization: Bearer {{finance_token}}
+
+###
+
 ### Get all payments with FINANCE token
 GET http://localhost:8080/api/payments
 Authorization: Bearer {{finance_token}}

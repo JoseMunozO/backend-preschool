@@ -13,7 +13,10 @@ import com.preschool.backendpreschool.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -123,6 +126,16 @@ public class PaymentController {
     @GetMapping("/{paymentId}")
     public PaymentResponse getPaymentById(@PathVariable Long paymentId) {
         return paymentService.getPaymentById(paymentId);
+    }
+
+    @GetMapping("/{paymentId}/receipt")
+    public ResponseEntity<byte[]> getPaymentReceipt(@PathVariable Long paymentId, Authentication authentication) {
+        byte[] pdfBytes = paymentService.getReceiptPdf(paymentId, authentication.getName());
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"recibo-" + paymentId + ".pdf\"")
+                .body(pdfBytes);
     }
 
     @GetMapping("/students/{studentId}")

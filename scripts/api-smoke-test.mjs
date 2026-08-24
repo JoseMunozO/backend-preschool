@@ -155,6 +155,7 @@ async function request(path, options = {}) {
     status: response.status,
     body,
     rawBody,
+    contentType,
   };
 }
 
@@ -761,6 +762,63 @@ async function main() {
   });
   await expectJsonArray("list current parent charges", "/api/payments/me/charges", "parent");
   await expectJsonArray("list current parent payments", "/api/payments/me", "parent");
+  await runWriteCheck("create smoke charge for receipt test", async () => {
+    const result = await request("/api/payments/charges", {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        studentId: state.refs.studentId,
+        chargeTypeId: state.refs.smokeChargeTypeId,
+        dueDate: todayDate,
+        amountDue: 100,
+        status: "PENDING",
+        description: `Smoke charge for receipt ${runId}`,
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.studentChargeId, "studentChargeId");
+    state.refs.smokeReceiptChargeId = result.body.studentChargeId;
+  });
+  if (!readOnly) {
+    await runWriteCheck("create smoke payment and generate PDF receipt", async () => {
+      const result = await request("/api/payments", {
+        method: "POST",
+        token: state.tokens.admin,
+        body: {
+          parentId: state.refs.currentParentId,
+          paymentDate: todayDate,
+          totalAmount: 100,
+          paymentMethod: "CASH",
+          referenceNumber: `SMOKE-${runId}`,
+          notes: "Smoke payment for PDF receipt",
+          allocations: [{ studentChargeId: state.refs.smokeReceiptChargeId, amountAllocated: 100 }],
+        },
+      });
+      assertStatus(result, 201);
+      assertObjectBody(result);
+      assertField(result.body.paymentId, "paymentId");
+      state.refs.smokeReceiptPaymentId = result.body.paymentId;
+    });
+    await runCheck("download smoke payment receipt as admin", async () => {
+      const result = await request(`/api/payments/${state.refs.smokeReceiptPaymentId}/receipt`, { token: state.tokens.admin });
+      assertStatus(result, 200);
+      if (result.contentType !== "application/pdf") {
+        throw new Error(`Expected Content-Type application/pdf. Received: ${result.contentType}`);
+      }
+      if (!result.rawBody.startsWith("%PDF")) {
+        throw new Error("Expected receipt body to start with the PDF magic bytes (%PDF)");
+      }
+    });
+    await runCheck("parent can download own payment receipt", async () => {
+      const result = await request(`/api/payments/${state.refs.smokeReceiptPaymentId}/receipt`, { token: state.tokens.parent });
+      assertStatus(result, 200);
+    });
+    await runCheck("unauthenticated request cannot download receipt", async () => {
+      const result = await request(`/api/payments/${state.refs.smokeReceiptPaymentId}/receipt`);
+      assertStatusIn(result, [401, 403]);
+    });
+  }
   await runWriteCheck("create smoke discount for student", async () => {
     const result = await request(`/api/payments/students/${state.refs.studentId}/discounts`, {
       method: "POST",
