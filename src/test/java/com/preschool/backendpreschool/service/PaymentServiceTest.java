@@ -1,5 +1,7 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.ChargeTypeRequest;
+import com.preschool.backendpreschool.dto.ChargeTypeResponse;
 import com.preschool.backendpreschool.dto.PaymentAllocationRequest;
 import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
 import com.preschool.backendpreschool.dto.PaymentRequest;
@@ -81,6 +83,63 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         savedAllocations.clear();
+    }
+
+    @Test
+    void createChargeTypeSucceedsWithUniqueCode() {
+        when(chargeTypeRepository.existsByCode("UNIFORM")).thenReturn(false);
+        when(chargeTypeRepository.save(any(ChargeType.class))).thenAnswer(invocation -> {
+            ChargeType chargeType = invocation.getArgument(0);
+            chargeType.setChargeTypeId(5L);
+            return chargeType;
+        });
+
+        ChargeTypeResponse response = paymentService.createChargeType(new ChargeTypeRequest(
+                "UNIFORM", "Uniform fee", ChargeRecurrenceType.ONE_TIME, new BigDecimal("1200.00"), true
+        ));
+
+        assertThat(response.chargeTypeId()).isEqualTo(5L);
+        assertThat(response.code()).isEqualTo("UNIFORM");
+        assertThat(response.defaultAmount()).isEqualByComparingTo("1200.00");
+    }
+
+    @Test
+    void createChargeTypeRejectsDuplicateCode() {
+        when(chargeTypeRepository.existsByCode("MONTHLY_FEE")).thenReturn(true);
+
+        assertThatThrownBy(() -> paymentService.createChargeType(new ChargeTypeRequest(
+                "MONTHLY_FEE", "Monthly fee", ChargeRecurrenceType.MONTHLY, new BigDecimal("6000.00"), true
+        ))).isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void updateChargeTypeChangesDefaultAmount() {
+        ChargeType existing = ChargeType.builder()
+                .chargeTypeId(1L)
+                .code("MONTHLY_FEE")
+                .name("Monthly fee")
+                .recurrenceType(ChargeRecurrenceType.MONTHLY)
+                .defaultAmount(new BigDecimal("6000.00"))
+                .active(true)
+                .build();
+
+        when(chargeTypeRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(chargeTypeRepository.save(any(ChargeType.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChargeTypeResponse response = paymentService.updateChargeType(1L, new ChargeTypeRequest(
+                "MONTHLY_FEE", "Monthly fee", ChargeRecurrenceType.MONTHLY, new BigDecimal("6500.00"), true
+        ));
+
+        assertThat(response.defaultAmount()).isEqualByComparingTo("6500.00");
+    }
+
+    @Test
+    void updateChargeTypeForMissingIdThrowsNotFound() {
+        when(chargeTypeRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.updateChargeType(99L, new ChargeTypeRequest(
+                "X", "X", ChargeRecurrenceType.ONE_TIME, BigDecimal.TEN, true
+        ))).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test

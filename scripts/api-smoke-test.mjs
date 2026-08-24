@@ -677,6 +677,56 @@ async function main() {
     state.refs.chargeTypeId = result.body[0].chargeTypeId;
   });
   await expectJsonArray("list active charge types as admin", "/api/payments/charge-types?activeOnly=true", "admin");
+  await runWriteCheck("create smoke charge type as admin", async () => {
+    const result = await request("/api/payments/charge-types", {
+      method: "POST",
+      token: state.tokens.admin,
+      body: {
+        code: `SMOKE-CHARGE-${runId}`,
+        name: `Smoke charge type ${runId}`,
+        recurrenceType: "ONE_TIME",
+        defaultAmount: 100.0,
+        active: true,
+      },
+    });
+    assertStatus(result, 201);
+    assertObjectBody(result);
+    assertField(result.body.chargeTypeId, "chargeTypeId");
+    state.refs.smokeChargeTypeId = result.body.chargeTypeId;
+  });
+  if (!readOnly) {
+    await runWriteCheck("update smoke charge type as admin", async () => {
+      const result = await request(`/api/payments/charge-types/${state.refs.smokeChargeTypeId}`, {
+        method: "PUT",
+        token: state.tokens.admin,
+        body: {
+          code: `SMOKE-CHARGE-${runId}`,
+          name: `Smoke charge type ${runId} updated`,
+          recurrenceType: "ONE_TIME",
+          defaultAmount: 150.0,
+          active: true,
+        },
+      });
+      assertStatus(result, 200);
+      if (Number(result.body.defaultAmount) !== 150) {
+        throw new Error(`Expected defaultAmount 150. Received: ${formatBody(result.body)}`);
+      }
+    });
+  }
+  await runCheck("parent cannot create charge type", async () => {
+    const result = await request("/api/payments/charge-types", {
+      method: "POST",
+      token: state.tokens.parent,
+      body: {
+        code: "PARENT-TEST",
+        name: "Parent test",
+        recurrenceType: "ONE_TIME",
+        defaultAmount: 10.0,
+        active: true,
+      },
+    });
+    assertStatusIn(result, [401, 403]);
+  });
   await runCheck("list payment charges as admin", async () => {
     const result = await request("/api/payments/charges", { token: state.tokens.admin });
     assertStatus(result, 200);

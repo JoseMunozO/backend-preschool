@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.controller;
 
+import com.preschool.backendpreschool.dto.ChargeTypeRequest;
 import com.preschool.backendpreschool.dto.ChargeTypeResponse;
 import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
 import com.preschool.backendpreschool.dto.PaymentRequest;
@@ -41,6 +42,20 @@ public class PaymentController {
             @RequestParam(required = false, defaultValue = "false") Boolean activeOnly
     ) {
         return paymentService.getChargeTypes(activeOnly);
+    }
+
+    @PostMapping("/charge-types")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ChargeTypeResponse createChargeType(@Valid @RequestBody ChargeTypeRequest request) {
+        return paymentService.createChargeType(request);
+    }
+
+    @PutMapping("/charge-types/{chargeTypeId}")
+    public ChargeTypeResponse updateChargeType(
+            @PathVariable Long chargeTypeId,
+            @Valid @RequestBody ChargeTypeRequest request
+    ) {
+        return paymentService.updateChargeType(chargeTypeId, request);
     }
 
     @GetMapping("/charges")
