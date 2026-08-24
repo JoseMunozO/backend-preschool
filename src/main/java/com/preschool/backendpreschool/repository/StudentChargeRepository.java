@@ -11,6 +11,8 @@ public interface StudentChargeRepository extends JpaRepository<StudentCharge, Lo
 
     List<StudentCharge> findByStudentStudentId(Long studentId);
 
+    List<StudentCharge> findByStudentStudentIdAndStatusIn(Long studentId, List<StudentChargeStatus> statuses);
+
     List<StudentCharge> findByStatus(StudentChargeStatus status);
 
     List<StudentCharge> findByBillingPeriodStartGreaterThanEqualAndBillingPeriodEndLessThanEqual(

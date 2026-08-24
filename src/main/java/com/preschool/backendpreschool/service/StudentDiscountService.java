@@ -4,10 +4,16 @@ import com.preschool.backendpreschool.dto.StudentDiscountRequest;
 import com.preschool.backendpreschool.dto.StudentDiscountResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
+import com.preschool.backendpreschool.model.ChargeRecurrenceType;
+import com.preschool.backendpreschool.model.ChargeType;
 import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentCharge;
+import com.preschool.backendpreschool.model.StudentChargeStatus;
 import com.preschool.backendpreschool.model.StudentDiscount;
 import com.preschool.backendpreschool.model.User;
+import com.preschool.backendpreschool.repository.PaymentAllocationRepository;
+import com.preschool.backendpreschool.repository.StudentChargeRepository;
 import com.preschool.backendpreschool.repository.StudentDiscountRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
@@ -28,6 +34,9 @@ public class StudentDiscountService {
     private final StudentDiscountRepository studentDiscountRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
+    private final StudentChargeRepository studentChargeRepository;
+    private final PaymentAllocationRepository paymentAllocationRepository;
+    private final ChargeAmountCalculator chargeAmountCalculator;
 
     public List<StudentDiscountResponse> getDiscounts(Long studentId) {
         findStudent(studentId);
@@ -60,7 +69,9 @@ public class StudentDiscountService {
                 .createdByUser(requester)
                 .build();
 
-        return toResponse(studentDiscountRepository.save(discount));
+        StudentDiscountResponse response = toResponse(studentDiscountRepository.save(discount));
+        recalculateOpenCharges(studentId);
+        return response;
     }
 
     @Transactional
@@ -73,7 +84,56 @@ public class StudentDiscountService {
         }
 
         discount.setActive(false);
-        return toResponse(studentDiscountRepository.save(discount));
+        StudentDiscountResponse response = toResponse(studentDiscountRepository.save(discount));
+        recalculateOpenCharges(studentId);
+        return response;
+    }
+
+    /**
+     * Charge generation only prices in the discount active at the moment a charge is created,
+     * and never re-runs for a period that already has a charge. Without this, creating or
+     * deactivating a discount would only take effect starting next month's charge instead of
+     * updating what the family currently owes.
+     */
+    private void recalculateOpenCharges(Long studentId) {
+        List<StudentCharge> openCharges = studentChargeRepository.findByStudentStudentIdAndStatusIn(
+                studentId,
+                List.of(StudentChargeStatus.PENDING, StudentChargeStatus.PARTIALLY_PAID, StudentChargeStatus.OVERDUE)
+        );
+
+        for (StudentCharge charge : openCharges) {
+            recalculateCharge(charge);
+        }
+    }
+
+    private void recalculateCharge(StudentCharge charge) {
+        ChargeType chargeType = charge.getChargeType();
+        if (chargeType.getRecurrenceType() != ChargeRecurrenceType.MONTHLY
+                || chargeType.getDefaultAmount() == null
+                || charge.getBillingPeriodStart() == null
+                || charge.getBillingPeriodEnd() == null) {
+            return;
+        }
+
+        Student student = charge.getStudent();
+        BigDecimal baseAmount = chargeAmountCalculator.computeBaseAmount(
+                chargeType, student, charge.getBillingPeriodStart(), charge.getBillingPeriodEnd());
+        Optional<StudentDiscount> discount = findEffectiveDiscount(student.getStudentId(), charge.getBillingPeriodStart());
+        BigDecimal finalAmount = discount.map(d -> chargeAmountCalculator.applyDiscount(baseAmount, d)).orElse(baseAmount);
+
+        charge.setAmountDue(finalAmount);
+        charge.setDescription(chargeAmountCalculator.buildDescription(chargeType, charge.getBillingPeriodStart(), discount.orElse(null)));
+
+        BigDecimal paid = paymentAllocationRepository.sumAllocatedByStudentChargeId(charge.getStudentChargeId());
+        if (paid.compareTo(BigDecimal.ZERO) <= 0) {
+            charge.setStatus(charge.getDueDate().isBefore(LocalDate.now()) ? StudentChargeStatus.OVERDUE : StudentChargeStatus.PENDING);
+        } else if (paid.compareTo(finalAmount) >= 0) {
+            charge.setStatus(StudentChargeStatus.PAID);
+        } else {
+            charge.setStatus(StudentChargeStatus.PARTIALLY_PAID);
+        }
+
+        studentChargeRepository.save(charge);
     }
 
     /**

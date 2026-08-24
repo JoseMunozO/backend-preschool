@@ -4,10 +4,16 @@ import com.preschool.backendpreschool.dto.StudentDiscountRequest;
 import com.preschool.backendpreschool.dto.StudentDiscountResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
+import com.preschool.backendpreschool.model.ChargeRecurrenceType;
+import com.preschool.backendpreschool.model.ChargeType;
 import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.Student;
+import com.preschool.backendpreschool.model.StudentCharge;
+import com.preschool.backendpreschool.model.StudentChargeStatus;
 import com.preschool.backendpreschool.model.StudentDiscount;
 import com.preschool.backendpreschool.model.User;
+import com.preschool.backendpreschool.repository.PaymentAllocationRepository;
+import com.preschool.backendpreschool.repository.StudentChargeRepository;
 import com.preschool.backendpreschool.repository.StudentDiscountRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
@@ -15,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -25,6 +32,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +46,15 @@ class StudentDiscountServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private StudentChargeRepository studentChargeRepository;
+
+    @Mock
+    private PaymentAllocationRepository paymentAllocationRepository;
+
+    @Spy
+    private ChargeAmountCalculator chargeAmountCalculator = new ChargeAmountCalculator();
 
     @InjectMocks
     private StudentDiscountService studentDiscountService;
@@ -54,6 +71,7 @@ class StudentDiscountServiceTest {
             discount.setStudentDiscountId(5L);
             return discount;
         });
+        when(studentChargeRepository.findByStudentStudentIdAndStatusIn(anyLong(), any())).thenReturn(List.of());
 
         StudentDiscountRequest request = new StudentDiscountRequest(
                 DiscountType.PERCENTAGE, new BigDecimal("10"), "Hermanos", LocalDate.of(2026, 8, 1), null
@@ -64,6 +82,57 @@ class StudentDiscountServiceTest {
         assertThat(response.studentDiscountId()).isEqualTo(5L);
         assertThat(response.active()).isTrue();
         assertThat(response.reason()).isEqualTo("Hermanos");
+    }
+
+    @Test
+    void createDiscountRecalculatesOpenChargeForCurrentBillingPeriod() {
+        Student student = Student.builder()
+                .studentId(1L).firstName("Ana").lastName("Diaz")
+                .enrollmentDate(LocalDate.of(2025, 1, 1))
+                .build();
+        User admin = User.builder().userId(2L).email("admin@school.com").build();
+        ChargeType chargeType = ChargeType.builder()
+                .chargeTypeId(10L).code("MONTHLY_FEE").name("Mensualidad")
+                .recurrenceType(ChargeRecurrenceType.MONTHLY)
+                .defaultAmount(new BigDecimal("1000.00"))
+                .active(true)
+                .build();
+        StudentCharge openCharge = StudentCharge.builder()
+                .studentChargeId(7L)
+                .student(student)
+                .chargeType(chargeType)
+                .dueDate(LocalDate.of(2026, 8, 31))
+                .billingPeriodStart(LocalDate.of(2026, 8, 1))
+                .billingPeriodEnd(LocalDate.of(2026, 8, 31))
+                .amountDue(new BigDecimal("1000.00"))
+                .status(StudentChargeStatus.PENDING)
+                .build();
+
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(studentDiscountRepository.save(any(StudentDiscount.class))).thenAnswer(invocation -> {
+            StudentDiscount discount = invocation.getArgument(0);
+            discount.setStudentDiscountId(5L);
+            return discount;
+        });
+        when(studentChargeRepository.findByStudentStudentIdAndStatusIn(anyLong(), any()))
+                .thenReturn(List.of(openCharge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(7L)).thenReturn(BigDecimal.ZERO);
+        when(studentDiscountRepository.findByStudentStudentIdAndActiveTrue(1L)).thenAnswer(invocation -> List.of(
+                StudentDiscount.builder()
+                        .studentDiscountId(5L).student(student).discountType(DiscountType.PERCENTAGE)
+                        .value(new BigDecimal("10")).validFrom(LocalDate.of(2026, 8, 1)).active(true).build()
+        ));
+        when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudentDiscountRequest request = new StudentDiscountRequest(
+                DiscountType.PERCENTAGE, new BigDecimal("10"), "Hermanos", LocalDate.of(2026, 8, 1), null
+        );
+
+        studentDiscountService.createDiscount(1L, request, "admin@school.com");
+
+        assertThat(openCharge.getAmountDue()).isEqualByComparingTo("900.00");
+        assertThat(openCharge.getStatus()).isEqualTo(StudentChargeStatus.PENDING);
     }
 
     @Test
@@ -124,6 +193,7 @@ class StudentDiscountServiceTest {
 
         when(studentDiscountRepository.findById(5L)).thenReturn(Optional.of(discount));
         when(studentDiscountRepository.save(any(StudentDiscount.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentChargeRepository.findByStudentStudentIdAndStatusIn(anyLong(), any())).thenReturn(List.of());
 
         StudentDiscountResponse response = studentDiscountService.deactivateDiscount(1L, 5L);
 
