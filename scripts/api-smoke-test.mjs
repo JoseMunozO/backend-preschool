@@ -369,6 +369,17 @@ async function main() {
       assertStatus(result, 200);
       assertObjectBody(result);
     });
+    await runCheck("get smoke student note audit log as admin", async () => {
+      const result = await request(`/api/students/${state.refs.studentId}/notes/${state.refs.studentNoteId}/audit-log`, {
+        token: state.tokens.admin,
+      });
+      assertStatus(result, 200);
+      assertNonEmptyArray(result);
+      assertField(result.body[0].studentNoteAuditLogId, "studentNoteAuditLogId");
+      if (!result.body[0].previousValues || !result.body[0].newValues) {
+        throw new Error(`Expected previousValues/newValues to be populated. Received: ${formatBody(result.body)}`);
+      }
+    });
     await runCheck("delete smoke student note as admin", async () => {
       const result = await request(`/api/students/${state.refs.studentId}/notes/${state.refs.studentNoteId}`, {
         method: "DELETE",

@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.StudentNoteAuditLogResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.exception.ForbiddenException;
@@ -10,9 +11,11 @@ import com.preschool.backendpreschool.model.Staff;
 import com.preschool.backendpreschool.model.StaffGroupAssignment;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentNote;
+import com.preschool.backendpreschool.model.StudentNoteAuditLog;
 import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.repository.StaffGroupAssignmentRepository;
 import com.preschool.backendpreschool.repository.StaffRepository;
+import com.preschool.backendpreschool.repository.StudentNoteAuditLogRepository;
 import com.preschool.backendpreschool.repository.StudentNoteRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
 import com.preschool.backendpreschool.repository.UserRepository;
@@ -29,6 +32,7 @@ import java.util.List;
 public class StudentNoteService {
 
     private final StudentNoteRepository studentNoteRepository;
+    private final StudentNoteAuditLogRepository studentNoteAuditLogRepository;
     private final StudentRepository studentRepository;
     private final UserRepository userRepository;
     private final StaffRepository staffRepository;
@@ -72,13 +76,32 @@ public class StudentNoteService {
         StudentNote note = findNote(noteId);
         ensureNoteBelongsToStudent(note, studentId);
 
+        String previousValues = snapshotNote(note);
+
         note.setNoteType(request.noteType());
         note.setContent(request.content().trim());
         if (hasInternalAdminRole(requester)) {
             note.setModerated(true);
         }
 
-        return toResponse(studentNoteRepository.save(note));
+        StudentNote savedNote = studentNoteRepository.save(note);
+        recordAuditLog(savedNote, previousValues, snapshotNote(savedNote), requester);
+
+        return toResponse(savedNote);
+    }
+
+    public List<StudentNoteAuditLogResponse> getAuditLog(Long studentId, Long noteId, String requesterEmail) {
+        Student student = findStudent(studentId);
+        User requester = findUser(requesterEmail);
+        ensureCanAccessStudentNotes(requester, student);
+
+        StudentNote note = findNote(noteId);
+        ensureNoteBelongsToStudent(note, studentId);
+
+        return studentNoteAuditLogRepository.findByStudentNoteStudentNoteIdOrderByChangedAtDesc(noteId)
+                .stream()
+                .map(this::toAuditLogResponse)
+                .toList();
     }
 
     @Transactional
@@ -181,6 +204,35 @@ public class StudentNoteService {
     private boolean hasRole(User user, RoleName roleName) {
         return user.getRoles() != null
                 && user.getRoles().stream().anyMatch(role -> role.getCode() == roleName);
+    }
+
+    private void recordAuditLog(StudentNote note, String previousValues, String newValues, User changedBy) {
+        StudentNoteAuditLog auditLog = StudentNoteAuditLog.builder()
+                .studentNote(note)
+                .changedByUser(changedBy)
+                .previousValues(previousValues)
+                .newValues(newValues)
+                .build();
+
+        studentNoteAuditLogRepository.save(auditLog);
+    }
+
+    private String snapshotNote(StudentNote note) {
+        return "noteType=" + note.getNoteType() + "; content=" + note.getContent();
+    }
+
+    private StudentNoteAuditLogResponse toAuditLogResponse(StudentNoteAuditLog auditLog) {
+        User changedBy = auditLog.getChangedByUser();
+
+        return new StudentNoteAuditLogResponse(
+                auditLog.getStudentNoteAuditLogId(),
+                auditLog.getStudentNote().getStudentNoteId(),
+                changedBy != null ? changedBy.getUserId() : null,
+                changedBy != null ? changedBy.getEmail() : null,
+                auditLog.getChangedAt(),
+                auditLog.getPreviousValues(),
+                auditLog.getNewValues()
+        );
     }
 
     private StudentNoteResponse toResponse(StudentNote note) {
