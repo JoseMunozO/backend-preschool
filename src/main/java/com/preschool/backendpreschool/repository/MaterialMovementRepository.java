@@ -15,6 +15,10 @@ public interface MaterialMovementRepository extends JpaRepository<MaterialMoveme
 
     List<MaterialMovement> findAllByOrderByCreatedAtDesc();
 
+    List<MaterialMovement> findByMaterialMaterialIdOrderByMovementDateAsc(Long materialId);
+
+    List<MaterialMovement> findByMovementDateBetweenOrderByMovementDateDesc(LocalDateTime from, LocalDateTime to);
+
     @Query("select coalesce(sum(m.quantity), 0) from MaterialMovement m "
             + "where m.material.materialId = :materialId "
             + "and m.movementType = com.preschool.backendpreschool.model.MaterialMovementType.OUT "

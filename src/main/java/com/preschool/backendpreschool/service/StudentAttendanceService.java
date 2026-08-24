@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.AttendanceReportEntryResponse;
 import com.preschool.backendpreschool.dto.StudentAttendanceBulkRequest;
 import com.preschool.backendpreschool.dto.StudentAttendanceEntry;
 import com.preschool.backendpreschool.dto.StudentAttendanceResponse;
@@ -7,11 +8,13 @@ import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ConflictException;
 import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
+import com.preschool.backendpreschool.model.ClassGroup;
 import com.preschool.backendpreschool.model.RoleName;
 import com.preschool.backendpreschool.model.Staff;
 import com.preschool.backendpreschool.model.StaffGroupAssignment;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentAttendance;
+import com.preschool.backendpreschool.model.StudentAttendanceStatus;
 import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.repository.ClassGroupRepository;
 import com.preschool.backendpreschool.repository.StaffGroupAssignmentRepository;
@@ -76,6 +79,85 @@ public class StudentAttendanceService {
                 .stream()
                 .map(attendance -> toResponse(student, attendance.getAttendanceDate(), attendance))
                 .toList();
+    }
+
+    public List<AttendanceReportEntryResponse> getAttendanceReport(
+            Long groupId, Long studentId, LocalDate from, LocalDate to, String requesterEmail
+    ) {
+        User requester = findUser(requesterEmail);
+        List<Long> groupIds = resolveAccessibleGroupIds(requester, groupId);
+
+        LocalDate effectiveTo = to != null ? to : LocalDate.now();
+        LocalDate effectiveFrom = from != null ? from : effectiveTo.minusDays(DEFAULT_HISTORY_WINDOW_DAYS - 1);
+        if (effectiveFrom.isAfter(effectiveTo)) {
+            throw new BadRequestException("La fecha 'from' no puede ser posterior a 'to'");
+        }
+
+        List<Student> students = groupIds.isEmpty()
+                ? List.of()
+                : studentRepository.findAllByClassGroupGroupIdInAndDeletedAtIsNull(groupIds).stream()
+                        .filter(student -> studentId == null || student.getStudentId().equals(studentId))
+                        .toList();
+
+        List<Long> studentIds = students.stream().map(Student::getStudentId).toList();
+        Map<Long, List<StudentAttendance>> attendanceByStudent = studentIds.isEmpty()
+                ? Map.of()
+                : studentAttendanceRepository
+                        .findByAttendanceDateBetweenAndStudentStudentIdIn(effectiveFrom, effectiveTo, studentIds)
+                        .stream()
+                        .collect(Collectors.groupingBy(attendance -> attendance.getStudent().getStudentId()));
+
+        long totalDays = effectiveTo.toEpochDay() - effectiveFrom.toEpochDay() + 1;
+
+        return students.stream()
+                .sorted(Comparator.comparing(Student::getFirstName).thenComparing(Student::getLastName))
+                .map(student -> toReportEntry(student, attendanceByStudent.getOrDefault(student.getStudentId(), List.of()), totalDays))
+                .toList();
+    }
+
+    private List<Long> resolveAccessibleGroupIds(User requester, Long groupId) {
+        if (groupId != null) {
+            ensureCanAccessGroup(requester, groupId);
+            return List.of(groupId);
+        }
+        if (hasInternalAdminRole(requester)) {
+            return classGroupRepository.findAll().stream().map(ClassGroup::getGroupId).toList();
+        }
+        if (hasRole(requester, RoleName.TEACHER)) {
+            return assignedGroupIds(requester);
+        }
+        throw new ForbiddenException("No tienes permiso para consultar este reporte");
+    }
+
+    private List<Long> assignedGroupIds(User requester) {
+        LocalDate today = LocalDate.now();
+        return staffRepository.findByUserEmail(requester.getEmail())
+                .map(Staff::getStaffId)
+                .map(staffId -> staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(staffId)
+                        .stream()
+                        .filter(assignment -> isActiveAssignment(assignment, today))
+                        .map(assignment -> assignment.getClassGroup().getGroupId())
+                        .distinct()
+                        .toList())
+                .orElse(List.of());
+    }
+
+    private AttendanceReportEntryResponse toReportEntry(Student student, List<StudentAttendance> records, long totalDays) {
+        Map<StudentAttendanceStatus, Long> counts = records.stream()
+                .collect(Collectors.groupingBy(StudentAttendance::getStatus, Collectors.counting()));
+        ClassGroup group = student.getClassGroup();
+
+        return new AttendanceReportEntryResponse(
+                student.getStudentId(),
+                student.getFirstName() + " " + student.getLastName(),
+                group != null ? group.getGroupId() : null,
+                group != null ? group.getName() : null,
+                counts.getOrDefault(StudentAttendanceStatus.PRESENT, 0L),
+                counts.getOrDefault(StudentAttendanceStatus.ABSENT, 0L),
+                counts.getOrDefault(StudentAttendanceStatus.LATE, 0L),
+                counts.getOrDefault(StudentAttendanceStatus.SICK, 0L),
+                totalDays - records.size()
+        );
     }
 
     @Transactional

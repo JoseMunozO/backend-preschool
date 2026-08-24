@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.StudentNoteAuditLogResponse;
+import com.preschool.backendpreschool.dto.StudentNoteHistoryEntryResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.exception.ForbiddenException;
@@ -410,6 +411,59 @@ class StudentNoteServiceTest {
         when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(7L)).thenReturn(List.of());
 
         assertThatThrownBy(() -> studentNoteService.getAuditLog(1L, 8L, "teacher@school.com"))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void getNotesHistoryNestsAuditLogUnderEachNote() {
+        Student student = buildStudent(1L, 10L);
+        User director = buildUser(5L, "director@school.com", RoleName.DIRECTOR);
+        StudentNote note = StudentNote.builder()
+                .studentNoteId(8L)
+                .student(student)
+                .authorUser(director)
+                .noteType(StudentNoteType.HEALTH)
+                .content("Allergic reaction observed")
+                .moderated(true)
+                .deleted(false)
+                .build();
+        StudentNoteAuditLog auditLog = StudentNoteAuditLog.builder()
+                .studentNoteAuditLogId(30L)
+                .studentNote(note)
+                .changedByUser(director)
+                .previousValues("noteType=HEALTH; content=Original")
+                .newValues("noteType=HEALTH; content=Allergic reaction observed")
+                .build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("director@school.com")).thenReturn(Optional.of(director));
+        when(studentNoteRepository.findByStudentStudentIdAndDeletedFalseOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of(note));
+        when(studentNoteAuditLogRepository.findByStudentNoteStudentNoteIdOrderByChangedAtDesc(8L))
+                .thenReturn(List.of(auditLog));
+
+        List<StudentNoteHistoryEntryResponse> history = studentNoteService.getNotesHistory(1L, "director@school.com");
+
+        assertThat(history).singleElement().satisfies(entry -> {
+            assertThat(entry.studentNoteId()).isEqualTo(8L);
+            assertThat(entry.content()).isEqualTo("Allergic reaction observed");
+            assertThat(entry.auditLog()).singleElement().satisfies(logEntry ->
+                    assertThat(logEntry.previousValues()).isEqualTo("noteType=HEALTH; content=Original"));
+        });
+    }
+
+    @Test
+    void getNotesHistoryRejectsTeacherOutsideAssignedGroup() {
+        Student student = buildStudent(1L, 10L);
+        User teacher = buildUser(3L, "teacher@school.com", RoleName.TEACHER);
+        Staff staff = Staff.builder().staffId(7L).user(teacher).build();
+
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("teacher@school.com")).thenReturn(Optional.of(teacher));
+        when(staffRepository.findByUserEmail("teacher@school.com")).thenReturn(Optional.of(staff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(7L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> studentNoteService.getNotesHistory(1L, "teacher@school.com"))
                 .isInstanceOf(ForbiddenException.class);
     }
 

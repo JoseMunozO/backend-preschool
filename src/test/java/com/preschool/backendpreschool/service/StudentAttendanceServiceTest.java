@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.AttendanceReportEntryResponse;
 import com.preschool.backendpreschool.dto.StudentAttendanceBulkRequest;
 import com.preschool.backendpreschool.dto.StudentAttendanceEntry;
 import com.preschool.backendpreschool.dto.StudentAttendanceResponse;
@@ -276,6 +277,57 @@ class StudentAttendanceServiceTest {
 
         assertThatThrownBy(() -> studentAttendanceService.getStudentAttendanceHistory(999L, null, null, "admin@school.com"))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getAttendanceReportAggregatesCountsForGroup() {
+        User admin = buildUser(RoleName.ADMIN);
+        ClassGroup group = ClassGroup.builder().groupId(5L).name("Group A").build();
+        Student ana = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").classGroup(group).build();
+        LocalDate from = LocalDate.of(2026, 8, 1);
+        LocalDate to = LocalDate.of(2026, 8, 3);
+
+        List<StudentAttendance> records = List.of(
+                StudentAttendance.builder().student(ana).attendanceDate(from).status(StudentAttendanceStatus.PRESENT).build(),
+                StudentAttendance.builder().student(ana).attendanceDate(from.plusDays(1)).status(StudentAttendanceStatus.ABSENT).build()
+        );
+
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(classGroupRepository.existsById(5L)).thenReturn(true);
+        when(studentRepository.findAllByClassGroupGroupIdInAndDeletedAtIsNull(List.of(5L))).thenReturn(List.of(ana));
+        when(studentAttendanceRepository.findByAttendanceDateBetweenAndStudentStudentIdIn(from, to, List.of(1L)))
+                .thenReturn(records);
+
+        List<AttendanceReportEntryResponse> report = studentAttendanceService.getAttendanceReport(5L, null, from, to, "admin@school.com");
+
+        assertThat(report).singleElement().satisfies(entry -> {
+            assertThat(entry.studentId()).isEqualTo(1L);
+            assertThat(entry.presentCount()).isEqualTo(1L);
+            assertThat(entry.absentCount()).isEqualTo(1L);
+            assertThat(entry.unmarkedCount()).isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void getAttendanceReportDefaultsToTeacherAssignedGroupsWhenGroupIdOmitted() {
+        User teacher = buildUser(RoleName.TEACHER);
+        Staff staff = Staff.builder().staffId(9L).build();
+        ClassGroup group = ClassGroup.builder().groupId(5L).name("Group A").build();
+        Student ana = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").classGroup(group).build();
+        LocalDate from = LocalDate.of(2026, 8, 1);
+        LocalDate to = LocalDate.of(2026, 8, 1);
+
+        when(userRepository.findByEmail("teacher@school.com")).thenReturn(Optional.of(teacher));
+        when(staffRepository.findByUserEmail("teacher@school.com")).thenReturn(Optional.of(staff));
+        when(staffGroupAssignmentRepository.findByStaffStaffIdOrderByStartDateDesc(9L))
+                .thenReturn(List.of(buildAssignment(group, LocalDate.of(2026, 1, 1), null)));
+        when(studentRepository.findAllByClassGroupGroupIdInAndDeletedAtIsNull(List.of(5L))).thenReturn(List.of(ana));
+        when(studentAttendanceRepository.findByAttendanceDateBetweenAndStudentStudentIdIn(from, to, List.of(1L)))
+                .thenReturn(List.of());
+
+        List<AttendanceReportEntryResponse> report = studentAttendanceService.getAttendanceReport(null, null, from, to, "teacher@school.com");
+
+        assertThat(report).singleElement().satisfies(entry -> assertThat(entry.unmarkedCount()).isEqualTo(1L));
     }
 
     private StaffGroupAssignment buildAssignment(ClassGroup group, LocalDate startDate, LocalDate endDate) {

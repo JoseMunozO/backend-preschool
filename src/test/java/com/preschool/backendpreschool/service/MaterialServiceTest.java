@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.MaterialAuditLogResponse;
+import com.preschool.backendpreschool.dto.MaterialMovementReportEntryResponse;
 import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialRequest;
@@ -332,6 +333,59 @@ class MaterialServiceTest {
         when(materialRepository.findByMaterialIdAndDeletedAtIsNull(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> materialService.getSuggestedMinimum(1L, null))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getMovementsReportComputesRunningBalanceFromFullHistoryWhenMaterialIdGiven() {
+        Material material = buildMaterial(6, 5);
+        LocalDateTime day1 = LocalDateTime.of(2026, 8, 1, 9, 0);
+        LocalDateTime day2 = LocalDateTime.of(2026, 8, 2, 9, 0);
+        LocalDateTime day3 = LocalDateTime.of(2026, 8, 3, 9, 0);
+        MaterialMovement inMovement = MaterialMovement.builder()
+                .materialMovementId(1L).material(material).movementType(MaterialMovementType.IN)
+                .quantity(10).movementDate(day1).build();
+        MaterialMovement outMovement = MaterialMovement.builder()
+                .materialMovementId(2L).material(material).movementType(MaterialMovementType.OUT)
+                .quantity(4).movementDate(day2).build();
+        MaterialMovement laterOutsideRange = MaterialMovement.builder()
+                .materialMovementId(3L).material(material).movementType(MaterialMovementType.OUT)
+                .quantity(1).movementDate(day3.plusDays(10)).build();
+
+        when(materialRepository.existsById(1L)).thenReturn(true);
+        when(materialMovementRepository.findByMaterialMaterialIdOrderByMovementDateAsc(1L))
+                .thenReturn(List.of(inMovement, outMovement, laterOutsideRange));
+
+        List<MaterialMovementReportEntryResponse> report = materialService.getMovementsReport(1L, day1, day3, null);
+
+        assertThat(report).hasSize(2);
+        assertThat(report.get(0).materialMovementId()).isEqualTo(2L);
+        assertThat(report.get(0).runningBalance()).isEqualTo(6);
+        assertThat(report.get(1).materialMovementId()).isEqualTo(1L);
+        assertThat(report.get(1).runningBalance()).isEqualTo(10);
+    }
+
+    @Test
+    void getMovementsReportAcrossAllMaterialsHasNoRunningBalance() {
+        Material material = buildMaterial(6, 5);
+        LocalDateTime movementDate = LocalDateTime.of(2026, 8, 1, 9, 0);
+        MaterialMovement movement = MaterialMovement.builder()
+                .materialMovementId(1L).material(material).movementType(MaterialMovementType.IN)
+                .quantity(10).movementDate(movementDate).build();
+
+        when(materialMovementRepository.findByMovementDateBetweenOrderByMovementDateDesc(any(), any()))
+                .thenReturn(List.of(movement));
+
+        List<MaterialMovementReportEntryResponse> report = materialService.getMovementsReport(null, null, null, null);
+
+        assertThat(report).singleElement().satisfies(entry -> assertThat(entry.runningBalance()).isNull());
+    }
+
+    @Test
+    void getMovementsReportForMissingMaterialThrowsNotFound() {
+        when(materialRepository.existsById(99L)).thenReturn(false);
+
+        assertThatThrownBy(() -> materialService.getMovementsReport(99L, null, null, null))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 

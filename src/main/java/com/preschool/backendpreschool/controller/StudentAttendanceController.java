@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.controller;
 
+import com.preschool.backendpreschool.dto.AttendanceReportEntryResponse;
 import com.preschool.backendpreschool.dto.StudentAttendanceBulkRequest;
 import com.preschool.backendpreschool.dto.StudentAttendanceResponse;
 import com.preschool.backendpreschool.service.StudentAttendanceService;
@@ -41,6 +42,17 @@ public class StudentAttendanceController {
             Authentication authentication
     ) {
         return studentAttendanceService.getStudentAttendanceHistory(studentId, from, to, authentication.getName());
+    }
+
+    @GetMapping("/reports/summary")
+    public List<AttendanceReportEntryResponse> getAttendanceReport(
+            @RequestParam(required = false) Long groupId,
+            @RequestParam(required = false) Long studentId,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            Authentication authentication
+    ) {
+        return studentAttendanceService.getAttendanceReport(groupId, studentId, from, to, authentication.getName());
     }
 
     @PostMapping

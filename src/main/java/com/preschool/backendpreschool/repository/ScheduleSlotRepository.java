@@ -21,4 +21,6 @@ public interface ScheduleSlotRepository extends JpaRepository<ScheduleSlot, Long
     Optional<ScheduleSlot> findByScheduleSlotIdAndDeletedAtIsNotNull(Long scheduleSlotId);
 
     List<ScheduleSlot> findAllByDeletedAtIsNotNullAndDeletedAtBefore(LocalDateTime cutoff);
+
+    List<ScheduleSlot> findAllByDeletedAtIsNotNull();
 }

@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
 
                         .requestMatchers("/api/admin/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                        .requestMatchers("/api/reports/trash").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
 
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/summary").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR")
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/teacher-summary").hasAnyRole("SUPER_ADMIN", "ADMIN", "DIRECTOR", "TEACHER")

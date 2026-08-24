@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.MaterialAuditLogResponse;
+import com.preschool.backendpreschool.dto.MaterialMovementReportEntryResponse;
 import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialRequest;
@@ -28,6 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -162,6 +165,56 @@ public class MaterialService {
         return movements.stream()
                 .map(this::toMovementResponse)
                 .toList();
+    }
+
+    public List<MaterialMovementReportEntryResponse> getMovementsReport(
+            Long materialId, LocalDateTime from, LocalDateTime to, MaterialMovementType type
+    ) {
+        if (materialId != null && !materialRepository.existsById(materialId)) {
+            throw new ResourceNotFoundException("Material no encontrado");
+        }
+
+        LocalDateTime effectiveTo = to != null ? to : LocalDateTime.now();
+        LocalDateTime effectiveFrom = from != null ? from : effectiveTo.minusDays(30);
+        if (effectiveFrom.isAfter(effectiveTo)) {
+            throw new BadRequestException("La fecha 'from' no puede ser posterior a 'to'");
+        }
+
+        if (materialId != null) {
+            return buildLedgerWithRunningBalance(materialId, effectiveFrom, effectiveTo, type);
+        }
+
+        return materialMovementRepository.findByMovementDateBetweenOrderByMovementDateDesc(effectiveFrom, effectiveTo)
+                .stream()
+                .filter(movement -> type == null || movement.getMovementType() == type)
+                .map(movement -> toReportEntry(movement, null))
+                .toList();
+    }
+
+    /**
+     * Running balance only makes sense scoped to one material, and only if computed from its
+     * full history (not just the report window) - otherwise the starting balance would be wrong.
+     */
+    private List<MaterialMovementReportEntryResponse> buildLedgerWithRunningBalance(
+            Long materialId, LocalDateTime from, LocalDateTime to, MaterialMovementType type
+    ) {
+        List<MaterialMovement> fullHistory = materialMovementRepository
+                .findByMaterialMaterialIdOrderByMovementDateAsc(materialId);
+
+        List<MaterialMovementReportEntryResponse> entries = new ArrayList<>();
+        int balance = 0;
+        for (MaterialMovement movement : fullHistory) {
+            balance += movement.getMovementType() == MaterialMovementType.IN ? movement.getQuantity() : -movement.getQuantity();
+
+            boolean inRange = !movement.getMovementDate().isBefore(from) && !movement.getMovementDate().isAfter(to);
+            boolean matchesType = type == null || movement.getMovementType() == type;
+            if (inRange && matchesType) {
+                entries.add(toReportEntry(movement, balance));
+            }
+        }
+
+        Collections.reverse(entries);
+        return entries;
     }
 
     @Transactional
@@ -303,6 +356,26 @@ public class MaterialService {
                 staffName(performedBy),
                 movement.getNotes(),
                 movement.getCreatedAt()
+        );
+    }
+
+    private MaterialMovementReportEntryResponse toReportEntry(MaterialMovement movement, Integer runningBalance) {
+        Material material = movement.getMaterial();
+        User performedBy = movement.getPerformedByUser();
+
+        return new MaterialMovementReportEntryResponse(
+                movement.getMaterialMovementId(),
+                material.getMaterialId(),
+                material.getName(),
+                movement.getMovementType(),
+                movement.getQuantity(),
+                movement.getMovementDate(),
+                performedBy != null ? performedBy.getUserId() : null,
+                performedBy != null ? performedBy.getEmail() : null,
+                staffName(performedBy),
+                movement.getNotes(),
+                movement.getCreatedAt(),
+                runningBalance
         );
     }
 

@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.StudentGuardianSummary;
+import com.preschool.backendpreschool.dto.StudentHealthReportEntryResponse;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ConflictException;
@@ -313,6 +314,35 @@ class StudentServiceTest {
 
         verify(studentRepository).delete(purgeable);
         verify(studentRepository).delete(restricted);
+    }
+
+    @Test
+    void getHealthReportFiltersByGroupAndExposesAllergiesAndMedicalNotes() {
+        Student inGroup = buildStudent();
+        ClassGroup group = ClassGroup.builder().groupId(2L).name("Rainbow Room").build();
+        inGroup.setClassGroup(group);
+        inGroup.setAllergies("Peanuts");
+        inGroup.setMedicalNotes("Carries an EpiPen");
+
+        Student otherGroup = Student.builder()
+                .studentId(3L)
+                .firstName("Oliver")
+                .lastName("Brown")
+                .birthDate(LocalDate.of(2021, 5, 29))
+                .status(StudentStatus.active)
+                .enrollmentDate(LocalDate.of(2024, 3, 1))
+                .build();
+
+        when(studentRepository.findAllByDeletedAtIsNull()).thenReturn(List.of(inGroup, otherGroup));
+
+        List<StudentHealthReportEntryResponse> report = studentService.getHealthReport(2L);
+
+        assertThat(report).singleElement().satisfies(entry -> {
+            assertThat(entry.studentId()).isEqualTo(1L);
+            assertThat(entry.allergies()).isEqualTo("Peanuts");
+            assertThat(entry.medicalNotes()).isEqualTo("Carries an EpiPen");
+            assertThat(entry.groupName()).isEqualTo("Rainbow Room");
+        });
     }
 
     private Student buildStudent() {
