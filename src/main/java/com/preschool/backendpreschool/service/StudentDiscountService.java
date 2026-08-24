@@ -118,7 +118,11 @@ public class StudentDiscountService {
         Student student = charge.getStudent();
         BigDecimal baseAmount = chargeAmountCalculator.computeBaseAmount(
                 chargeType, student, charge.getBillingPeriodStart(), charge.getBillingPeriodEnd());
-        Optional<StudentDiscount> discount = findEffectiveDiscount(student.getStudentId(), charge.getBillingPeriodStart());
+        // Unlike generation (which prices a charge as of its own billing-period start), recalculation
+        // reprices an already-open charge for a discount that may have been created mid-period - so the
+        // discount lookup must use today, not the charge's billingPeriodStart, or a discount created after
+        // the 1st of the month would never look "effective" for that period and would be silently ignored.
+        Optional<StudentDiscount> discount = findEffectiveDiscount(student.getStudentId(), LocalDate.now());
         BigDecimal finalAmount = discount.map(d -> chargeAmountCalculator.applyDiscount(baseAmount, d)).orElse(baseAmount);
 
         charge.setAmountDue(finalAmount);

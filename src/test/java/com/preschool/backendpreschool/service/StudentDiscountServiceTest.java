@@ -88,7 +88,7 @@ class StudentDiscountServiceTest {
     void createDiscountRecalculatesOpenChargeForCurrentBillingPeriod() {
         Student student = Student.builder()
                 .studentId(1L).firstName("Ana").lastName("Diaz")
-                .enrollmentDate(LocalDate.of(2025, 1, 1))
+                .enrollmentDate(LocalDate.of(2019, 1, 1))
                 .build();
         User admin = User.builder().userId(2L).email("admin@school.com").build();
         ChargeType chargeType = ChargeType.builder()
@@ -97,13 +97,16 @@ class StudentDiscountServiceTest {
                 .defaultAmount(new BigDecimal("1000.00"))
                 .active(true)
                 .build();
+        // Billing period starts well before the discount's validFrom, mirroring the real bug: a
+        // discount created mid-period (validFrom = today) must still apply to a charge whose
+        // billingPeriodStart is the 1st of an already-in-progress period.
         StudentCharge openCharge = StudentCharge.builder()
                 .studentChargeId(7L)
                 .student(student)
                 .chargeType(chargeType)
-                .dueDate(LocalDate.of(2026, 8, 31))
-                .billingPeriodStart(LocalDate.of(2026, 8, 1))
-                .billingPeriodEnd(LocalDate.of(2026, 8, 31))
+                .dueDate(LocalDate.of(2099, 1, 31))
+                .billingPeriodStart(LocalDate.of(2020, 1, 1))
+                .billingPeriodEnd(LocalDate.of(2020, 1, 31))
                 .amountDue(new BigDecimal("1000.00"))
                 .status(StudentChargeStatus.PENDING)
                 .build();
@@ -121,12 +124,12 @@ class StudentDiscountServiceTest {
         when(studentDiscountRepository.findByStudentStudentIdAndActiveTrue(1L)).thenAnswer(invocation -> List.of(
                 StudentDiscount.builder()
                         .studentDiscountId(5L).student(student).discountType(DiscountType.PERCENTAGE)
-                        .value(new BigDecimal("10")).validFrom(LocalDate.of(2026, 8, 1)).active(true).build()
+                        .value(new BigDecimal("10")).validFrom(LocalDate.of(2020, 6, 15)).active(true).build()
         ));
         when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudentDiscountRequest request = new StudentDiscountRequest(
-                DiscountType.PERCENTAGE, new BigDecimal("10"), "Hermanos", LocalDate.of(2026, 8, 1), null
+                DiscountType.PERCENTAGE, new BigDecimal("10"), "Hermanos", LocalDate.of(2020, 6, 15), null
         );
 
         studentDiscountService.createDiscount(1L, request, "admin@school.com");
