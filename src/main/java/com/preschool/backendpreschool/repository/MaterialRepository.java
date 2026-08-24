@@ -25,6 +25,8 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
 
     List<Material> findAllByDeletedAtIsNull();
 
+    List<Material> findAllByDeletedAtIsNotNull();
+
     Optional<Material> findByMaterialIdAndDeletedAtIsNull(Long materialId);
 
     Optional<Material> findByMaterialIdAndDeletedAtIsNotNull(Long materialId);

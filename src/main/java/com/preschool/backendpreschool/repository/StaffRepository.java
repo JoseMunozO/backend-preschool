@@ -12,6 +12,8 @@ public interface StaffRepository extends JpaRepository<Staff, Long> {
 
     List<Staff> findAllByDeletedAtIsNull();
 
+    List<Staff> findAllByDeletedAtIsNotNull();
+
     Optional<Staff> findByStaffIdAndDeletedAtIsNull(Long staffId);
 
     Optional<Staff> findByStaffIdAndDeletedAtIsNotNull(Long staffId);

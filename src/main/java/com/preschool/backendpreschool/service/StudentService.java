@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.StudentHealthReportEntryResponse;
 import com.preschool.backendpreschool.dto.StudentRequest;
 import com.preschool.backendpreschool.dto.StudentResponse;
 import com.preschool.backendpreschool.dto.StudentGuardianSummary;
@@ -68,6 +69,27 @@ public class StudentService {
                         guardiansByStudent.getOrDefault(student.getStudentId(), List.of())
                 ))
                 .toList();
+    }
+
+    public List<StudentHealthReportEntryResponse> getHealthReport(Long groupId) {
+        return studentRepository.findAllByDeletedAtIsNull()
+                .stream()
+                .filter(student -> groupId == null || matchesGroup(student, groupId))
+                .map(this::toHealthReportEntry)
+                .toList();
+    }
+
+    private StudentHealthReportEntryResponse toHealthReportEntry(Student student) {
+        ClassGroup group = student.getClassGroup();
+
+        return new StudentHealthReportEntryResponse(
+                student.getStudentId(),
+                student.getFirstName() + " " + student.getLastName(),
+                group != null ? group.getGroupId() : null,
+                group != null ? group.getName() : null,
+                student.getAllergies(),
+                student.getMedicalNotes()
+        );
     }
 
     public StudentResponse getStudentById(Long id) {

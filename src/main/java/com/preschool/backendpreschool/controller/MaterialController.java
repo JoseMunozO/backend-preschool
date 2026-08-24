@@ -1,12 +1,14 @@
 package com.preschool.backendpreschool.controller;
 
 import com.preschool.backendpreschool.dto.MaterialAuditLogResponse;
+import com.preschool.backendpreschool.dto.MaterialMovementReportEntryResponse;
 import com.preschool.backendpreschool.dto.MaterialMovementRequest;
 import com.preschool.backendpreschool.dto.MaterialMovementResponse;
 import com.preschool.backendpreschool.dto.MaterialRequest;
 import com.preschool.backendpreschool.dto.MaterialResponse;
 import com.preschool.backendpreschool.dto.MaterialSuggestedMinimumResponse;
 import com.preschool.backendpreschool.model.MaterialConsumptionWindow;
+import com.preschool.backendpreschool.model.MaterialMovementType;
 import com.preschool.backendpreschool.model.MaterialStatus;
 import com.preschool.backendpreschool.service.MaterialService;
 import jakarta.validation.Valid;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -96,6 +99,16 @@ public class MaterialController {
     @GetMapping("/movements")
     public List<MaterialMovementResponse> getMovements(@RequestParam(required = false) Long materialId) {
         return materialService.getMovements(materialId);
+    }
+
+    @GetMapping("/reports/movements")
+    public List<MaterialMovementReportEntryResponse> getMovementsReport(
+            @RequestParam(required = false) Long materialId,
+            @RequestParam(required = false) LocalDateTime from,
+            @RequestParam(required = false) LocalDateTime to,
+            @RequestParam(required = false) MaterialMovementType type
+    ) {
+        return materialService.getMovementsReport(materialId, from, to, type);
     }
 
     @PostMapping("/{materialId}/movements")

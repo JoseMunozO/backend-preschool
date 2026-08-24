@@ -4,7 +4,9 @@ import com.preschool.backendpreschool.dto.StudentConsentRequest;
 import com.preschool.backendpreschool.dto.StudentConsentResponse;
 import com.preschool.backendpreschool.dto.StudentEmergencyContactRequest;
 import com.preschool.backendpreschool.dto.StudentEmergencyContactResponse;
+import com.preschool.backendpreschool.dto.StudentHealthReportEntryResponse;
 import com.preschool.backendpreschool.dto.StudentNoteAuditLogResponse;
+import com.preschool.backendpreschool.dto.StudentNoteHistoryEntryResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.dto.StudentRequest;
@@ -50,6 +52,11 @@ public class StudentController {
     @GetMapping("/{id}")
     public StudentResponse getStudentById(@PathVariable Long id) {
         return studentService.getStudentById(id);
+    }
+
+    @GetMapping("/reports/health")
+    public List<StudentHealthReportEntryResponse> getHealthReport(@RequestParam(required = false) Long groupId) {
+        return studentService.getHealthReport(groupId);
     }
 
     @GetMapping("/{id}/guardians")
@@ -115,6 +122,14 @@ public class StudentController {
             Authentication authentication
     ) {
         return studentNoteService.updateNote(id, noteId, request, authentication.getName());
+    }
+
+    @GetMapping("/{id}/reports/notes-history")
+    public List<StudentNoteHistoryEntryResponse> getStudentNotesHistory(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        return studentNoteService.getNotesHistory(id, authentication.getName());
     }
 
     @GetMapping("/{id}/notes/{noteId}/audit-log")

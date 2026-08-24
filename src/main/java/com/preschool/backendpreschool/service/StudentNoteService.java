@@ -1,6 +1,7 @@
 package com.preschool.backendpreschool.service;
 
 import com.preschool.backendpreschool.dto.StudentNoteAuditLogResponse;
+import com.preschool.backendpreschool.dto.StudentNoteHistoryEntryResponse;
 import com.preschool.backendpreschool.dto.StudentNoteRequest;
 import com.preschool.backendpreschool.dto.StudentNoteResponse;
 import com.preschool.backendpreschool.exception.ForbiddenException;
@@ -100,6 +101,25 @@ public class StudentNoteService {
         return studentNoteAuditLogRepository.findByStudentNoteStudentNoteIdOrderByChangedAtDesc(noteId)
                 .stream()
                 .map(this::toAuditLogResponse)
+                .toList();
+    }
+
+    /**
+     * All of a student's notes with their full edit history in one call, so a substitute
+     * teacher can catch up on a student without opening each note's audit log separately.
+     */
+    public List<StudentNoteHistoryEntryResponse> getNotesHistory(Long studentId, String requesterEmail) {
+        Student student = findStudent(studentId);
+        User requester = findUser(requesterEmail);
+        ensureCanAccessStudentNotes(requester, student);
+
+        return studentNoteRepository.findByStudentStudentIdAndDeletedFalseOrderByCreatedAtDesc(studentId)
+                .stream()
+                .map(note -> toHistoryEntry(note, studentNoteAuditLogRepository
+                        .findByStudentNoteStudentNoteIdOrderByChangedAtDesc(note.getStudentNoteId())
+                        .stream()
+                        .map(this::toAuditLogResponse)
+                        .toList()))
                 .toList();
     }
 
@@ -242,6 +262,25 @@ public class StudentNoteService {
                 auditLog.getChangedAt(),
                 auditLog.getPreviousValues(),
                 auditLog.getNewValues()
+        );
+    }
+
+    private StudentNoteHistoryEntryResponse toHistoryEntry(StudentNote note, List<StudentNoteAuditLogResponse> auditLog) {
+        Student student = note.getStudent();
+        User author = note.getAuthorUser();
+
+        return new StudentNoteHistoryEntryResponse(
+                note.getStudentNoteId(),
+                student.getStudentId(),
+                student.getFirstName() + " " + student.getLastName(),
+                author.getUserId(),
+                author.getEmail(),
+                note.getNoteType(),
+                note.getContent(),
+                note.getModerated(),
+                note.getCreatedAt(),
+                note.getUpdatedAt(),
+                auditLog
         );
     }
 
