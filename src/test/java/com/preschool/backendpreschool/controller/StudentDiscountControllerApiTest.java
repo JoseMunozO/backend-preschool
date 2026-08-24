@@ -3,6 +3,7 @@ package com.preschool.backendpreschool.controller;
 import com.preschool.backendpreschool.config.JwtAuthenticationFilter;
 import com.preschool.backendpreschool.config.SecurityConfig;
 import com.preschool.backendpreschool.dto.StudentDiscountResponse;
+import com.preschool.backendpreschool.model.DiscountDurationType;
 import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.service.CustomUserDetailsService;
 import com.preschool.backendpreschool.service.JwtService;
@@ -59,6 +60,7 @@ class StudentDiscountControllerApiTest {
                         .content("""
                                 {
                                   "discountType": "PERCENTAGE",
+                                  "durationType": "SCHEDULED",
                                   "value": 10,
                                   "reason": "Hermanos",
                                   "validFrom": "2026-08-01",
@@ -89,7 +91,7 @@ class StudentDiscountControllerApiTest {
 
     private StudentDiscountResponse discount() {
         return new StudentDiscountResponse(
-                5L, 1L, "Ana Diaz", DiscountType.PERCENTAGE, new BigDecimal("10"), "Hermanos",
+                5L, 1L, "Ana Diaz", DiscountType.PERCENTAGE, DiscountDurationType.SCHEDULED, new BigDecimal("10"), "Hermanos",
                 LocalDate.of(2026, 8, 1), null, true, 2L, "finance@school.com",
                 LocalDateTime.now(), LocalDateTime.now()
         );
