@@ -37,6 +37,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -214,6 +215,32 @@ class PaymentControllerApiTest {
     void parentCannotAccessMonthlyReport() throws Exception {
         mockMvc.perform(get("/api/payments/reports/monthly"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "FINANCE")
+    void financeCanDownloadReceipt() throws Exception {
+        byte[] pdfBytes = "pdf-content".getBytes();
+        when(paymentService.getReceiptPdf(20L, "user")).thenReturn(pdfBytes);
+
+        mockMvc.perform(get("/api/payments/20/receipt"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"recibo-20.pdf\""));
+
+        verify(paymentService).getReceiptPdf(20L, "user");
+    }
+
+    @Test
+    @WithMockUser(username = "parent@example.com", roles = "PARENT")
+    void parentCanReachOwnReceiptEndpoint() throws Exception {
+        byte[] pdfBytes = "pdf-content".getBytes();
+        when(paymentService.getReceiptPdf(20L, "parent@example.com")).thenReturn(pdfBytes);
+
+        mockMvc.perform(get("/api/payments/20/receipt"))
+                .andExpect(status().isOk());
+
+        verify(paymentService).getReceiptPdf(20L, "parent@example.com");
     }
 
     private PaymentMonthlyReportResponse monthlyReport() {

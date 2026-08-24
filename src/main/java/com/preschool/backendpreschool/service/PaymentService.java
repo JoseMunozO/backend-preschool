@@ -10,15 +10,18 @@ import com.preschool.backendpreschool.dto.PaymentResponse;
 import com.preschool.backendpreschool.dto.StudentChargeRequest;
 import com.preschool.backendpreschool.dto.StudentChargeResponse;
 import com.preschool.backendpreschool.exception.BadRequestException;
+import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ChargeType;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.Payment;
 import com.preschool.backendpreschool.model.PaymentAllocation;
+import com.preschool.backendpreschool.model.RoleName;
 import com.preschool.backendpreschool.model.Staff;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentCharge;
 import com.preschool.backendpreschool.model.StudentChargeStatus;
+import com.preschool.backendpreschool.model.User;
 import com.preschool.backendpreschool.repository.ChargeTypeRepository;
 import com.preschool.backendpreschool.repository.ParentRepository;
 import com.preschool.backendpreschool.repository.PaymentAllocationRepository;
@@ -27,7 +30,9 @@ import com.preschool.backendpreschool.repository.StaffRepository;
 import com.preschool.backendpreschool.repository.StudentChargeRepository;
 import com.preschool.backendpreschool.repository.StudentGuardianRepository;
 import com.preschool.backendpreschool.repository.StudentRepository;
+import com.preschool.backendpreschool.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +44,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -51,6 +57,9 @@ public class PaymentService {
     private final ParentRepository parentRepository;
     private final StaffRepository staffRepository;
     private final StudentGuardianRepository studentGuardianRepository;
+    private final UserRepository userRepository;
+    private final ReceiptPdfService receiptPdfService;
+    private final ReceiptStorageService receiptStorageService;
 
     public List<ChargeTypeResponse> getChargeTypes(Boolean activeOnly) {
         List<ChargeType> chargeTypes = Boolean.TRUE.equals(activeOnly)
@@ -279,7 +288,67 @@ public class PaymentService {
             updateChargeStatus(charge);
         }
 
+        try {
+            generateAndStoreReceipt(savedPayment);
+        } catch (Exception e) {
+            log.warn("No se pudo generar el recibo PDF para el pago {}", savedPayment.getPaymentId(), e);
+        }
+
         return toPaymentResponse(savedPayment);
+    }
+
+    public byte[] getReceiptPdf(Long paymentId, String requesterEmail) {
+        Payment payment = findPayment(paymentId);
+        User requester = userRepository.findByEmail(requesterEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+        ensureCanAccessReceipt(payment, requester);
+
+        byte[] existing = receiptStorageService.readIfExists(payment.getReceiptFileName());
+        if (existing != null) {
+            return existing;
+        }
+
+        return generateAndStoreReceipt(payment);
+    }
+
+    private byte[] generateAndStoreReceipt(Payment payment) {
+        List<PaymentAllocation> allocations = paymentAllocationRepository.findByPaymentPaymentId(payment.getPaymentId());
+        byte[] pdfBytes = receiptPdfService.generateReceipt(payment, allocations);
+
+        String filename = receiptStorageService.store(pdfBytes);
+        payment.setReceiptFileName(filename);
+        paymentRepository.save(payment);
+
+        return pdfBytes;
+    }
+
+    private void ensureCanAccessReceipt(Payment payment, User requester) {
+        if (hasStaffPaymentAccess(requester)) {
+            return;
+        }
+
+        if (hasRole(requester, RoleName.PARENT)) {
+            Parent parent = parentRepository.findByUserEmail(requester.getEmail())
+                    .orElseThrow(() -> new ResourceNotFoundException("Perfil de padre/tutor no encontrado"));
+
+            if (payment.getParent() != null && payment.getParent().getParentId().equals(parent.getParentId())) {
+                return;
+            }
+        }
+
+        throw new ForbiddenException("No tienes permiso para descargar este recibo");
+    }
+
+    private boolean hasStaffPaymentAccess(User user) {
+        return hasRole(user, RoleName.SUPER_ADMIN)
+                || hasRole(user, RoleName.ADMIN)
+                || hasRole(user, RoleName.DIRECTOR)
+                || hasRole(user, RoleName.FINANCE);
+    }
+
+    private boolean hasRole(User user, RoleName roleName) {
+        return user.getRoles() != null
+                && user.getRoles().stream().anyMatch(role -> role.getCode() == roleName);
     }
 
     private void validatePaymentTotal(PaymentRequest request) {

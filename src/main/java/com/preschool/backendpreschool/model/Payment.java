@@ -58,6 +58,9 @@ public class Payment {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "receipt_file_name", length = 255)
+    private String receiptFileName;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
