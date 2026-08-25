@@ -466,6 +466,29 @@ class PaymentServiceTest {
     }
 
     @Test
+    void getChargesFiltersByHasDiscount() {
+        StudentCharge discounted = buildCharge(new BigDecimal("800.00"), StudentChargeStatus.PENDING);
+        discounted.setStudentChargeId(11L);
+        discounted.setOriginalAmount(new BigDecimal("1000.00"));
+        discounted.setDiscountType(DiscountType.PERCENTAGE);
+        discounted.setDiscountValue(new BigDecimal("20"));
+        discounted.setDiscountReason("Hermanos");
+        StudentCharge plain = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PENDING);
+        plain.setStudentChargeId(12L);
+
+        when(studentChargeRepository.findAll()).thenReturn(List.of(discounted, plain));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(any())).thenReturn(BigDecimal.ZERO);
+
+        List<StudentChargeResponse> onlyDiscounted = paymentService.getCharges(null, null, null, true);
+        List<StudentChargeResponse> onlyPlain = paymentService.getCharges(null, null, null, false);
+        List<StudentChargeResponse> all = paymentService.getCharges(null, null, null, null);
+
+        assertThat(onlyDiscounted).extracting(StudentChargeResponse::studentChargeId).containsExactly(11L);
+        assertThat(onlyPlain).extracting(StudentChargeResponse::studentChargeId).containsExactly(12L);
+        assertThat(all).hasSize(2);
+    }
+
+    @Test
     void applyChargeDiscountReducesOnlyThatChargeAndCapturesOriginalAmount() {
         StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PENDING);
 

@@ -111,12 +111,13 @@ public class PaymentService {
         return toChargeTypeResponse(chargeTypeRepository.save(chargeType));
     }
 
-    public List<StudentChargeResponse> getCharges(Long studentId, StudentChargeStatus status, YearMonth month) {
+    public List<StudentChargeResponse> getCharges(Long studentId, StudentChargeStatus status, YearMonth month, Boolean hasDiscount) {
         return studentChargeRepository.findAll()
                 .stream()
                 .filter(charge -> studentId == null || charge.getStudent().getStudentId().equals(studentId))
                 .filter(charge -> status == null || charge.getStatus() == status)
                 .filter(charge -> month == null || isInBillingMonth(charge, month))
+                .filter(charge -> hasDiscount == null || hasDiscount == (charge.getDiscountType() != null))
                 .map(this::toStudentChargeResponse)
                 .toList();
     }
