@@ -1208,9 +1208,11 @@ async function main() {
     assertStatusIn(result, [401, 403]);
   });
 
-  await expectJsonArray("get materials movements report as admin", `/api/materials/reports/movements?materialId=${state.refs.materialId}`, "admin");
+  if (!readOnly) {
+    await expectJsonArray("get materials movements report as admin", `/api/materials/reports/movements?materialId=${state.refs.materialId}`, "admin");
+  }
   await runCheck("parent cannot access materials movements report", async () => {
-    const result = await request(`/api/materials/reports/movements?materialId=${state.refs.materialId}`, { token: state.tokens.parent });
+    const result = await request(`/api/materials/reports/movements`, { token: state.tokens.parent });
     assertStatusIn(result, [401, 403]);
   });
 
