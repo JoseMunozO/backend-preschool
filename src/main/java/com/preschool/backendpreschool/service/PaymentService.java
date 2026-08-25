@@ -39,7 +39,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
+
+    /** Simple (non-compounding) late fee: this percentage of the charge's amountDue per full or partial month overdue. */
+    static final BigDecimal LATE_FEE_PERCENTAGE_PER_MONTH = new BigDecimal("5");
 
     private final PaymentRepository paymentRepository;
     private final PaymentAllocationRepository paymentAllocationRepository;
@@ -472,6 +477,38 @@ public class PaymentService {
         studentChargeRepository.save(charge);
     }
 
+    /**
+     * Computed live off today's date rather than stored, so it's always current without needing a
+     * recalculation job - as soon as the charge is fully paid (no longer OVERDUE) the fee simply
+     * stops showing, rather than needing to be reconciled against a stored value.
+     */
+    private BigDecimal computeLateFee(StudentCharge charge) {
+        if (charge.getStatus() != StudentChargeStatus.OVERDUE) {
+            return BigDecimal.ZERO;
+        }
+
+        int monthsOverdue = monthsOverdue(charge.getDueDate(), LocalDate.now());
+        return charge.getAmountDue()
+                .multiply(LATE_FEE_PERCENTAGE_PER_MONTH)
+                .divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(monthsOverdue))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** Any part of a month overdue counts as a full month, so 1 day late is already "1 month overdue". */
+    private int monthsOverdue(LocalDate dueDate, LocalDate today) {
+        if (!today.isAfter(dueDate)) {
+            return 0;
+        }
+
+        Period period = Period.between(dueDate, today);
+        int months = period.getYears() * 12 + period.getMonths();
+        if (period.getDays() > 0) {
+            months += 1;
+        }
+        return Math.max(months, 1);
+    }
+
     private boolean isInBillingMonth(StudentCharge charge, YearMonth month) {
         if (charge.getBillingPeriodStart() != null) {
             return YearMonth.from(charge.getBillingPeriodStart()).equals(month);
@@ -520,7 +557,8 @@ public class PaymentService {
 
     private StudentChargeResponse toStudentChargeResponse(StudentCharge charge) {
         BigDecimal paid = paymentAllocationRepository.sumAllocatedByStudentChargeId(charge.getStudentChargeId());
-        BigDecimal balance = charge.getAmountDue().subtract(paid);
+        BigDecimal lateFee = computeLateFee(charge);
+        BigDecimal balance = charge.getAmountDue().add(lateFee).subtract(paid);
         Student student = charge.getStudent();
         ChargeType chargeType = charge.getChargeType();
         List<Long> paymentIds = paymentAllocationRepository.findByStudentChargeStudentChargeId(charge.getStudentChargeId())
@@ -548,6 +586,7 @@ public class PaymentService {
                 charge.getDiscountType(),
                 charge.getDiscountValue(),
                 charge.getDiscountReason(),
+                lateFee,
                 paymentIds,
                 charge.getCreatedAt(),
                 charge.getUpdatedAt()

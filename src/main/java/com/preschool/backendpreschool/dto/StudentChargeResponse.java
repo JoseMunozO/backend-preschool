@@ -27,6 +27,8 @@ public record StudentChargeResponse(
         DiscountType discountType,
         BigDecimal discountValue,
         String discountReason,
+        /** Computed live from how many months past dueDate this charge is - never stored, so it's always current. Zero unless status is OVERDUE. */
+        BigDecimal lateFeeAmount,
         /** Payments that allocated money to this charge - each has a receipt PDF at GET /api/payments/{paymentId}/receipt. Empty until any payment is made. */
         List<Long> paymentIds,
         LocalDateTime createdAt,

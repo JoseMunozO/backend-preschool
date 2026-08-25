@@ -46,6 +46,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
@@ -382,7 +383,12 @@ class PaymentServiceTest {
         assertThat(report.pendingBalance()).isEqualByComparingTo("700.00");
         assertThat(report.pendingCharges()).extracting("studentChargeId").containsExactly(10L);
         assertThat(report.overdueCount()).isEqualTo(1);
-        assertThat(report.overdueBalance()).isEqualByComparingTo("500.00");
+        // overdueBalance includes the live-computed late fee (5% of amountDue per month or part
+        // thereof overdue), so the expected value depends on today's date relative to the June 5
+        // due date rather than being a fixed number.
+        BigDecimal expectedOverdueBalance = new BigDecimal("500.00")
+                .add(new BigDecimal("500.00").multiply(new BigDecimal("0.05")).multiply(BigDecimal.valueOf(monthsOverdueForTest(LocalDate.of(2026, 6, 5)))));
+        assertThat(report.overdueBalance()).isEqualByComparingTo(expectedOverdueBalance);
         assertThat(report.overdueCharges()).extracting("studentChargeId").containsExactly(11L);
         assertThat(report.paymentsReceived()).isEqualByComparingTo("1070.00");
     }
@@ -463,6 +469,49 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> paymentService.updateCharge(10L, request))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getChargesComputesLateFeeForExactWholeMonthsOverdue() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.OVERDUE);
+        charge.setDueDate(LocalDate.now().minusMonths(3));
+
+        when(studentChargeRepository.findAll()).thenReturn(List.of(charge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(BigDecimal.ZERO);
+
+        StudentChargeResponse response = paymentService.getCharges(null, null, null, null).getFirst();
+
+        // 3 whole months overdue, 5% of amountDue per month: 1000 * 0.05 * 3 = 150.00
+        assertThat(response.lateFeeAmount()).isEqualByComparingTo("150.00");
+        assertThat(response.balance()).isEqualByComparingTo("1150.00");
+    }
+
+    @Test
+    void getChargesRoundsUpAPartialMonthOverdueToAFullMonth() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.OVERDUE);
+        charge.setDueDate(LocalDate.now().minusDays(1));
+
+        when(studentChargeRepository.findAll()).thenReturn(List.of(charge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(BigDecimal.ZERO);
+
+        StudentChargeResponse response = paymentService.getCharges(null, null, null, null).getFirst();
+
+        // 1 day late still counts as 1 full month: 1000 * 0.05 * 1 = 50.00
+        assertThat(response.lateFeeAmount()).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void getChargesHasNoLateFeeWhenNotOverdue() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PENDING);
+        charge.setDueDate(LocalDate.now().plusDays(5));
+
+        when(studentChargeRepository.findAll()).thenReturn(List.of(charge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(BigDecimal.ZERO);
+
+        StudentChargeResponse response = paymentService.getCharges(null, null, null, null).getFirst();
+
+        assertThat(response.lateFeeAmount()).isEqualByComparingTo("0.00");
+        assertThat(response.balance()).isEqualByComparingTo("1000.00");
     }
 
     @Test
@@ -606,6 +655,16 @@ class PaymentServiceTest {
 
         assertThatThrownBy(() -> paymentService.createCharge(request, "admin@school.com"))
                 .isInstanceOf(BadRequestException.class);
+    }
+
+    private int monthsOverdueForTest(LocalDate dueDate) {
+        LocalDate today = LocalDate.now();
+        Period period = Period.between(dueDate, today);
+        int months = period.getYears() * 12 + period.getMonths();
+        if (period.getDays() > 0) {
+            months += 1;
+        }
+        return Math.max(months, 1);
     }
 
     private StudentCharge buildCharge(Long chargeId, BigDecimal amountDue, StudentChargeStatus status, int year, int month) {

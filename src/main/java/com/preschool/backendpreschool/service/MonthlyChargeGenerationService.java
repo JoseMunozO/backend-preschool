@@ -109,6 +109,7 @@ public class MonthlyChargeGenerationService {
                 charge.getDiscountType(),
                 charge.getDiscountValue(),
                 charge.getDiscountReason(),
+                BigDecimal.ZERO,
                 List.of(),
                 charge.getCreatedAt(),
                 charge.getUpdatedAt()
