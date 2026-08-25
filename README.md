@@ -1,26 +1,26 @@
 # Preschool Admin — Backend
 
-Antes de este proyecto, administrar el preescolar significaba pagos anotados en cuadernos o Excel
-sueltos, inventario de materiales que nadie sabia si alcanzaba, y asistencia que vivia en papel.
-Esta API es el motor que centraliza esa operacion diaria: quien pago y quien debe, que material
-queda y cuando reponerlo, quien vino hoy y quien no, y quien es responsable de cada nino — todo
-consultable al instante en vez de reconstruido a mano al final del mes.
+Before this project, running the preschool's day-to-day meant payments scribbled in notebooks or
+scattered spreadsheets, material inventory nobody could confirm at a glance, and attendance that
+lived on paper. This API is the engine that centralizes that daily operation: who's paid and who
+owes, what stock remains and when to reorder, who showed up today, and who's responsible for each
+child — all queryable instantly instead of reconstructed by hand at month's end.
 
-Es la mitad backend de una aplicacion completa (API REST en Spring Boot + interfaz web en React).
-La UI vive en el repo hermano [`frontend-preschool`](https://github.com/JoseMunozO/frontend-preschool)
-y consume esta API para todo: no hay logica de negocio duplicada del lado del cliente. Este
-documento explica que resuelve el sistema hoy; el detalle de cada decision (por que se hizo asi, que
-pidio el cliente, que se probo y descarto) vive en [`docs/roadmap.md`](docs/roadmap.md).
+It's the backend half of a complete application (Spring Boot REST API + React web UI). The UI
+lives in the sibling repo [`frontend-preschool`](https://github.com/JoseMunozO/frontend-preschool)
+and consumes this API for everything — no business logic is duplicated on the client side. This
+document explains what the system solves today; the reasoning behind each decision (what the
+client asked for, what was tried and discarded) lives in [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Stack
 
 - Java 25, Spring Boot 4
-- MySQL 8.4, Flyway (migraciones versionadas en `src/main/resources/db/migration`)
+- MySQL 8.4, Flyway (versioned migrations in `src/main/resources/db/migration`)
 - Spring Security + JWT
-- iText/OpenPDF (recibos y facturas en PDF)
-- Docker Compose para levantar todo localmente
+- iText/OpenPDF (PDF receipts and invoices)
+- Docker Compose to run everything locally
 
-## Inicio rapido
+## Quick start
 
 ```bash
 docker compose up --build
@@ -28,72 +28,73 @@ docker compose up --build
 
 - Backend: `http://localhost:8080`
 - Swagger: `http://localhost:8080/swagger-ui/index.html`
-- Credenciales de demo: [`docs/demo-credentials.md`](docs/demo-credentials.md)
+- Demo credentials: [`docs/demo-credentials.md`](docs/demo-credentials.md)
 
-Detalle completo (variables de entorno, volumenes, troubleshooting) en
+Full detail (environment variables, volumes, troubleshooting) in
 [`docs/docker.md`](docs/docker.md).
 
-## Que resuelve, en la practica
+## What it actually solves
 
-**Un director o administrador** abre el dashboard y ve de un vistazo lo que antes tomaba llamadas y
-revisiones manuales: cuantos pagos estan atrasados y cuanto se debe (con la multa por atraso ya
-calculada, no algo que alguien tiene que sumar aparte), que materiales se estan por acabar, y que
-cumpleanos se acercan. Puede dar de alta o de baja personal, asignar roles sin inventar cuentas
-nuevas para cada combinacion de responsabilidades, y — si algo se borro por error, un estudiante, un
-padre, un material — recuperarlo, porque cada eliminacion tiene una ventana real para deshacerse
-antes de perderse de verdad.
+**A director or administrator** opens the dashboard and sees at a glance what used to take phone
+calls and manual digging: how many payments are overdue and how much is owed — with the late fee
+already calculated, not something someone has to add up separately — which materials are running
+low, and which birthdays are coming up. They can onboard or deactivate staff, assign roles without
+inventing a new account type for every combination of responsibilities, and — if something gets
+deleted by mistake, a student, a parent, a material — recover it, because every deletion has a real
+grace window before it's actually gone for good.
 
-**Un profesor** entra y ve solo lo suyo: los estudiantes de su grupo, no los de todo el preescolar.
-Marca la asistencia del dia (una vez pasada la medianoche, ese registro queda archivado y ya no se
-puede alterar, para que "asistencia de ayer" signifique lo que paso, no lo que alguien decidio
-despues). Deja notas sobre un estudiante — de conducta, de salud, pedagogicas — sabiendo que solo el
-puede editar las suyas, y que si otro profesor lo reemplaza un dia, puede leer el historial completo
-de cada nota con quien cambio que y cuando, no solo la version mas reciente.
+**A teacher** logs in and sees only their own: the students in their assigned group, not the whole
+preschool. They mark today's attendance (once midnight passes, that record is archived and can no
+longer be altered, so "yesterday's attendance" means what actually happened, not whatever someone
+decided to change afterward). They leave notes on a student — behavioral, medical, pedagogical —
+knowing only they can edit their own, and that if a substitute covers their class one day, that
+substitute can read the full history of every note, who changed what and when, not just the latest
+version.
 
-**Finanzas** ve la mensualidad, el comedor y cualquier otro cobro por estudiante, registra pagos
-(parciales o completos, uno o varios cargos a la vez) y genera el recibo en PDF al instante. Si un
-cargo especifico necesita un descuento — una beca, un caso de hermanos — se aplica a esa factura
-puntual, no a todo lo que ese estudiante debe ese mes; la mensualidad y el comedor no se mezclan por
-accidente.
+**Finance** sees tuition, meal plan, and any other charge per student, records payments (partial or
+full, against one charge or several at once), and generates a PDF receipt on the spot. If one
+specific charge needs a discount — a scholarship, a sibling case — it applies to that one invoice,
+not to everything that student owes that month; tuition and the meal plan don't get mixed up by
+accident.
 
-**Un padre o tutor** entra a su propio portal y ve unicamente a sus hijos: sus pagos, su asistencia,
-nada de otros estudiantes.
+**A parent or guardian** logs into their own portal and sees only their own children: their
+payments, their attendance, nothing about other students.
 
-Todo esto corre sobre las mismas reglas de acceso en cada capa (no solo "esta ruta requiere tal
-rol", sino "este profesor solo ve los grupos que tiene asignados hoy"), y todo lo que se elimina
-pasa primero por una papelera recuperable antes de purgarse — decision explicita para que un clic
-equivocado no borre historial que despues hace falta.
+All of this runs on the same access rules at every layer (not just "this route requires this
+role," but "this teacher only sees the groups they're currently assigned to"), and everything
+deleted passes through a recoverable trash first before being purged — a deliberate choice so one
+wrong click doesn't erase history someone needs later.
 
-## Modulos
+## Modules
 
-| Modulo | Que cubre |
+| Module | What it covers |
 | --- | --- |
-| Estudiantes | Ficha completa, grupo, foto de perfil, alergias/notas medicas, notas de profesor con auditoria, consentimientos de imagen, albumes de fotos. |
-| Padres / tutores | Alta, vinculo con uno o varios estudiantes, portal propio, ciclo de vida extendido (papelera -> archivado 6 anos -> purga) pensado para familias que se van y vuelven. |
-| Pagos | Cargos configurables, generacion mensual automatica con prorrateo, pagos con asignacion a uno o varios cargos, recibos/facturas en PDF, descuentos por cargo especifico, multa por atraso calculada en tiempo real. |
-| Materiales | Inventario con entradas/salidas/ajustes, alerta de stock bajo, historial y auditoria, sugerencia de cantidad minima segun consumo. |
-| Horarios y asistencia | Horario semanal por grupo, asistencia diaria bloqueada tras medianoche, historial por estudiante. |
-| Reportes | Seis vistas con acceso segun rol: financiero, asistencia, historial de notas, movimientos de materiales, salud/alergias, y papeleras unificadas. |
-| Roles y personal | Seis roles con jerarquia por rango, alta/baja de personal reactivable sin perder historial. |
-| Dashboard | Resumen especifico por rol (profesor, finanzas, administracion). |
+| Students | Full profile, group, profile photo, allergies/medical notes, teacher notes with an audit trail, image consents, photo albums. |
+| Parents / guardians | Onboarding, linking to one or more students, their own portal, extended lifecycle (trash -> archived for 6 years -> purge) designed for families that leave and return. |
+| Payments | Configurable charge types, automatic monthly generation with proration, payments allocated across one or several charges, PDF receipts/invoices, per-charge discounts, a late fee computed live. |
+| Materials | Inventory with stock in/out/adjustments, low-stock alerts, movement history and audit trail, minimum-quantity suggestions based on consumption. |
+| Schedules & attendance | Weekly schedule per group, daily attendance locked after midnight, per-student history. |
+| Reports | Six views gated by role: financial, attendance, notes history, material movements, health/allergies, and a unified trash view. |
+| Roles & staff | Six roles with rank-based hierarchy, staff onboarding/offboarding that's reactivable without losing history. |
+| Dashboard | A summary tailored to each role (teacher, finance, admin). |
 
-## Tests y verificacion
+## Tests and verification
 
 ```bash
-./mvnw test                                    # suite completa (unit + integracion)
-node scripts/api-smoke-test.mjs                # smoke test contra un backend corriendo
-API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs   # version sin crear/modificar datos
+./mvnw test                                    # full suite (unit + integration)
+node scripts/api-smoke-test.mjs                # smoke test against a running backend
+API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs   # variant that creates/modifies nothing
 ```
 
-Ver [`docs/api-smoke-tester.md`](docs/api-smoke-tester.md) para mas detalle.
+See [`docs/api-smoke-tester.md`](docs/api-smoke-tester.md) for more detail.
 
-## Documentacion
+## Documentation
 
-- [Roadmap funcional](docs/roadmap.md) — historial completo de decisiones y estado por modulo.
-- [Roadmap institucional (futuro)](docs/institution-roadmap.md)
+- [Functional roadmap](docs/roadmap.md) — full decision history and status per module.
+- [Institutional roadmap (future)](docs/institution-roadmap.md)
 - [Docker](docs/docker.md)
 - [Smoke tester](docs/api-smoke-tester.md)
 - [CI (GitHub Actions)](docs/github-actions-ci.md)
-- [Despliegue en la nube](docs/cloud-deployment.md)
-- [Runbook de operaciones](docs/operations-runbook.md)
-- [Credenciales de demo](docs/demo-credentials.md)
+- [Cloud deployment](docs/cloud-deployment.md)
+- [Operations runbook](docs/operations-runbook.md)
+- [Demo credentials](docs/demo-credentials.md)
