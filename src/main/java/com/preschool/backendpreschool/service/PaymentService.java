@@ -523,6 +523,11 @@ public class PaymentService {
         BigDecimal balance = charge.getAmountDue().subtract(paid);
         Student student = charge.getStudent();
         ChargeType chargeType = charge.getChargeType();
+        List<Long> paymentIds = paymentAllocationRepository.findByStudentChargeStudentChargeId(charge.getStudentChargeId())
+                .stream()
+                .map(allocation -> allocation.getPayment().getPaymentId())
+                .distinct()
+                .toList();
 
         return new StudentChargeResponse(
                 charge.getStudentChargeId(),
@@ -543,6 +548,7 @@ public class PaymentService {
                 charge.getDiscountType(),
                 charge.getDiscountValue(),
                 charge.getDiscountReason(),
+                paymentIds,
                 charge.getCreatedAt(),
                 charge.getUpdatedAt()
         );

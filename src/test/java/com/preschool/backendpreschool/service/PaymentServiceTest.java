@@ -466,6 +466,22 @@ class PaymentServiceTest {
     }
 
     @Test
+    void getChargesExposesPaymentIdsForAChargeWithAllocations() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PAID);
+        Payment payment = Payment.builder().paymentId(30L).build();
+        PaymentAllocation allocation = PaymentAllocation.builder().payment(payment).studentCharge(charge).amountAllocated(new BigDecimal("1000.00")).build();
+
+        when(studentChargeRepository.findAll()).thenReturn(List.of(charge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(new BigDecimal("1000.00"));
+        when(paymentAllocationRepository.findByStudentChargeStudentChargeId(10L)).thenReturn(List.of(allocation));
+
+        List<StudentChargeResponse> result = paymentService.getCharges(null, null, null, null);
+
+        assertThat(result).singleElement()
+                .satisfies(response -> assertThat(response.paymentIds()).containsExactly(30L));
+    }
+
+    @Test
     void getChargesFiltersByHasDiscount() {
         StudentCharge discounted = buildCharge(new BigDecimal("800.00"), StudentChargeStatus.PENDING);
         discounted.setStudentChargeId(11L);

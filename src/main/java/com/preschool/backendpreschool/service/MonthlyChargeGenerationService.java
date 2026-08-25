@@ -109,6 +109,7 @@ public class MonthlyChargeGenerationService {
                 charge.getDiscountType(),
                 charge.getDiscountValue(),
                 charge.getDiscountReason(),
+                List.of(),
                 charge.getCreatedAt(),
                 charge.getUpdatedAt()
         );
