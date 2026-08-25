@@ -1,12 +1,16 @@
 # Preschool Admin — Backend
 
-API REST en Spring Boot para administrar un preescolar: estudiantes, padres/tutores, pagos
-mensuales, materiales, horarios, asistencia y reportes. Ver [`docs/roadmap.md`](docs/roadmap.md)
-para el historial completo de decisiones y `docs/institution-roadmap.md` para la vision a futuro
-orientada a instituciones grandes.
+Antes de este proyecto, administrar el preescolar significaba pagos anotados en cuadernos o Excel
+sueltos, inventario de materiales que nadie sabia si alcanzaba, y asistencia que vivia en papel.
+Esta API es el motor que centraliza esa operacion diaria: quien pago y quien debe, que material
+queda y cuando reponerlo, quien vino hoy y quien no, y quien es responsable de cada nino — todo
+consultable al instante en vez de reconstruido a mano al final del mes.
 
-Repo hermano: [`frontend-preschool`](https://github.com/JoseMunozO/frontend-preschool) (React +
-Vite + TypeScript), consume esta API.
+Es la mitad backend de una aplicacion completa (API REST en Spring Boot + interfaz web en React).
+La UI vive en el repo hermano [`frontend-preschool`](https://github.com/JoseMunozO/frontend-preschool)
+y consume esta API para todo: no hay logica de negocio duplicada del lado del cliente. Este
+documento explica que resuelve el sistema hoy; el detalle de cada decision (por que se hizo asi, que
+pidio el cliente, que se probo y descarto) vive en [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Stack
 
@@ -29,53 +33,49 @@ docker compose up --build
 Detalle completo (variables de entorno, volumenes, troubleshooting) en
 [`docs/docker.md`](docs/docker.md).
 
-## Capacidades actuales
+## Que resuelve, en la practica
 
-### Estudiantes
-Ficha completa (datos, foto de perfil, alergias/notas medicas), grupos/aulas, contactos de
-emergencia (automaticos desde los tutores vinculados, mas manuales), notas tipo comentario por
-profesor/direccion con historial de edicion y auditoria, consentimientos de imagen/privacidad,
-albumes de fotos con aprobacion. Soft-delete con ventana de 7 dias para deshacer, purga automatica
-despues.
+**Un director o administrador** abre el dashboard y ve de un vistazo lo que antes tomaba llamadas y
+revisiones manuales: cuantos pagos estan atrasados y cuanto se debe (con la multa por atraso ya
+calculada, no algo que alguien tiene que sumar aparte), que materiales se estan por acabar, y que
+cumpleanos se acercan. Puede dar de alta o de baja personal, asignar roles sin inventar cuentas
+nuevas para cada combinacion de responsabilidades, y — si algo se borro por error, un estudiante, un
+padre, un material — recuperarlo, porque cada eliminacion tiene una ventana real para deshacerse
+antes de perderse de verdad.
 
-### Padres / tutores
-Alta, vinculacion a uno o varios estudiantes (con tipo de relacion), portal propio
-(`/api/parents/me`) para ver sus hijos, pagos y asistencia. Ciclo de vida extendido: papelera (7
-dias) -> archivado (6 anos, recuperable) -> purga definitiva, pensado para familias que se van y
-podrian volver.
+**Un profesor** entra y ve solo lo suyo: los estudiantes de su grupo, no los de todo el preescolar.
+Marca la asistencia del dia (una vez pasada la medianoche, ese registro queda archivado y ya no se
+puede alterar, para que "asistencia de ayer" signifique lo que paso, no lo que alguien decidio
+despues). Deja notas sobre un estudiante — de conducta, de salud, pedagogicas — sabiendo que solo el
+puede editar las suyas, y que si otro profesor lo reemplaza un dia, puede leer el historial completo
+de cada nota con quien cambio que y cuando, no solo la version mas reciente.
 
-### Pagos
-Tipos de cargo configurables (mensualidad, comedor, excursiones, materiales, etc.), generacion
-automatica de la cuota mensual (con prorrateo si el estudiante se inscribe a mitad de mes),
-registro de pagos con asignacion a uno o varios cargos, recibos/facturas en PDF descargables.
-Descuentos aplicables a un cargo especifico (no a todos los cargos de un estudiante a la vez), ya
-sea al crearlo o sobre uno ya existente. Multa por atraso: 5% de la cuota por cada mes o fraccion
-vencida, calculada en tiempo real.
+**Finanzas** ve la mensualidad, el comedor y cualquier otro cobro por estudiante, registra pagos
+(parciales o completos, uno o varios cargos a la vez) y genera el recibo en PDF al instante. Si un
+cargo especifico necesita un descuento — una beca, un caso de hermanos — se aplica a esa factura
+puntual, no a todo lo que ese estudiante debe ese mes; la mensualidad y el comedor no se mezclan por
+accidente.
 
-### Materiales
-Inventario con entradas/salidas/ajustes de stock, alerta de stock bajo, historial de movimientos y
-auditoria de cambios, sugerencia de cantidad minima segun consumo historico.
+**Un padre o tutor** entra a su propio portal y ve unicamente a sus hijos: sus pagos, su asistencia,
+nada de otros estudiantes.
 
-### Horarios y asistencia
-Horario semanal por grupo con actividades y personal asignado. Asistencia diaria
-(presente/ausente/tarde/enfermo) por grupo, bloqueada para edicion despues de medianoche del dia
-registrado, con historial por estudiante.
+Todo esto corre sobre las mismas reglas de acceso en cada capa (no solo "esta ruta requiere tal
+rol", sino "este profesor solo ve los grupos que tiene asignados hoy"), y todo lo que se elimina
+pasa primero por una papelera recuperable antes de purgarse — decision explicita para que un clic
+equivocado no borre historial que despues hace falta.
 
-### Reportes
-Seis reportes con acceso por rol (rangos superiores ven todos; profesor ve asistencia, notas,
-materiales y salud; finanzas ve financiero y materiales): financiero (pagos pendientes/atrasados),
-asistencia agregada por rango de fechas, historial de notas de un estudiante con su auditoria,
-movimientos de materiales (con balance corrido), datos de salud/alergias, y papeleras (todo lo
-eliminado o archivado en un solo lugar, con fecha limite de purga).
+## Modulos
 
-### Roles y personal
-Seis roles (`SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `TEACHER`, `FINANCE`, `PARENT`) con jerarquia por
-rango para asignar/quitar roles. Alta y baja de personal (con o sin cuenta de acceso), reactivable
-en cualquier momento, sin purga automatica (se conserva el historial de horarios/auditorias).
-
-### Dashboard
-Resumen especifico por rol: profesor (asistencia del dia, horarios, cumpleanos proximos),
-finanzas (pagos), administracion (vista general).
+| Modulo | Que cubre |
+| --- | --- |
+| Estudiantes | Ficha completa, grupo, foto de perfil, alergias/notas medicas, notas de profesor con auditoria, consentimientos de imagen, albumes de fotos. |
+| Padres / tutores | Alta, vinculo con uno o varios estudiantes, portal propio, ciclo de vida extendido (papelera -> archivado 6 anos -> purga) pensado para familias que se van y vuelven. |
+| Pagos | Cargos configurables, generacion mensual automatica con prorrateo, pagos con asignacion a uno o varios cargos, recibos/facturas en PDF, descuentos por cargo especifico, multa por atraso calculada en tiempo real. |
+| Materiales | Inventario con entradas/salidas/ajustes, alerta de stock bajo, historial y auditoria, sugerencia de cantidad minima segun consumo. |
+| Horarios y asistencia | Horario semanal por grupo, asistencia diaria bloqueada tras medianoche, historial por estudiante. |
+| Reportes | Seis vistas con acceso segun rol: financiero, asistencia, historial de notas, movimientos de materiales, salud/alergias, y papeleras unificadas. |
+| Roles y personal | Seis roles con jerarquia por rango, alta/baja de personal reactivable sin perder historial. |
+| Dashboard | Resumen especifico por rol (profesor, finanzas, administracion). |
 
 ## Tests y verificacion
 
