@@ -77,3 +77,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Demo credentials (real passwords, keep local-only from here on) ###
+docs/demo-credentials.md
