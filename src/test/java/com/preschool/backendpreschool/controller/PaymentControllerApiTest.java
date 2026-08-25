@@ -289,6 +289,7 @@ class PaymentControllerApiTest {
                 null,
                 null,
                 null,
+                BigDecimal.ZERO,
                 List.of(),
                 LocalDateTime.now(),
                 LocalDateTime.now()
