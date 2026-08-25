@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.service;
 
+import com.preschool.backendpreschool.dto.ChargeDiscountRequest;
 import com.preschool.backendpreschool.dto.ChargeTypeRequest;
 import com.preschool.backendpreschool.dto.ChargeTypeResponse;
 import com.preschool.backendpreschool.dto.PaymentAllocationRequest;
@@ -13,6 +14,7 @@ import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ChargeType;
+import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.Payment;
 import com.preschool.backendpreschool.model.PaymentAllocation;
@@ -60,6 +62,7 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final ReceiptPdfService receiptPdfService;
     private final ReceiptStorageService receiptStorageService;
+    private final ChargeAmountCalculator chargeAmountCalculator;
 
     public List<ChargeTypeResponse> getChargeTypes(Boolean activeOnly) {
         List<ChargeType> chargeTypes = Boolean.TRUE.equals(activeOnly)
@@ -140,6 +143,8 @@ public class PaymentService {
 
     @Transactional
     public StudentChargeResponse createCharge(StudentChargeRequest request, String createdByEmail) {
+        validateDiscountFieldsTogether(request.discountType(), request.discountValue(), request.discountReason());
+
         Student student = studentRepository.findById(request.studentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Estudiante no encontrado"));
 
@@ -157,7 +162,64 @@ public class PaymentService {
                 .description(trimToNull(request.description()))
                 .build();
 
+        if (request.discountType() != null) {
+            applyDiscountToCharge(charge, request.discountType(), request.discountValue(), request.discountReason());
+        }
+
         return toStudentChargeResponse(studentChargeRepository.save(charge));
+    }
+
+    @Transactional
+    public StudentChargeResponse applyChargeDiscount(Long studentChargeId, ChargeDiscountRequest request) {
+        StudentCharge charge = findCharge(studentChargeId);
+        applyDiscountToCharge(charge, request.discountType(), request.value(), request.reason());
+        updateChargeStatus(charge);
+
+        return toStudentChargeResponse(charge);
+    }
+
+    @Transactional
+    public StudentChargeResponse removeChargeDiscount(Long studentChargeId) {
+        StudentCharge charge = findCharge(studentChargeId);
+        if (charge.getOriginalAmount() == null) {
+            throw new BadRequestException("Este cargo no tiene ningun descuento aplicado");
+        }
+
+        charge.setAmountDue(charge.getOriginalAmount());
+        charge.setOriginalAmount(null);
+        charge.setDiscountType(null);
+        charge.setDiscountValue(null);
+        charge.setDiscountReason(null);
+        updateChargeStatus(charge);
+
+        return toStudentChargeResponse(charge);
+    }
+
+    private void validateDiscountFieldsTogether(Object discountType, Object discountValue, Object discountReason) {
+        boolean anyPresent = discountType != null || discountValue != null || discountReason != null;
+        boolean allPresent = discountType != null && discountValue != null && discountReason != null;
+        if (anyPresent && !allPresent) {
+            throw new BadRequestException("discountType, discountValue y discountReason deben venir los tres juntos, o ninguno");
+        }
+    }
+
+    /**
+     * originalAmount is captured only the first time a discount is applied, so re-applying a
+     * different discount later always recomputes from the true pre-discount amount instead of
+     * compounding on top of an already-discounted amountDue.
+     */
+    private void applyDiscountToCharge(StudentCharge charge, DiscountType discountType, BigDecimal discountValue, String discountReason) {
+        if (discountType == DiscountType.PERCENTAGE && discountValue.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new BadRequestException("El porcentaje de descuento no puede ser mayor a 100");
+        }
+
+        BigDecimal baseAmount = charge.getOriginalAmount() != null ? charge.getOriginalAmount() : charge.getAmountDue();
+
+        charge.setOriginalAmount(baseAmount);
+        charge.setDiscountType(discountType);
+        charge.setDiscountValue(discountValue);
+        charge.setDiscountReason(trimToNull(discountReason));
+        charge.setAmountDue(chargeAmountCalculator.applyDiscount(baseAmount, discountType, discountValue));
     }
 
     @Transactional
@@ -476,6 +538,10 @@ public class PaymentService {
                 balance.max(BigDecimal.ZERO),
                 charge.getStatus(),
                 charge.getDescription(),
+                charge.getOriginalAmount(),
+                charge.getDiscountType(),
+                charge.getDiscountValue(),
+                charge.getDiscountReason(),
                 charge.getCreatedAt(),
                 charge.getUpdatedAt()
         );

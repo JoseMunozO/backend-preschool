@@ -3,10 +3,8 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.dto.StudentChargeResponse;
 import com.preschool.backendpreschool.model.ChargeRecurrenceType;
 import com.preschool.backendpreschool.model.ChargeType;
-import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentCharge;
-import com.preschool.backendpreschool.model.StudentDiscount;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.repository.ChargeTypeRepository;
 import com.preschool.backendpreschool.repository.PaymentAllocationRepository;
@@ -23,7 +21,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,9 +40,6 @@ class MonthlyChargeGenerationServiceTest {
 
     @Mock
     private PaymentAllocationRepository paymentAllocationRepository;
-
-    @Mock
-    private StudentDiscountService studentDiscountService;
 
     @Spy
     private ChargeAmountCalculator chargeAmountCalculator = new ChargeAmountCalculator();
@@ -71,7 +65,6 @@ class MonthlyChargeGenerationServiceTest {
         when(studentRepository.findAllByDeletedAtIsNull()).thenReturn(List.of(student));
         when(studentChargeRepository.existsByStudentStudentIdAndChargeTypeChargeTypeIdAndBillingPeriodStart(
                 1L, 1L, LocalDate.of(2026, 8, 1))).thenReturn(false);
-        when(studentDiscountService.findEffectiveDiscount(1L, LocalDate.of(2026, 8, 1))).thenReturn(Optional.empty());
         when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> {
             StudentCharge charge = invocation.getArgument(0);
             charge.setStudentChargeId(100L);
@@ -139,7 +132,6 @@ class MonthlyChargeGenerationServiceTest {
         when(studentRepository.findAllByDeletedAtIsNull()).thenReturn(List.of(student));
         when(studentChargeRepository.existsByStudentStudentIdAndChargeTypeChargeTypeIdAndBillingPeriodStart(
                 1L, 1L, LocalDate.of(2026, 8, 1))).thenReturn(false);
-        when(studentDiscountService.findEffectiveDiscount(1L, LocalDate.of(2026, 8, 1))).thenReturn(Optional.empty());
         when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> {
             StudentCharge charge = invocation.getArgument(0);
             charge.setStudentChargeId(100L);
@@ -154,70 +146,6 @@ class MonthlyChargeGenerationServiceTest {
                 .divide(BigDecimal.valueOf(31), 2, java.math.RoundingMode.HALF_UP);
         assertThat(result).singleElement()
                 .satisfies(response -> assertThat(response.amountDue()).isEqualByComparingTo(expected));
-    }
-
-    @Test
-    void appliesPercentageDiscountToBaseAmount() {
-        ChargeType chargeType = buildChargeType(ChargeRecurrenceType.MONTHLY);
-        Student student = buildStudent(LocalDate.of(2026, 1, 1), StudentStatus.active);
-        StudentDiscount discount = StudentDiscount.builder()
-                .studentDiscountId(1L)
-                .discountType(DiscountType.PERCENTAGE)
-                .value(new BigDecimal("10"))
-                .reason("Hermanos")
-                .validFrom(LocalDate.of(2026, 1, 1))
-                .active(true)
-                .build();
-
-        when(chargeTypeRepository.findByActiveTrue()).thenReturn(List.of(chargeType));
-        when(studentRepository.findAllByDeletedAtIsNull()).thenReturn(List.of(student));
-        when(studentChargeRepository.existsByStudentStudentIdAndChargeTypeChargeTypeIdAndBillingPeriodStart(
-                1L, 1L, LocalDate.of(2026, 8, 1))).thenReturn(false);
-        when(studentDiscountService.findEffectiveDiscount(1L, LocalDate.of(2026, 8, 1))).thenReturn(Optional.of(discount));
-        when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> {
-            StudentCharge charge = invocation.getArgument(0);
-            charge.setStudentChargeId(100L);
-            return charge;
-        });
-        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(100L)).thenReturn(BigDecimal.ZERO);
-
-        List<StudentChargeResponse> result = monthlyChargeGenerationService.generateMonthlyCharges(YearMonth.of(2026, 8));
-
-        assertThat(result).singleElement().satisfies(response -> {
-            assertThat(response.amountDue()).isEqualByComparingTo("855.00");
-            assertThat(response.description()).contains("Hermanos");
-        });
-    }
-
-    @Test
-    void appliesFixedAmountDiscountFlooredAtZero() {
-        ChargeType chargeType = buildChargeType(ChargeRecurrenceType.MONTHLY);
-        Student student = buildStudent(LocalDate.of(2026, 1, 1), StudentStatus.active);
-        StudentDiscount discount = StudentDiscount.builder()
-                .studentDiscountId(1L)
-                .discountType(DiscountType.FIXED_AMOUNT)
-                .value(new BigDecimal("2000"))
-                .reason("Beca completa")
-                .validFrom(LocalDate.of(2026, 1, 1))
-                .active(true)
-                .build();
-
-        when(chargeTypeRepository.findByActiveTrue()).thenReturn(List.of(chargeType));
-        when(studentRepository.findAllByDeletedAtIsNull()).thenReturn(List.of(student));
-        when(studentChargeRepository.existsByStudentStudentIdAndChargeTypeChargeTypeIdAndBillingPeriodStart(
-                1L, 1L, LocalDate.of(2026, 8, 1))).thenReturn(false);
-        when(studentDiscountService.findEffectiveDiscount(1L, LocalDate.of(2026, 8, 1))).thenReturn(Optional.of(discount));
-        when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> {
-            StudentCharge charge = invocation.getArgument(0);
-            charge.setStudentChargeId(100L);
-            return charge;
-        });
-        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(100L)).thenReturn(BigDecimal.ZERO);
-
-        List<StudentChargeResponse> result = monthlyChargeGenerationService.generateMonthlyCharges(YearMonth.of(2026, 8));
-
-        assertThat(result).singleElement()
-                .satisfies(response -> assertThat(response.amountDue()).isEqualByComparingTo("0.00"));
     }
 
     private ChargeType buildChargeType(ChargeRecurrenceType recurrenceType) {
