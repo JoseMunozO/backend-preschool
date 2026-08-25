@@ -6,6 +6,7 @@ import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ChargeRecurrenceType;
 import com.preschool.backendpreschool.model.ChargeType;
+import com.preschool.backendpreschool.model.DiscountDurationType;
 import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentCharge;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -54,17 +56,43 @@ public class StudentDiscountService {
         if (request.discountType() == DiscountType.PERCENTAGE && request.value().compareTo(BigDecimal.valueOf(100)) > 0) {
             throw new BadRequestException("El porcentaje de descuento no puede ser mayor a 100");
         }
-        if (request.validUntil() != null && request.validUntil().isBefore(request.validFrom())) {
-            throw new BadRequestException("La fecha 'validUntil' no puede ser anterior a 'validFrom'");
+
+        LocalDate validFrom;
+        LocalDate validUntil;
+        if (request.durationType() == DiscountDurationType.INSTANT) {
+            // Instant discounts only ever cover the billing cycle in progress right now - next
+            // month's charge generation naturally stops picking it up without anyone deactivating it.
+            validFrom = LocalDate.now();
+            validUntil = YearMonth.now().atEndOfMonth();
+        } else {
+            if (request.validFrom() == null) {
+                throw new BadRequestException("La fecha 'validFrom' es obligatoria para un descuento programado");
+            }
+            if (request.validUntil() != null && request.validUntil().isBefore(request.validFrom())) {
+                throw new BadRequestException("La fecha 'validUntil' no puede ser anterior a 'validFrom'");
+            }
+            validFrom = request.validFrom();
+            validUntil = request.validUntil();
+        }
+
+        LocalDate withdrawalDate = student.getWithdrawalDate();
+        if (withdrawalDate != null) {
+            if (validFrom.isAfter(withdrawalDate)) {
+                throw new BadRequestException("No se puede crear un descuento que empiece despues de que el estudiante se retire");
+            }
+            if (validUntil == null || validUntil.isAfter(withdrawalDate)) {
+                validUntil = withdrawalDate;
+            }
         }
 
         StudentDiscount discount = StudentDiscount.builder()
                 .student(student)
                 .discountType(request.discountType())
+                .durationType(request.durationType())
                 .value(request.value())
                 .reason(trimToNull(request.reason()))
-                .validFrom(request.validFrom())
-                .validUntil(request.validUntil())
+                .validFrom(validFrom)
+                .validUntil(validUntil)
                 .active(true)
                 .createdByUser(requester)
                 .build();
@@ -143,13 +171,29 @@ public class StudentDiscountService {
     /**
      * Currently-valid discount for a student on a given date, used when generating charges.
      * If more than one happens to be valid at once, the most recently started one wins.
+     *
+     * <p>Also enforces the tuition-end cap here (not just at creation time): if the student's
+     * withdrawalDate is set or changed after a discount already exists, that discount must still
+     * stop applying at withdrawal, regardless of whatever validUntil was stored.
      */
     public Optional<StudentDiscount> findEffectiveDiscount(Long studentId, LocalDate date) {
+        LocalDate withdrawalDate = studentRepository.findById(studentId)
+                .map(Student::getWithdrawalDate)
+                .orElse(null);
+
         return studentDiscountRepository.findByStudentStudentIdAndActiveTrue(studentId)
                 .stream()
-                .filter(discount -> !discount.getValidFrom().isAfter(date)
-                        && (discount.getValidUntil() == null || !discount.getValidUntil().isBefore(date)))
+                .filter(discount -> !discount.getValidFrom().isAfter(date))
+                .filter(discount -> isBeforeEffectiveValidUntil(discount, date, withdrawalDate))
                 .max(Comparator.comparing(StudentDiscount::getValidFrom));
+    }
+
+    private boolean isBeforeEffectiveValidUntil(StudentDiscount discount, LocalDate date, LocalDate withdrawalDate) {
+        LocalDate effectiveValidUntil = discount.getValidUntil();
+        if (withdrawalDate != null && (effectiveValidUntil == null || withdrawalDate.isBefore(effectiveValidUntil))) {
+            effectiveValidUntil = withdrawalDate;
+        }
+        return effectiveValidUntil == null || !effectiveValidUntil.isBefore(date);
     }
 
     private Student findStudent(Long studentId) {
@@ -171,6 +215,7 @@ public class StudentDiscountService {
                 student.getStudentId(),
                 student.getFirstName() + " " + student.getLastName(),
                 discount.getDiscountType(),
+                discount.getDurationType(),
                 discount.getValue(),
                 discount.getReason(),
                 discount.getValidFrom(),

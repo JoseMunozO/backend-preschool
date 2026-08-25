@@ -42,6 +42,10 @@ public class StudentDiscount {
     @Column(name = "discount_type", nullable = false, length = 20)
     private DiscountType discountType;
 
+    @Convert(converter = DiscountDurationTypeConverter.class)
+    @Column(name = "duration_type", nullable = false, length = 20)
+    private DiscountDurationType durationType;
+
     @Column(nullable = false)
     private BigDecimal value;
 

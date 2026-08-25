@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.dto;
 
+import com.preschool.backendpreschool.model.DiscountDurationType;
 import com.preschool.backendpreschool.model.DiscountType;
 
 import java.math.BigDecimal;
@@ -11,6 +12,7 @@ public record StudentDiscountResponse(
         Long studentId,
         String studentName,
         DiscountType discountType,
+        DiscountDurationType durationType,
         BigDecimal value,
         String reason,
         LocalDate validFrom,

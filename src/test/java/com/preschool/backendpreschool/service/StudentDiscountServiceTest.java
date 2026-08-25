@@ -6,6 +6,7 @@ import com.preschool.backendpreschool.exception.BadRequestException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ChargeRecurrenceType;
 import com.preschool.backendpreschool.model.ChargeType;
+import com.preschool.backendpreschool.model.DiscountDurationType;
 import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentCharge;
@@ -74,7 +75,7 @@ class StudentDiscountServiceTest {
         when(studentChargeRepository.findByStudentStudentIdAndStatusIn(anyLong(), any())).thenReturn(List.of());
 
         StudentDiscountRequest request = new StudentDiscountRequest(
-                DiscountType.PERCENTAGE, new BigDecimal("10"), "Hermanos", LocalDate.of(2026, 8, 1), null
+                DiscountType.PERCENTAGE, DiscountDurationType.SCHEDULED, new BigDecimal("10"), "Hermanos", LocalDate.of(2026, 8, 1), null
         );
 
         StudentDiscountResponse response = studentDiscountService.createDiscount(1L, request, "admin@school.com");
@@ -129,13 +130,92 @@ class StudentDiscountServiceTest {
         when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudentDiscountRequest request = new StudentDiscountRequest(
-                DiscountType.PERCENTAGE, new BigDecimal("10"), "Hermanos", LocalDate.of(2020, 6, 15), null
+                DiscountType.PERCENTAGE, DiscountDurationType.SCHEDULED, new BigDecimal("10"), "Hermanos", LocalDate.of(2020, 6, 15), null
         );
 
         studentDiscountService.createDiscount(1L, request, "admin@school.com");
 
         assertThat(openCharge.getAmountDue()).isEqualByComparingTo("900.00");
         assertThat(openCharge.getStatus()).isEqualTo(StudentChargeStatus.PENDING);
+    }
+
+    @Test
+    void createDiscountWithInstantDurationCoversOnlyCurrentBillingCycle() {
+        Student student = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").build();
+        User admin = User.builder().userId(2L).email("admin@school.com").build();
+
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(studentDiscountRepository.save(any(StudentDiscount.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentChargeRepository.findByStudentStudentIdAndStatusIn(anyLong(), any())).thenReturn(List.of());
+
+        // Client-supplied dates are irrelevant for an INSTANT discount - the server always
+        // computes today..end-of-month regardless of what (if anything) is sent.
+        StudentDiscountRequest request = new StudentDiscountRequest(
+                DiscountType.PERCENTAGE, DiscountDurationType.INSTANT, new BigDecimal("10"), "Ajuste puntual",
+                LocalDate.of(2020, 1, 1), LocalDate.of(2030, 1, 1)
+        );
+
+        StudentDiscountResponse response = studentDiscountService.createDiscount(1L, request, "admin@school.com");
+
+        assertThat(response.durationType()).isEqualTo(DiscountDurationType.INSTANT);
+        assertThat(response.validFrom()).isEqualTo(LocalDate.now());
+        assertThat(response.validUntil()).isEqualTo(java.time.YearMonth.now().atEndOfMonth());
+    }
+
+    @Test
+    void createDiscountRejectsScheduledWithoutValidFrom() {
+        Student student = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz").build();
+        User admin = User.builder().userId(2L).email("admin@school.com").build();
+
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+
+        StudentDiscountRequest request = new StudentDiscountRequest(
+                DiscountType.PERCENTAGE, DiscountDurationType.SCHEDULED, new BigDecimal("10"), "Beca", null, null
+        );
+
+        assertThatThrownBy(() -> studentDiscountService.createDiscount(1L, request, "admin@school.com"))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void createDiscountCapsValidUntilAtStudentWithdrawalDate() {
+        Student student = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz")
+                .withdrawalDate(LocalDate.of(2026, 12, 31)).build();
+        User admin = User.builder().userId(2L).email("admin@school.com").build();
+
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+        when(studentDiscountRepository.save(any(StudentDiscount.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentChargeRepository.findByStudentStudentIdAndStatusIn(anyLong(), any())).thenReturn(List.of());
+
+        StudentDiscountRequest request = new StudentDiscountRequest(
+                DiscountType.PERCENTAGE, DiscountDurationType.SCHEDULED, new BigDecimal("10"), "Beca",
+                LocalDate.of(2026, 1, 1), null
+        );
+
+        StudentDiscountResponse response = studentDiscountService.createDiscount(1L, request, "admin@school.com");
+
+        assertThat(response.validUntil()).isEqualTo(LocalDate.of(2026, 12, 31));
+    }
+
+    @Test
+    void createDiscountRejectsValidFromAfterStudentWithdrawalDate() {
+        Student student = Student.builder().studentId(1L).firstName("Ana").lastName("Diaz")
+                .withdrawalDate(LocalDate.of(2026, 1, 1)).build();
+        User admin = User.builder().userId(2L).email("admin@school.com").build();
+
+        when(studentRepository.findByStudentIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(student));
+        when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
+
+        StudentDiscountRequest request = new StudentDiscountRequest(
+                DiscountType.PERCENTAGE, DiscountDurationType.SCHEDULED, new BigDecimal("10"), "Beca",
+                LocalDate.of(2026, 6, 1), null
+        );
+
+        assertThatThrownBy(() -> studentDiscountService.createDiscount(1L, request, "admin@school.com"))
+                .isInstanceOf(BadRequestException.class);
     }
 
     @Test
@@ -147,7 +227,7 @@ class StudentDiscountServiceTest {
         when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
 
         StudentDiscountRequest request = new StudentDiscountRequest(
-                DiscountType.PERCENTAGE, new BigDecimal("150"), "Beca", LocalDate.of(2026, 8, 1), null
+                DiscountType.PERCENTAGE, DiscountDurationType.SCHEDULED, new BigDecimal("150"), "Beca", LocalDate.of(2026, 8, 1), null
         );
 
         assertThatThrownBy(() -> studentDiscountService.createDiscount(1L, request, "admin@school.com"))
@@ -163,7 +243,7 @@ class StudentDiscountServiceTest {
         when(userRepository.findByEmail("admin@school.com")).thenReturn(Optional.of(admin));
 
         StudentDiscountRequest request = new StudentDiscountRequest(
-                DiscountType.FIXED_AMOUNT, new BigDecimal("50"), "Referido", LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 1)
+                DiscountType.FIXED_AMOUNT, DiscountDurationType.SCHEDULED, new BigDecimal("50"), "Referido", LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 1)
         );
 
         assertThatThrownBy(() -> studentDiscountService.createDiscount(1L, request, "admin@school.com"))
@@ -175,7 +255,7 @@ class StudentDiscountServiceTest {
         when(studentRepository.findByStudentIdAndDeletedAtIsNull(99L)).thenReturn(Optional.empty());
 
         StudentDiscountRequest request = new StudentDiscountRequest(
-                DiscountType.FIXED_AMOUNT, new BigDecimal("50"), "Referido", LocalDate.of(2026, 8, 1), null
+                DiscountType.FIXED_AMOUNT, DiscountDurationType.SCHEDULED, new BigDecimal("50"), "Referido", LocalDate.of(2026, 8, 1), null
         );
 
         assertThatThrownBy(() -> studentDiscountService.createDiscount(99L, request, "admin@school.com"))
@@ -236,5 +316,22 @@ class StudentDiscountServiceTest {
         Optional<StudentDiscount> effective = studentDiscountService.findEffectiveDiscount(1L, LocalDate.of(2026, 8, 1));
 
         assertThat(effective).isEmpty();
+    }
+
+    @Test
+    void findEffectiveDiscountStopsApplyingAfterStudentWithdrawalDateEvenIfStoredValidUntilIsLater() {
+        Student student = Student.builder().studentId(1L).withdrawalDate(LocalDate.of(2026, 6, 30)).build();
+        StudentDiscount discount = StudentDiscount.builder()
+                .studentDiscountId(1L).student(student).discountType(DiscountType.PERCENTAGE)
+                .value(BigDecimal.TEN).validFrom(LocalDate.of(2026, 1, 1)).validUntil(LocalDate.of(2030, 1, 1)).active(true).build();
+
+        when(studentDiscountRepository.findByStudentStudentIdAndActiveTrue(1L)).thenReturn(List.of(discount));
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(student));
+
+        Optional<StudentDiscount> beforeWithdrawal = studentDiscountService.findEffectiveDiscount(1L, LocalDate.of(2026, 3, 1));
+        Optional<StudentDiscount> afterWithdrawal = studentDiscountService.findEffectiveDiscount(1L, LocalDate.of(2026, 8, 1));
+
+        assertThat(beforeWithdrawal).isPresent();
+        assertThat(afterWithdrawal).isEmpty();
     }
 }
