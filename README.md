@@ -1,22 +1,26 @@
 # Preschool Admin — Backend
 
-API REST en Spring Boot para administrar un preescolar: estudiantes, padres/tutores, pagos
-mensuales, materiales, horarios, asistencia y reportes. Ver [`docs/roadmap.md`](docs/roadmap.md)
-para el historial completo de decisiones y `docs/institution-roadmap.md` para la vision a futuro
-orientada a instituciones grandes.
+Before this project, running the preschool's day-to-day meant payments scribbled in notebooks or
+scattered spreadsheets, material inventory nobody could confirm at a glance, and attendance that
+lived on paper. This API is the engine that centralizes that daily operation: who's paid and who
+owes, what stock remains and when to reorder, who showed up today, and who's responsible for each
+child — all queryable instantly instead of reconstructed by hand at month's end.
 
-Repo hermano: [`frontend-preschool`](https://github.com/JoseMunozO/frontend-preschool) (React +
-Vite + TypeScript), consume esta API.
+It's the backend half of a complete application (Spring Boot REST API + React web UI). The UI
+lives in the sibling repo [`frontend-preschool`](https://github.com/JoseMunozO/frontend-preschool)
+and consumes this API for everything — no business logic is duplicated on the client side. This
+document explains what the system solves today; the reasoning behind each decision (what the
+client asked for, what was tried and discarded) lives in [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Stack
 
 - Java 25, Spring Boot 4
-- MySQL 8.4, Flyway (migraciones versionadas en `src/main/resources/db/migration`)
+- MySQL 8.4, Flyway (versioned migrations in `src/main/resources/db/migration`)
 - Spring Security + JWT
-- iText/OpenPDF (recibos y facturas en PDF)
-- Docker Compose para levantar todo localmente
+- iText/OpenPDF (PDF receipts and invoices)
+- Docker Compose to run everything locally
 
-## Inicio rapido
+## Quick start
 
 ```bash
 docker compose up --build
@@ -24,76 +28,73 @@ docker compose up --build
 
 - Backend: `http://localhost:8080`
 - Swagger: `http://localhost:8080/swagger-ui/index.html`
-- Credenciales de demo: [`docs/demo-credentials.md`](docs/demo-credentials.md)
+- Demo credentials: [`docs/demo-credentials.md`](docs/demo-credentials.md)
 
-Detalle completo (variables de entorno, volumenes, troubleshooting) en
+Full detail (environment variables, volumes, troubleshooting) in
 [`docs/docker.md`](docs/docker.md).
 
-## Capacidades actuales
+## What it actually solves
 
-### Estudiantes
-Ficha completa (datos, foto de perfil, alergias/notas medicas), grupos/aulas, contactos de
-emergencia (automaticos desde los tutores vinculados, mas manuales), notas tipo comentario por
-profesor/direccion con historial de edicion y auditoria, consentimientos de imagen/privacidad,
-albumes de fotos con aprobacion. Soft-delete con ventana de 7 dias para deshacer, purga automatica
-despues.
+**A director or administrator** opens the dashboard and sees at a glance what used to take phone
+calls and manual digging: how many payments are overdue and how much is owed — with the late fee
+already calculated, not something someone has to add up separately — which materials are running
+low, and which birthdays are coming up. They can onboard or deactivate staff, assign roles without
+inventing a new account type for every combination of responsibilities, and — if something gets
+deleted by mistake, a student, a parent, a material — recover it, because every deletion has a real
+grace window before it's actually gone for good.
 
-### Padres / tutores
-Alta, vinculacion a uno o varios estudiantes (con tipo de relacion), portal propio
-(`/api/parents/me`) para ver sus hijos, pagos y asistencia. Ciclo de vida extendido: papelera (7
-dias) -> archivado (6 anos, recuperable) -> purga definitiva, pensado para familias que se van y
-podrian volver.
+**A teacher** logs in and sees only their own: the students in their assigned group, not the whole
+preschool. They mark today's attendance (once midnight passes, that record is archived and can no
+longer be altered, so "yesterday's attendance" means what actually happened, not whatever someone
+decided to change afterward). They leave notes on a student — behavioral, medical, pedagogical —
+knowing only they can edit their own, and that if a substitute covers their class one day, that
+substitute can read the full history of every note, who changed what and when, not just the latest
+version.
 
-### Pagos
-Tipos de cargo configurables (mensualidad, comedor, excursiones, materiales, etc.), generacion
-automatica de la cuota mensual (con prorrateo si el estudiante se inscribe a mitad de mes),
-registro de pagos con asignacion a uno o varios cargos, recibos/facturas en PDF descargables.
-Descuentos aplicables a un cargo especifico (no a todos los cargos de un estudiante a la vez), ya
-sea al crearlo o sobre uno ya existente. Multa por atraso: 5% de la cuota por cada mes o fraccion
-vencida, calculada en tiempo real.
+**Finance** sees tuition, meal plan, and any other charge per student, records payments (partial or
+full, against one charge or several at once), and generates a PDF receipt on the spot. If one
+specific charge needs a discount — a scholarship, a sibling case — it applies to that one invoice,
+not to everything that student owes that month; tuition and the meal plan don't get mixed up by
+accident.
 
-### Materiales
-Inventario con entradas/salidas/ajustes de stock, alerta de stock bajo, historial de movimientos y
-auditoria de cambios, sugerencia de cantidad minima segun consumo historico.
+**A parent or guardian** logs into their own portal and sees only their own children: their
+payments, their attendance, nothing about other students.
 
-### Horarios y asistencia
-Horario semanal por grupo con actividades y personal asignado. Asistencia diaria
-(presente/ausente/tarde/enfermo) por grupo, bloqueada para edicion despues de medianoche del dia
-registrado, con historial por estudiante.
+All of this runs on the same access rules at every layer (not just "this route requires this
+role," but "this teacher only sees the groups they're currently assigned to"), and everything
+deleted passes through a recoverable trash first before being purged — a deliberate choice so one
+wrong click doesn't erase history someone needs later.
 
-### Reportes
-Seis reportes con acceso por rol (rangos superiores ven todos; profesor ve asistencia, notas,
-materiales y salud; finanzas ve financiero y materiales): financiero (pagos pendientes/atrasados),
-asistencia agregada por rango de fechas, historial de notas de un estudiante con su auditoria,
-movimientos de materiales (con balance corrido), datos de salud/alergias, y papeleras (todo lo
-eliminado o archivado en un solo lugar, con fecha limite de purga).
+## Modules
 
-### Roles y personal
-Seis roles (`SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `TEACHER`, `FINANCE`, `PARENT`) con jerarquia por
-rango para asignar/quitar roles. Alta y baja de personal (con o sin cuenta de acceso), reactivable
-en cualquier momento, sin purga automatica (se conserva el historial de horarios/auditorias).
+| Module | What it covers |
+| --- | --- |
+| Students | Full profile, group, profile photo, allergies/medical notes, teacher notes with an audit trail, image consents, photo albums. |
+| Parents / guardians | Onboarding, linking to one or more students, their own portal, extended lifecycle (trash -> archived for 6 years -> purge) designed for families that leave and return. |
+| Payments | Configurable charge types, automatic monthly generation with proration, payments allocated across one or several charges, PDF receipts/invoices, per-charge discounts, a late fee computed live. |
+| Materials | Inventory with stock in/out/adjustments, low-stock alerts, movement history and audit trail, minimum-quantity suggestions based on consumption. |
+| Schedules & attendance | Weekly schedule per group, daily attendance locked after midnight, per-student history. |
+| Reports | Six views gated by role: financial, attendance, notes history, material movements, health/allergies, and a unified trash view. |
+| Roles & staff | Six roles with rank-based hierarchy, staff onboarding/offboarding that's reactivable without losing history. |
+| Dashboard | A summary tailored to each role (teacher, finance, admin). |
 
-### Dashboard
-Resumen especifico por rol: profesor (asistencia del dia, horarios, cumpleanos proximos),
-finanzas (pagos), administracion (vista general).
-
-## Tests y verificacion
+## Tests and verification
 
 ```bash
-./mvnw test                                    # suite completa (unit + integracion)
-node scripts/api-smoke-test.mjs                # smoke test contra un backend corriendo
-API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs   # version sin crear/modificar datos
+./mvnw test                                    # full suite (unit + integration)
+node scripts/api-smoke-test.mjs                # smoke test against a running backend
+API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs   # variant that creates/modifies nothing
 ```
 
-Ver [`docs/api-smoke-tester.md`](docs/api-smoke-tester.md) para mas detalle.
+See [`docs/api-smoke-tester.md`](docs/api-smoke-tester.md) for more detail.
 
-## Documentacion
+## Documentation
 
-- [Roadmap funcional](docs/roadmap.md) — historial completo de decisiones y estado por modulo.
-- [Roadmap institucional (futuro)](docs/institution-roadmap.md)
+- [Functional roadmap](docs/roadmap.md) — full decision history and status per module.
+- [Institutional roadmap (future)](docs/institution-roadmap.md)
 - [Docker](docs/docker.md)
 - [Smoke tester](docs/api-smoke-tester.md)
 - [CI (GitHub Actions)](docs/github-actions-ci.md)
-- [Despliegue en la nube](docs/cloud-deployment.md)
-- [Runbook de operaciones](docs/operations-runbook.md)
-- [Credenciales de demo](docs/demo-credentials.md)
+- [Cloud deployment](docs/cloud-deployment.md)
+- [Operations runbook](docs/operations-runbook.md)
+- [Demo credentials](docs/demo-credentials.md)
