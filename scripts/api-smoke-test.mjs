@@ -819,46 +819,73 @@ async function main() {
       assertStatusIn(result, [401, 403]);
     });
   }
-  await runWriteCheck("create smoke discount for student", async () => {
-    const result = await request(`/api/payments/students/${state.refs.studentId}/discounts`, {
-      method: "POST",
-      token: state.tokens.admin,
-      body: {
-        discountType: "PERCENTAGE",
-        value: 10,
-        reason: `Smoke test discount ${runId}`,
-        validFrom: todayDate,
-        validUntil: null,
-      },
-    });
-    assertStatus(result, 201);
-    assertObjectBody(result);
-    assertField(result.body.studentDiscountId, "studentDiscountId");
-    state.refs.studentDiscountId = result.body.studentDiscountId;
-  });
   if (!readOnly) {
-    await runCheck("list student discounts as admin", async () => {
-      const result = await request(`/api/payments/students/${state.refs.studentId}/discounts`, { token: state.tokens.admin });
+    await runWriteCheck("create smoke charge for discount test", async () => {
+      const result = await request("/api/payments/charges", {
+        method: "POST",
+        token: state.tokens.admin,
+        body: {
+          studentId: state.refs.studentId,
+          chargeTypeId: state.refs.smokeChargeTypeId,
+          dueDate: todayDate,
+          amountDue: 200,
+          status: "PENDING",
+          description: `Smoke charge for discount ${runId}`,
+        },
+      });
+      assertStatus(result, 201);
+      assertObjectBody(result);
+      assertField(result.body.studentChargeId, "studentChargeId");
+      state.refs.smokeDiscountChargeId = result.body.studentChargeId;
+    });
+    await runWriteCheck("apply discount to smoke charge", async () => {
+      const result = await request(`/api/payments/charges/${state.refs.smokeDiscountChargeId}/discount`, {
+        method: "PUT",
+        token: state.tokens.admin,
+        body: {
+          discountType: "PERCENTAGE",
+          value: 10,
+          reason: `Smoke test discount ${runId}`,
+        },
+      });
       assertStatus(result, 200);
-      assertNonEmptyArray(result);
-      const found = result.body.find((d) => d.studentDiscountId === state.refs.studentDiscountId);
-      if (!found) {
-        throw new Error(`Expected discount ${state.refs.studentDiscountId} in list. Received: ${formatBody(result.body)}`);
+      assertObjectBody(result);
+      if (Number(result.body.originalAmount) !== 200) {
+        throw new Error(`Expected originalAmount 200. Received: ${formatBody(result.body)}`);
+      }
+      if (Number(result.body.amountDue) !== 180) {
+        throw new Error(`Expected amountDue 180 after a 10% discount. Received: ${formatBody(result.body)}`);
       }
     });
-    await runWriteCheck("deactivate smoke discount", async () => {
-      const result = await request(`/api/payments/students/${state.refs.studentId}/discounts/${state.refs.studentDiscountId}/deactivate`, {
-        method: "PATCH",
+    await runCheck("charge with discount appears in hasDiscount=true filter", async () => {
+      const result = await request(`/api/payments/charges?hasDiscount=true`, { token: state.tokens.admin });
+      assertStatus(result, 200);
+      assertNonEmptyArray(result);
+      const found = result.body.find((c) => c.studentChargeId === state.refs.smokeDiscountChargeId);
+      if (!found) {
+        throw new Error(`Expected charge ${state.refs.smokeDiscountChargeId} in hasDiscount=true list. Received: ${formatBody(result.body)}`);
+      }
+    });
+    await runWriteCheck("remove discount from smoke charge", async () => {
+      const result = await request(`/api/payments/charges/${state.refs.smokeDiscountChargeId}/discount`, {
+        method: "DELETE",
         token: state.tokens.admin,
       });
       assertStatus(result, 200);
-      if (result.body.active !== false) {
-        throw new Error(`Expected discount to be deactivated. Received: ${formatBody(result.body)}`);
+      if (result.body.originalAmount !== null) {
+        throw new Error(`Expected originalAmount null after removing discount. Received: ${formatBody(result.body)}`);
+      }
+      if (Number(result.body.amountDue) !== 200) {
+        throw new Error(`Expected amountDue restored to 200. Received: ${formatBody(result.body)}`);
       }
     });
   }
-  await runCheck("parent cannot access student discounts", async () => {
-    const result = await request(`/api/payments/students/${state.refs.studentId}/discounts`, { token: state.tokens.parent });
+  await runCheck("parent cannot apply a charge discount", async () => {
+    const result = await request(`/api/payments/charges/999999999/discount`, {
+      method: "PUT",
+      token: state.tokens.parent,
+      body: { discountType: "PERCENTAGE", value: 10, reason: "Should be forbidden" },
+    });
     assertStatusIn(result, [401, 403]);
   });
   await runWriteCheck("trigger monthly charge generation as admin", async () => {
@@ -1160,6 +1187,42 @@ async function main() {
     const result = await request(`/api/attendance?groupId=${state.refs.attendanceGroupId}`, {
       token: state.tokens.parent,
     });
+    assertStatusIn(result, [401, 403]);
+  });
+
+  await expectJsonArray("get attendance report as admin", `/api/attendance/reports/summary?groupId=${state.refs.attendanceGroupId}`, "admin");
+  await runCheck("parent cannot access attendance report", async () => {
+    const result = await request(`/api/attendance/reports/summary?groupId=${state.refs.attendanceGroupId}`, { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+
+  await expectJsonObject("get financial report as admin", "/api/payments/reports/monthly", "admin");
+  await runCheck("parent cannot access financial report", async () => {
+    const result = await request("/api/payments/reports/monthly", { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+
+  await expectJsonArray("get student notes history report as admin", `/api/students/${state.refs.studentId}/reports/notes-history`, "admin");
+  await runCheck("parent cannot access notes history report", async () => {
+    const result = await request(`/api/students/${state.refs.studentId}/reports/notes-history`, { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+
+  await expectJsonArray("get materials movements report as admin", `/api/materials/reports/movements?materialId=${state.refs.materialId}`, "admin");
+  await runCheck("parent cannot access materials movements report", async () => {
+    const result = await request(`/api/materials/reports/movements?materialId=${state.refs.materialId}`, { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+
+  await expectJsonArray("get student health report as admin", "/api/students/reports/health", "admin");
+  await runCheck("parent cannot access health report", async () => {
+    const result = await request("/api/students/reports/health", { token: state.tokens.parent });
+    assertStatusIn(result, [401, 403]);
+  });
+
+  await expectJsonArray("get trash report as admin", "/api/reports/trash", "admin");
+  await runCheck("parent cannot access trash report", async () => {
+    const result = await request("/api/reports/trash", { token: state.tokens.parent });
     assertStatusIn(result, [401, 403]);
   });
 
