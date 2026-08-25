@@ -6,6 +6,7 @@ import com.preschool.backendpreschool.model.StudentChargeStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record StudentChargeResponse(
         Long studentChargeId,
@@ -26,6 +27,8 @@ public record StudentChargeResponse(
         DiscountType discountType,
         BigDecimal discountValue,
         String discountReason,
+        /** Payments that allocated money to this charge - each has a receipt PDF at GET /api/payments/{paymentId}/receipt. Empty until any payment is made. */
+        List<Long> paymentIds,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
