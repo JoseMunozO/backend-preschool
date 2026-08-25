@@ -285,6 +285,10 @@ class PaymentControllerApiTest {
                 new BigDecimal("100.00"),
                 StudentChargeStatus.PENDING,
                 "May",
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );

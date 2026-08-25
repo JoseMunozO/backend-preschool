@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.controller;
 
+import com.preschool.backendpreschool.dto.ChargeDiscountRequest;
 import com.preschool.backendpreschool.dto.ChargeTypeRequest;
 import com.preschool.backendpreschool.dto.ChargeTypeResponse;
 import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
@@ -18,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -96,6 +98,19 @@ public class PaymentController {
             @Valid @RequestBody StudentChargeRequest request
     ) {
         return paymentService.updateCharge(studentChargeId, request);
+    }
+
+    @PutMapping("/charges/{studentChargeId}/discount")
+    public StudentChargeResponse applyChargeDiscount(
+            @PathVariable Long studentChargeId,
+            @Valid @RequestBody ChargeDiscountRequest request
+    ) {
+        return paymentService.applyChargeDiscount(studentChargeId, request);
+    }
+
+    @DeleteMapping("/charges/{studentChargeId}/discount")
+    public StudentChargeResponse removeChargeDiscount(@PathVariable Long studentChargeId) {
+        return paymentService.removeChargeDiscount(studentChargeId);
     }
 
     @PostMapping("/generate-monthly-charges")

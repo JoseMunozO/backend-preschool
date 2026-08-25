@@ -3,7 +3,6 @@ package com.preschool.backendpreschool.service;
 import com.preschool.backendpreschool.model.ChargeType;
 import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.Student;
-import com.preschool.backendpreschool.model.StudentDiscount;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -11,8 +10,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 
 /**
- * Pricing logic shared between initial monthly charge generation and later
- * recalculation of already-generated charges (e.g. when a discount changes).
+ * Pricing logic shared between monthly charge generation and applying a discount to one charge.
  */
 @Component
 public class ChargeAmountCalculator {
@@ -32,29 +30,20 @@ public class ChargeAmountCalculator {
         return defaultAmount.setScale(2, RoundingMode.HALF_UP);
     }
 
-    public BigDecimal applyDiscount(BigDecimal baseAmount, StudentDiscount discount) {
+    public BigDecimal applyDiscount(BigDecimal baseAmount, DiscountType discountType, BigDecimal discountValue) {
         BigDecimal reduced;
-        if (discount.getDiscountType() == DiscountType.PERCENTAGE) {
+        if (discountType == DiscountType.PERCENTAGE) {
             BigDecimal factor = BigDecimal.ONE.subtract(
-                    discount.getValue().divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP));
+                    discountValue.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP));
             reduced = baseAmount.multiply(factor);
         } else {
-            reduced = baseAmount.subtract(discount.getValue());
+            reduced = baseAmount.subtract(discountValue);
         }
 
         return reduced.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }
 
-    public String buildDescription(ChargeType chargeType, LocalDate periodStart, StudentDiscount discount) {
-        String base = chargeType.getName() + " - " + periodStart.getYear() + "-" + String.format("%02d", periodStart.getMonthValue());
-        if (discount == null) {
-            return base;
-        }
-
-        String discountLabel = discount.getDiscountType() == DiscountType.PERCENTAGE
-                ? discount.getValue() + "%"
-                : discount.getValue().toString();
-        String reason = discount.getReason() != null ? discount.getReason() : "descuento";
-        return base + " (" + reason + ": -" + discountLabel + ")";
+    public String buildDescription(ChargeType chargeType, LocalDate periodStart) {
+        return chargeType.getName() + " - " + periodStart.getYear() + "-" + String.format("%02d", periodStart.getMonthValue());
     }
 }

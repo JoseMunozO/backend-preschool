@@ -1,5 +1,6 @@
 package com.preschool.backendpreschool.dto;
 
+import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.StudentChargeStatus;
 
 import java.math.BigDecimal;
@@ -21,6 +22,10 @@ public record StudentChargeResponse(
         BigDecimal balance,
         StudentChargeStatus status,
         String description,
+        BigDecimal originalAmount,
+        DiscountType discountType,
+        BigDecimal discountValue,
+        String discountReason,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

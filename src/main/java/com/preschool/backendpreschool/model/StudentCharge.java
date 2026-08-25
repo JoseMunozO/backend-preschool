@@ -61,6 +61,24 @@ public class StudentCharge {
     @Column(length = 255)
     private String description;
 
+    /**
+     * Set only once, the first time a discount is applied to this charge - lets a discount be
+     * edited or removed later by recomputing from the true pre-discount amount, without needing a
+     * separate history table for something this simple.
+     */
+    @Column(name = "original_amount")
+    private BigDecimal originalAmount;
+
+    @Convert(converter = DiscountTypeConverter.class)
+    @Column(name = "discount_type", length = 20)
+    private DiscountType discountType;
+
+    @Column(name = "discount_value")
+    private BigDecimal discountValue;
+
+    @Column(name = "discount_reason", length = 255)
+    private String discountReason;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id")
     private User createdBy;

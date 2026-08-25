@@ -6,7 +6,6 @@ import com.preschool.backendpreschool.model.ChargeType;
 import com.preschool.backendpreschool.model.Student;
 import com.preschool.backendpreschool.model.StudentCharge;
 import com.preschool.backendpreschool.model.StudentChargeStatus;
-import com.preschool.backendpreschool.model.StudentDiscount;
 import com.preschool.backendpreschool.model.StudentStatus;
 import com.preschool.backendpreschool.repository.ChargeTypeRepository;
 import com.preschool.backendpreschool.repository.PaymentAllocationRepository;
@@ -21,7 +20,6 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,7 +29,6 @@ public class MonthlyChargeGenerationService {
     private final ChargeTypeRepository chargeTypeRepository;
     private final StudentChargeRepository studentChargeRepository;
     private final PaymentAllocationRepository paymentAllocationRepository;
-    private final StudentDiscountService studentDiscountService;
     private final ChargeAmountCalculator chargeAmountCalculator;
 
     @Transactional
@@ -72,8 +69,6 @@ public class MonthlyChargeGenerationService {
 
     private StudentCharge generateCharge(Student student, ChargeType chargeType, LocalDate periodStart, LocalDate periodEnd) {
         BigDecimal baseAmount = chargeAmountCalculator.computeBaseAmount(chargeType, student, periodStart, periodEnd);
-        Optional<StudentDiscount> discount = studentDiscountService.findEffectiveDiscount(student.getStudentId(), periodStart);
-        BigDecimal finalAmount = discount.map(d -> chargeAmountCalculator.applyDiscount(baseAmount, d)).orElse(baseAmount);
 
         StudentCharge charge = StudentCharge.builder()
                 .student(student)
@@ -81,9 +76,9 @@ public class MonthlyChargeGenerationService {
                 .dueDate(periodEnd)
                 .billingPeriodStart(periodStart)
                 .billingPeriodEnd(periodEnd)
-                .amountDue(finalAmount)
+                .amountDue(baseAmount)
                 .status(StudentChargeStatus.PENDING)
-                .description(chargeAmountCalculator.buildDescription(chargeType, periodStart, discount.orElse(null)))
+                .description(chargeAmountCalculator.buildDescription(chargeType, periodStart))
                 .build();
 
         return studentChargeRepository.save(charge);
@@ -110,6 +105,10 @@ public class MonthlyChargeGenerationService {
                 balance.max(BigDecimal.ZERO),
                 charge.getStatus(),
                 charge.getDescription(),
+                charge.getOriginalAmount(),
+                charge.getDiscountType(),
+                charge.getDiscountValue(),
+                charge.getDiscountReason(),
                 charge.getCreatedAt(),
                 charge.getUpdatedAt()
         );

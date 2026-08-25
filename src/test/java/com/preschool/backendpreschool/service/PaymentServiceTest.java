@@ -5,6 +5,7 @@ import com.preschool.backendpreschool.dto.ChargeTypeResponse;
 import com.preschool.backendpreschool.dto.PaymentAllocationRequest;
 import com.preschool.backendpreschool.dto.PaymentMonthlyReportResponse;
 import com.preschool.backendpreschool.dto.PaymentRequest;
+import com.preschool.backendpreschool.dto.ChargeDiscountRequest;
 import com.preschool.backendpreschool.dto.PaymentResponse;
 import com.preschool.backendpreschool.dto.StudentChargeRequest;
 import com.preschool.backendpreschool.dto.StudentChargeResponse;
@@ -13,6 +14,7 @@ import com.preschool.backendpreschool.exception.ForbiddenException;
 import com.preschool.backendpreschool.exception.ResourceNotFoundException;
 import com.preschool.backendpreschool.model.ChargeRecurrenceType;
 import com.preschool.backendpreschool.model.ChargeType;
+import com.preschool.backendpreschool.model.DiscountType;
 import com.preschool.backendpreschool.model.Parent;
 import com.preschool.backendpreschool.model.Payment;
 import com.preschool.backendpreschool.model.PaymentAllocation;
@@ -39,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -91,6 +94,9 @@ class PaymentServiceTest {
 
     @Mock
     private ReceiptStorageService receiptStorageService;
+
+    @Spy
+    private ChargeAmountCalculator chargeAmountCalculator = new ChargeAmountCalculator();
 
     @InjectMocks
     private PaymentService paymentService;
@@ -401,7 +407,10 @@ class PaymentServiceTest {
                 LocalDate.of(2026, 7, 31),
                 new BigDecimal("1600.00"),
                 StudentChargeStatus.CANCELLED,
-                "Cancelado por cambio de plan"
+                "Cancelado por cambio de plan",
+                null,
+                null,
+                null
         );
 
         StudentChargeResponse response = paymentService.updateCharge(10L, request);
@@ -432,7 +441,10 @@ class PaymentServiceTest {
                 LocalDate.of(2026, 6, 30),
                 new BigDecimal("1500.00"),
                 null,
-                "Nota actualizada"
+                "Nota actualizada",
+                null,
+                null,
+                null
         );
 
         StudentChargeResponse response = paymentService.updateCharge(10L, request);
@@ -446,11 +458,115 @@ class PaymentServiceTest {
         when(studentChargeRepository.findById(10L)).thenReturn(Optional.empty());
 
         StudentChargeRequest request = new StudentChargeRequest(
-                5L, 1L, LocalDate.of(2026, 6, 5), null, null, new BigDecimal("100.00"), null, null
+                5L, 1L, LocalDate.of(2026, 6, 5), null, null, new BigDecimal("100.00"), null, null, null, null, null
         );
 
         assertThatThrownBy(() -> paymentService.updateCharge(10L, request))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void applyChargeDiscountReducesOnlyThatChargeAndCapturesOriginalAmount() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PENDING);
+
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.of(charge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(BigDecimal.ZERO);
+
+        StudentChargeResponse response = paymentService.applyChargeDiscount(
+                10L, new ChargeDiscountRequest(DiscountType.PERCENTAGE, new BigDecimal("20"), "Hermanos"));
+
+        assertThat(response.amountDue()).isEqualByComparingTo("800.00");
+        assertThat(response.originalAmount()).isEqualByComparingTo("1000.00");
+        assertThat(response.discountType()).isEqualTo(DiscountType.PERCENTAGE);
+        assertThat(response.discountReason()).isEqualTo("Hermanos");
+    }
+
+    @Test
+    void applyChargeDiscountTwiceRecomputesFromOriginalInsteadOfCompounding() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PENDING);
+
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.of(charge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(BigDecimal.ZERO);
+
+        paymentService.applyChargeDiscount(10L, new ChargeDiscountRequest(DiscountType.PERCENTAGE, new BigDecimal("20"), "Primer intento"));
+        StudentChargeResponse second = paymentService.applyChargeDiscount(
+                10L, new ChargeDiscountRequest(DiscountType.PERCENTAGE, new BigDecimal("10"), "Descuento correcto"));
+
+        assertThat(second.amountDue()).isEqualByComparingTo("900.00");
+        assertThat(second.originalAmount()).isEqualByComparingTo("1000.00");
+    }
+
+    @Test
+    void applyChargeDiscountRejectsPercentageAboveOneHundred() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PENDING);
+
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.of(charge));
+
+        assertThatThrownBy(() -> paymentService.applyChargeDiscount(
+                10L, new ChargeDiscountRequest(DiscountType.PERCENTAGE, new BigDecimal("150"), "Beca")))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void removeChargeDiscountRestoresOriginalAmount() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PENDING);
+        charge.setOriginalAmount(new BigDecimal("1000.00"));
+        charge.setAmountDue(new BigDecimal("800.00"));
+        charge.setDiscountType(DiscountType.PERCENTAGE);
+        charge.setDiscountValue(new BigDecimal("20"));
+        charge.setDiscountReason("Hermanos");
+
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.of(charge));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(10L)).thenReturn(BigDecimal.ZERO);
+
+        StudentChargeResponse response = paymentService.removeChargeDiscount(10L);
+
+        assertThat(response.amountDue()).isEqualByComparingTo("1000.00");
+        assertThat(response.originalAmount()).isNull();
+        assertThat(response.discountType()).isNull();
+    }
+
+    @Test
+    void removeChargeDiscountWithoutExistingDiscountThrowsBadRequest() {
+        StudentCharge charge = buildCharge(new BigDecimal("1000.00"), StudentChargeStatus.PENDING);
+
+        when(studentChargeRepository.findById(10L)).thenReturn(Optional.of(charge));
+
+        assertThatThrownBy(() -> paymentService.removeChargeDiscount(10L))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void createChargeWithDiscountFieldsAppliesDiscountImmediately() {
+        Student student = Student.builder().studentId(5L).firstName("Mateo").lastName("Garcia").build();
+        ChargeType chargeType = ChargeType.builder().chargeTypeId(3L).code("FIELD_TRIP").name("Field trip")
+                .recurrenceType(ChargeRecurrenceType.ONE_TIME).build();
+
+        when(studentRepository.findById(5L)).thenReturn(Optional.of(student));
+        when(chargeTypeRepository.findById(3L)).thenReturn(Optional.of(chargeType));
+        when(studentChargeRepository.save(any(StudentCharge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentAllocationRepository.sumAllocatedByStudentChargeId(any())).thenReturn(BigDecimal.ZERO);
+
+        StudentChargeRequest request = new StudentChargeRequest(
+                5L, 3L, LocalDate.of(2026, 9, 15), null, null, new BigDecimal("500.00"), null, null,
+                DiscountType.FIXED_AMOUNT, new BigDecimal("100.00"), "Hermanos"
+        );
+
+        StudentChargeResponse response = paymentService.createCharge(request, "admin@school.com");
+
+        assertThat(response.amountDue()).isEqualByComparingTo("400.00");
+        assertThat(response.originalAmount()).isEqualByComparingTo("500.00");
+    }
+
+    @Test
+    void createChargeRejectsPartialDiscountFields() {
+        StudentChargeRequest request = new StudentChargeRequest(
+                5L, 3L, LocalDate.of(2026, 9, 15), null, null, new BigDecimal("500.00"), null, null,
+                DiscountType.FIXED_AMOUNT, null, null
+        );
+
+        assertThatThrownBy(() -> paymentService.createCharge(request, "admin@school.com"))
+                .isInstanceOf(BadRequestException.class);
     }
 
     private StudentCharge buildCharge(Long chargeId, BigDecimal amountDue, StudentChargeStatus status, int year, int month) {
