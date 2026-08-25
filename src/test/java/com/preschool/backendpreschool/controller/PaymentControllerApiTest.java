@@ -57,7 +57,7 @@ class PaymentControllerApiTest {
     @Test
     @WithMockUser(roles = "FINANCE")
     void financeCanListChargesWithFilters() throws Exception {
-        when(paymentService.getCharges(1L, StudentChargeStatus.PENDING, YearMonth.of(2026, 5)))
+        when(paymentService.getCharges(1L, StudentChargeStatus.PENDING, YearMonth.of(2026, 5), null))
                 .thenReturn(List.of(charge()));
 
         mockMvc.perform(get("/api/payments/charges")
@@ -68,7 +68,7 @@ class PaymentControllerApiTest {
                 .andExpect(jsonPath("$[0].studentChargeId").value(10))
                 .andExpect(jsonPath("$[0].balance").value(100.0));
 
-        verify(paymentService).getCharges(1L, StudentChargeStatus.PENDING, YearMonth.of(2026, 5));
+        verify(paymentService).getCharges(1L, StudentChargeStatus.PENDING, YearMonth.of(2026, 5), null);
     }
 
     @Test

@@ -67,9 +67,10 @@ public class PaymentController {
     public List<StudentChargeResponse> getCharges(
             @RequestParam(required = false) Long studentId,
             @RequestParam(required = false) StudentChargeStatus status,
-            @RequestParam(required = false) String month
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) Boolean hasDiscount
     ) {
-        return paymentService.getCharges(studentId, status, month != null ? YearMonth.parse(month) : null);
+        return paymentService.getCharges(studentId, status, month != null ? YearMonth.parse(month) : null, hasDiscount);
     }
 
     @GetMapping("/charges/{studentChargeId}")
