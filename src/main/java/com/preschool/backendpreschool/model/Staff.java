@@ -60,6 +60,9 @@ public class Staff {
     @Column(name = "hire_date")
     private LocalDate hireDate;
 
+    @Column(name = "access_expires_at")
+    private LocalDate accessExpiresAt;
+
     @Column(nullable = false, length = 20)
     private String status;
 

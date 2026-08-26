@@ -20,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -54,6 +55,19 @@ public class StaffService {
         User requester = findUser(requesterEmail);
         ensureCanManageStaffUser(requester, staff.getUser());
 
+        deactivate(staff);
+    }
+
+    @Transactional
+    public void deactivateExpiredStaffAccounts() {
+        LocalDate today = LocalDate.now();
+
+        for (Staff staff : staffRepository.findAllByDeletedAtIsNullAndAccessExpiresAtIsNotNullAndAccessExpiresAtLessThanEqual(today)) {
+            deactivate(staff);
+        }
+    }
+
+    private void deactivate(Staff staff) {
         staff.setDeletedAt(LocalDateTime.now());
         if (staff.getUser() != null) {
             staff.getUser().setStatus(UserStatus.INACTIVE);
@@ -148,6 +162,7 @@ public class StaffService {
                 .positionTitle(request.positionTitle().trim())
                 .staffType(request.staffType().trim())
                 .hireDate(request.hireDate())
+                .accessExpiresAt(request.accessExpiresAt())
                 .status("active")
                 .notes(trimToNull(request.notes()))
                 .build();
@@ -203,6 +218,7 @@ public class StaffService {
                 staff.getPositionTitle(),
                 staff.getStaffType(),
                 staff.getHireDate(),
+                staff.getAccessExpiresAt(),
                 staff.getStatus(),
                 staff.getNotes(),
                 roles,

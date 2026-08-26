@@ -15,6 +15,7 @@ public record StaffResponse(
         String positionTitle,
         String staffType,
         LocalDate hireDate,
+        LocalDate accessExpiresAt,
         String status,
         String notes,
         Set<RoleResponse> roles,
