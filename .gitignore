@@ -78,5 +78,6 @@ build/
 ### VS Code ###
 .vscode/
 
-### Demo credentials (real passwords, keep local-only from here on) ###
+### Local-only docs (not meant to live in repo history) ###
 docs/demo-credentials.md
+docs/teknisk-oversikt-sv.md
