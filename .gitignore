@@ -81,3 +81,4 @@ build/
 ### Local-only docs (not meant to live in repo history) ###
 docs/demo-credentials.md
 docs/teknisk-oversikt-sv.md
+docs/gap-analysis-project-guidelines.md
