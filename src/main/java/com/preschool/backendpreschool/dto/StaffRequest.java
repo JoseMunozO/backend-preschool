@@ -2,6 +2,7 @@ package com.preschool.backendpreschool.dto;
 
 import com.preschool.backendpreschool.model.RoleName;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -36,6 +37,9 @@ public record StaffRequest(
         String staffType,
 
         LocalDate hireDate,
+
+        @Future
+        LocalDate accessExpiresAt,
 
         String notes,
 

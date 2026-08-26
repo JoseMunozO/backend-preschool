@@ -51,7 +51,7 @@ class StaffServiceTest {
     void createStaffWithoutPasswordCreatesRecordWithoutLoginAccount() {
         StaffRequest request = new StaffRequest(
                 "Sara", "Assistant", null, "+46000000099", "STAFF-010",
-                "Assistant Teacher", "teacher", LocalDate.of(2026, 8, 1), "Demo notes", null, null
+                "Assistant Teacher", "teacher", LocalDate.of(2026, 8, 1), null, "Demo notes", null, null
         );
 
         when(staffRepository.save(any(Staff.class))).thenAnswer(invocation -> {
@@ -75,7 +75,7 @@ class StaffServiceTest {
 
         StaffRequest request = new StaffRequest(
                 "Diana", "New", "diana.new@school.com", null, "STAFF-011",
-                "Lead Teacher", "teacher", LocalDate.of(2026, 8, 1), null, "123456", Set.of(RoleName.TEACHER)
+                "Lead Teacher", "teacher", LocalDate.of(2026, 8, 1), null, null, "123456", Set.of(RoleName.TEACHER)
         );
 
         when(userRepository.existsByEmail("diana.new@school.com")).thenReturn(false);
@@ -106,7 +106,7 @@ class StaffServiceTest {
 
         StaffRequest request = new StaffRequest(
                 "New", "Admin", "new.admin@school.com", null, null,
-                "Office Admin", "admin", null, null, "123456", Set.of(RoleName.ADMIN)
+                "Office Admin", "admin", null, null, null, "123456", Set.of(RoleName.ADMIN)
         );
 
         when(userRepository.existsByEmail("new.admin@school.com")).thenReturn(false);
@@ -121,7 +121,7 @@ class StaffServiceTest {
     void createStaffWithPasswordButNoRolesIsRejected() {
         StaffRequest request = new StaffRequest(
                 "New", "Person", "new.person@school.com", null, null,
-                "Office Admin", "admin", null, null, "123456", null
+                "Office Admin", "admin", null, null, null, "123456", null
         );
 
         when(userRepository.existsByEmail("new.person@school.com")).thenReturn(false);
@@ -180,6 +180,30 @@ class StaffServiceTest {
 
         assertThatThrownBy(() -> staffService.deleteStaff(9L, "super_admin@school.com"))
                 .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void deactivateExpiredStaffAccountsSoftDeletesEachExpiredStaffAndTheirLogin() {
+        User substituteUser = User.builder()
+                .userId(3L)
+                .email("substitute@school.com")
+                .status(UserStatus.ACTIVE)
+                .roles(Set.of(role(RoleName.TEACHER, 10)))
+                .build();
+        Staff expiredStaff = Staff.builder()
+                .staffId(11L)
+                .user(substituteUser)
+                .accessExpiresAt(LocalDate.now().minusDays(1))
+                .build();
+
+        when(staffRepository.findAllByDeletedAtIsNullAndAccessExpiresAtIsNotNullAndAccessExpiresAtLessThanEqual(LocalDate.now()))
+                .thenReturn(java.util.List.of(expiredStaff));
+        when(staffRepository.save(any(Staff.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        staffService.deactivateExpiredStaffAccounts();
+
+        assertThat(expiredStaff.getDeletedAt()).isNotNull();
+        assertThat(substituteUser.getStatus()).isEqualTo(UserStatus.INACTIVE);
     }
 
     @Test

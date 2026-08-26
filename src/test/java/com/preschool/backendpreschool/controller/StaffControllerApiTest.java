@@ -103,7 +103,7 @@ class StaffControllerApiTest {
     private StaffResponse staff() {
         return new StaffResponse(
                 1L, null, "STAFF-010", "Sara", "Assistant", null, null,
-                "Assistant Teacher", "teacher", null, "active", null, Set.of(), null, null, null
+                "Assistant Teacher", "teacher", null, null, "active", null, Set.of(), null, null, null
         );
     }
 
