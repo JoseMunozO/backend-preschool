@@ -1,396 +1,396 @@
-# Roadmap funcional - App de administracion para preescolar
+# Functional roadmap - Preschool admin app
 
-Documento vivo para alinear el backend con la propuesta validada con el cliente. Resume objetivo, alcance funcional, estado actual, pendientes y orden recomendado de implementacion.
+Living document to keep the backend aligned with the proposal validated with the client. Summarizes the objective, functional scope, current status, pending items and recommended implementation order.
 
-Este es el roadmap activo para el preescolar actual. Para una version futura orientada a instituciones grandes, ver `docs/institution-roadmap.md`.
+This is the active roadmap for the current preschool. For a future version aimed at large institutions, see `docs/institution-roadmap.md`.
 
-## Idea principal
+## Main idea
 
-Crear una aplicacion sencilla y centralizada para que el preescolar pueda administrar estudiantes, pagos mensuales, material escolar y horarios desde un solo lugar.
+Build a simple, centralized application so the preschool can manage students, monthly payments, school materials and schedules from a single place.
 
-## Objetivo final del proyecto
+## Final project goal
 
-Crear una herramienta administrativa clara, facil de usar y adaptada al funcionamiento real del preescolar. La aplicacion debe ayudar a reducir trabajo manual, evitar errores y dar una vision rapida del estado del centro.
+Build a clear, easy-to-use administrative tool adapted to how the preschool actually operates. The application should help reduce manual work, avoid errors and give a quick view of the center's status.
 
-- Centralizar la informacion importante en un solo sistema.
-- Ahorrar tiempo en tareas administrativas repetitivas.
-- Tener mejor control de pagos, estudiantes, materiales y horarios.
-- Permitir que el sistema pueda crecer en el futuro con nuevas funciones.
+- Centralize important information in a single system.
+- Save time on repetitive administrative tasks.
+- Have better control over payments, students, materials and schedules.
+- Allow the system to grow in the future with new functions.
 
-## Problemas a resolver
+## Problems to solve
 
-| Area | Que se busca resolver |
+| Area | What it aims to solve |
 | --- | --- |
-| Estudiantes | Tener una ficha ordenada de cada nino, sus datos importantes y sus responsables. |
-| Pagos mensuales | Controlar cuotas pagadas, pendientes y atrasadas sin depender de notas sueltas o archivos dispersos. |
-| Material escolar | Saber que materiales existen, cuanto queda y cuando hace falta reponer. |
-| Horarios | Organizar grupos, actividades, rutinas diarias y personal responsable. |
-| Dashboard | Ver de forma rapida lo mas importante del dia o del mes. |
+| Students | Have an organized record for each child, their important data and their guardians. |
+| Monthly payments | Track paid, pending and overdue installments without relying on loose notes or scattered files. |
+| School materials | Know what materials exist, how much is left and when they need restocking. |
+| Schedules | Organize groups, activities, daily routines and staff in charge. |
+| Dashboard | Quickly see the most important things for the day or the month. |
 
-## Estado general actual del backend
+## Current overall backend status
 
-- [x] Autenticacion JWT.
-- [x] Usuarios y roles base.
-- [x] Seguridad por roles.
-- [x] Administracion basica de estudiantes.
-- [x] Administracion de padres, madres y tutores.
-- [x] Vinculacion entre estudiantes y padres/tutores.
-- [x] Portal basico de padre/tutor: `/api/parents/me` y `/api/parents/me/students`.
-- [x] Flyway baseline aplicado sobre la base de datos existente.
-- [x] Seed versionado de roles.
-- [x] Tests basicos de contexto y servicios principales.
-- [x] Administracion base de pagos mensuales.
-- [x] Administracion base de material escolar.
-- [x] Administracion base de horarios.
-- [x] Dashboard principal.
+- [x] JWT authentication.
+- [x] Base users and roles.
+- [x] Role-based security.
+- [x] Basic student administration.
+- [x] Administration of parents, mothers/fathers and guardians.
+- [x] Linking between students and parents/guardians.
+- [x] Basic parent/guardian portal: `/api/parents/me` and `/api/parents/me/students`.
+- [x] Flyway baseline applied on the existing database.
+- [x] Versioned role seed.
+- [x] Basic context and main service tests.
+- [x] Base administration of monthly payments.
+- [x] Base administration of school materials.
+- [x] Base administration of schedules.
+- [x] Main dashboard.
 
-## Prioridad actual: soft-delete y restauracion (eliminar con deshacer)
+## Current priority: soft-delete and restore (delete with undo)
 
-Pedido desde el frontend (2026-08-20): la app de administracion quiere ofrecer "eliminar con posibilidad de deshacer" para acciones destructivas, empezando por eliminar estudiante, con una ventana de gracia de unos 7 dias antes del borrado definitivo. Extendido (2026-08-21) al resto de entidades que tenga sentido, mismo patron.
+Requested from the frontend (2026-08-20): the admin app wants to offer "delete with the ability to undo" for destructive actions, starting with deleting a student, with a grace window of about 7 days before permanent deletion. Extended (2026-08-21) to the rest of the entities where it makes sense, same pattern.
 
-Estado por entidad:
+Status per entity:
 
-- [x] `Student` — implementado y verificado (2026-08-20).
-- [x] `Material` — implementado y verificado (2026-08-21). Unica diferencia: `material_movements` tiene `ON DELETE CASCADE` (no `RESTRICT` como `student_charges`), asi que la purga automatica si borra el historial de movimientos — aceptable, no es dato financiero.
-- [x] `ScheduleSlot` — implementado y verificado (2026-08-21). Confirmado: `schedule_slots` no tiene FKs entrantes, asi que la purga automatica nunca queda bloqueada (verificado con `DELETE` directo en MySQL real, sin error de constraint).
-- [x] `Parent` (padres/tutores) — implementado y verificado (2026-08-21). Decision de diseño confirmada: `deletedAt` es independiente del campo `status` (ACTIVE/INACTIVE) existente — `status` sigue siendo el toggle operativo (activar/desactivar) y `deletedAt` solo gobierna la mecanica de eliminar/restaurar/purgar en el listado de administracion; el resto de servicios (pagos, consentimientos, etc.) siguen usando `parentRepository.findById` sin filtrar por `deletedAt`, igual que el patron ya usado para `Student`/`Material` en otros servicios. `student_guardians` tiene `ON DELETE CASCADE` (se pierde el vinculo, aceptable), `payments` tiene `ON DELETE SET NULL` (se preserva el historial de pagos), `student_consents` no tiene accion explicita = `RESTRICT` por defecto (protege el registro de consentimientos, igual que los cargos de un estudiante) — verificado con `DELETE` directo en MySQL real en los tres casos.
+- [x] `Student` — implemented and verified (2026-08-20).
+- [x] `Material` — implemented and verified (2026-08-21). Only difference: `material_movements` has `ON DELETE CASCADE` (not `RESTRICT` like `student_charges`), so the automatic purge does delete the movement history — acceptable, since it's not financial data.
+- [x] `ScheduleSlot` — implemented and verified (2026-08-21). Confirmed: `schedule_slots` has no incoming FKs, so the automatic purge is never blocked (verified with a direct `DELETE` against real MySQL, no constraint error).
+- [x] `Parent` (parents/guardians) — implemented and verified (2026-08-21). Confirmed design decision: `deletedAt` is independent of the existing `status` field (ACTIVE/INACTIVE) — `status` remains the operational toggle (activate/deactivate) and `deletedAt` only governs the delete/restore/purge mechanics in the admin listing; the rest of the services (payments, consents, etc.) still use `parentRepository.findById` without filtering by `deletedAt`, same pattern already used for `Student`/`Material` in other services. `student_guardians` has `ON DELETE CASCADE` (the link is lost, acceptable), `payments` has `ON DELETE SET NULL` (payment history is preserved), `student_consents` has no explicit action = `RESTRICT` by default (protects the consent record, same as a student's charges) — verified with a direct `DELETE` against real MySQL in all three cases.
 
-Patron usado para `Student`, `Material`, `ScheduleSlot` y `Parent`:
+Pattern used for `Student`, `Material`, `ScheduleSlot` and `Parent`:
 
-- [x] Agregado campo `deletedAt` (timestamp nullable) a la entidad `Student` (`V8__add_student_deleted_at.sql`), `Material` (`V9__add_material_deleted_at.sql`), `ScheduleSlot` (`V10__add_schedule_slot_deleted_at.sql`) y `Parent` (`V11__add_parent_deleted_at.sql`).
-- [x] `DELETE /api/students/{id}` ahora hace soft-delete: setea `deletedAt = now()` en vez de eliminar la fila.
-- [x] `GET /api/students` y `GET /api/students/{id}` excluyen por defecto los registros con `deletedAt` no nulo.
-- [x] Nuevo endpoint `POST /api/students/{id}/restore`: limpia `deletedAt` si todavia esta dentro de la ventana de gracia (7 dias); responde `404` si el estudiante no existe o no esta eliminado, `409` si la ventana ya expiro.
-- [x] Job programado (`StudentPurgeScheduler`, diario 03:00) que purga definitivamente los registros con `deletedAt` mas antiguo que 7 dias. Si el estudiante tiene cargos de pago u otro registro protegido por `ON DELETE RESTRICT`, la purga de esa fila se omite (se loguea) en vez de fallar el job completo o perder historial financiero — queda soft-deleted indefinidamente. Verificado contra MySQL real: intentar borrar un estudiante con cargos da `Error 1451` (constraint), uno sin cargos se borra sin problema.
-- [x] `GET /api/students?includeDeleted=true` para que administracion vea los eliminados recientes (incluye `deletedAt` en la respuesta).
-- [x] Tests: soft-delete no borra la fila, restore dentro/fuera de la ventana, purga respeta registros protegidos por FK, `includeDeleted=true`. Verificado tambien end-to-end contra Docker real (crear, eliminar, confirmar oculto, restaurar, confirmar visible, forzar ventana expirada por SQL y confirmar 409).
-- [x] Mismo patron aplicado a `Material` (`DELETE/POST restore /api/materials/{id}`, `MaterialPurgeScheduler` diario 03:15), `ScheduleSlot` (`DELETE/POST restore /api/schedules/{id}`, `ScheduleSlotPurgeScheduler` diario 03:30) y `Parent` (`DELETE/POST restore /api/parents/{id}`, `ParentPurgeScheduler` diario 03:45) — horarios escalonados para no chocar entre jobs.
-- [x] `Parent` extendido con un tercer estado, "archivado" (2026-08-21): a diferencia de las otras 3 entidades, `Parent` no se purga a los 7 dias — pasa a un estado intermedio de retencion larga (6 anios) pensado para familias que podrian volver a inscribirse. Ver detalle en la seccion "Ciclo de vida extendido de Parent" mas abajo.
+- [x] Added a `deletedAt` field (nullable timestamp) to the `Student` entity (`V8__add_student_deleted_at.sql`), `Material` (`V9__add_material_deleted_at.sql`), `ScheduleSlot` (`V10__add_schedule_slot_deleted_at.sql`) and `Parent` (`V11__add_parent_deleted_at.sql`).
+- [x] `DELETE /api/students/{id}` now soft-deletes: sets `deletedAt = now()` instead of removing the row.
+- [x] `GET /api/students` and `GET /api/students/{id}` now exclude records with a non-null `deletedAt` by default.
+- [x] New endpoint `POST /api/students/{id}/restore`: clears `deletedAt` if still within the grace window (7 days); responds `404` if the student doesn't exist or isn't deleted, `409` if the window already expired.
+- [x] Scheduled job (`StudentPurgeScheduler`, daily at 03:00) that permanently purges records with a `deletedAt` older than 7 days. If the student has payment charges or another record protected by `ON DELETE RESTRICT`, the purge of that row is skipped (and logged) instead of failing the whole job or losing financial history — it stays soft-deleted indefinitely. Verified against real MySQL: trying to delete a student with charges raises `Error 1451` (constraint), one with no charges deletes without issue.
+- [x] `GET /api/students?includeDeleted=true` so admin can see recently deleted records (includes `deletedAt` in the response).
+- [x] Tests: soft-delete doesn't remove the row, restore inside/outside the window, purge respects FK-protected records, `includeDeleted=true`. Also verified end-to-end against real Docker (create, delete, confirm hidden, restore, confirm visible, force an expired window via SQL and confirm 409).
+- [x] Same pattern applied to `Material` (`DELETE/POST restore /api/materials/{id}`, `MaterialPurgeScheduler` daily at 03:15), `ScheduleSlot` (`DELETE/POST restore /api/schedules/{id}`, `ScheduleSlotPurgeScheduler` daily at 03:30) and `Parent` (`DELETE/POST restore /api/parents/{id}`, `ParentPurgeScheduler` daily at 03:45) — staggered times so the jobs don't collide with each other.
+- [x] `Parent` extended with a third state, "archived" (2026-08-21): unlike the other 3 entities, `Parent` is not purged after 7 days — it moves to an intermediate long-retention state (6 years) meant for families who might re-enroll. See the "Extended Parent lifecycle" section below for detail.
 
-Con esto quedan las 4 entidades acordadas (Student, Material, ScheduleSlot, Parent) con soft-delete/restore/purge completo.
+With this, the 4 agreed entities (Student, Material, ScheduleSlot, Parent) now have complete soft-delete/restore/purge support.
 
-Esto desbloquea la funcion de frontend "confirmaciones para acciones sensibles" en su parte de eliminar estudiante (ver `frontend-preschool/docs/frontend-roadmap.md`).
+This unblocks the frontend's "confirmations for sensitive actions" feature on the student-delete side (see `frontend-preschool/docs/frontend-roadmap.md`).
 
-### Ciclo de vida extendido de Parent (2026-08-21)
+### Extended Parent lifecycle (2026-08-21)
 
-Pedido especifico del cliente: si una familia deja el preschool y despues vuelve (con el mismo hijo u otro), seria mejor poder recuperar el registro anterior del padre/tutor en vez de crear uno nuevo desde cero — asi se mantiene el historial de hijos vinculados (util para elegibilidad de descuentos o beneficios a futuro) y no hay que volver a crear cuenta de acceso.
+Specific client request: if a family leaves the preschool and later comes back (with the same child or another one), it would be better to be able to recover the previous parent/guardian record instead of creating a new one from scratch — that way the history of linked children is kept (useful for future discount or benefit eligibility) and there's no need to recreate the login account.
 
-Por eso `Parent` tiene 4 estados en vez de los 2 simples (activo/eliminado) de las otras entidades:
+That's why `Parent` has 4 states instead of the simple 2 (active/deleted) that the other entities use:
 
-1. **Activo** — normal.
-2. **Papelera (0-7 dias)** — igual que las otras 3 entidades: `deletedAt` seteado, datos completos intactos, visible con `includeDeleted=true`, deshacer total con `POST /api/parents/{id}/restore` (sin cambios respecto al comportamiento original).
-3. **Archivado (dia 7 en adelante, nuevo)** — en vez de purgar a los 7 dias como las demas entidades, un job (`ParentPurgeScheduler.archiveExpiredSoftDeletedParents`, diario 03:45) minimiza el registro:
-   - Se conservan: `firstName`, `lastName`, `email` (para poder buscar visualmente en el archivo) y la cuenta de login vinculada (`User`, con su contraseña intacta). El vinculo con los hijos (`student_guardians`) tambien se conserva automaticamente porque la fila del padre/tutor no se borra, solo se vacian campos.
-   - Se limpian: `phone`, `address`, `preferredLanguage`, `notes`.
-   - Se marca con el nuevo campo `archivedAt`.
-4. **Purga definitiva** — recien 6 anios despues de `archivedAt` (no del soft-delete original), un job nuevo (`ParentPurgeScheduler.purgeExpiredArchivedParents`, diario 03:50) borra la fila para siempre, respetando el mismo bloqueo por FK que ya existia (si tiene consentimientos registrados, se omite y se loguea en vez de fallar).
+1. **Active** — normal.
+2. **Trash (0-7 days)** — same as the other 3 entities: `deletedAt` set, full data intact, visible with `includeDeleted=true`, fully undoable with `POST /api/parents/{id}/restore` (no change from the original behavior).
+3. **Archived (day 7 onward, new)** — instead of purging after 7 days like the other entities, a job (`ParentPurgeScheduler.archiveExpiredSoftDeletedParents`, daily at 03:45) minimizes the record:
+   - Kept: `firstName`, `lastName`, `email` (so it can still be found visually in the archive) and the linked login account (`User`, password intact). The link to the children (`student_guardians`) is also automatically preserved since the parent/guardian row isn't deleted, only some fields are cleared.
+   - Cleared: `phone`, `address`, `preferredLanguage`, `notes`.
+   - Marked with the new `archivedAt` field.
+4. **Permanent purge** — only 6 years after `archivedAt` (not the original soft-delete), a new job (`ParentPurgeScheduler.purgeExpiredArchivedParents`, daily at 03:50) deletes the row for good, respecting the same FK guard that already existed (if there are registered consents, it's skipped and logged instead of failing).
 
-Si la familia vuelve durante el estado archivado: nuevo endpoint `POST /api/parents/{id}/claim` — recibe los datos completos (nombre/email ya estaban, hay que rellenar telefono/direccion/etc.), limpia `deletedAt` y `archivedAt`, y reactiva el mismo `parentId` de siempre (por eso el historial de hijos queda vinculado). Responde `404` si el padre/tutor no esta archivado, `409` si ya pasaron los 6 anios desde `archivedAt`.
+If the family comes back while in the archived state: new endpoint `POST /api/parents/{id}/claim` — takes the full data (name/email were already there, phone/address/etc. need to be filled in), clears `deletedAt` and `archivedAt`, and reactivates the same `parentId` as before (which is why the children's history stays linked). Responds `404` if the parent/guardian isn't archived, `409` if 6 years have already passed since `archivedAt`.
 
-`POST /restore` no cambio: sigue siendo exclusivamente el "deshacer rapido" de los primeros 7 dias, ya rechaza automaticamente (409) una vez que el registro pasa a archivado, sin necesidad de tocar su logica.
+`POST /restore` didn't change: it's still exclusively the "quick undo" for the first 7 days, and already rejects automatically (409) once the record moves to archived, with no need to touch its logic.
 
-Verificado end-to-end contra Docker real: eliminar, forzar ventana de 7 dias expirada por SQL, simular archivado (campos minimizados via SQL, nombre/email intactos), confirmar 404 en `GET` directo, confirmar visible con `includeDeleted=true` mostrando `archivedAt`, reclamar con `claim` y confirmar que vuelve a ser un parent activo normal, forzar `archivedAt` a 7 anios y confirmar `409` en `claim`, y confirmar que la purga final (`DELETE` directo en MySQL) no encuentra bloqueos de FK.
+Verified end-to-end against real Docker: delete, force the 7-day window to expire via SQL, simulate archiving (fields minimized via SQL, name/email intact), confirm 404 on a direct `GET`, confirm visible with `includeDeleted=true` showing `archivedAt`, claim it with `claim` and confirm it becomes a normal active parent again, force `archivedAt` to 7 years ago and confirm `409` on `claim`, and confirm the final purge (direct `DELETE` in MySQL) hits no FK blocks.
 
-## Version inicial recomendada
+## Recommended initial version
 
-La primera version debe construir una base funcional que permita validar si la aplicacion responde a las necesidades reales del preescolar. No se busca incluir todo desde el primer dia, sino empezar con lo mas importante y luego ampliar.
+The first version should build a functional base that lets us validate whether the application meets the preschool's real needs. The goal isn't to include everything from day one, but to start with what matters most and expand later.
 
-| Modulo | Incluido en primera version | Estado actual |
+| Module | Included in first version | Current status |
 | --- | --- | --- |
-| Estudiantes | Crear, editar, consultar y organizar estudiantes. | Parcialmente implementado. |
-| Padres/tutores | Registrar responsables y conectarlos con cada estudiante. | Implementado en backend. |
-| Pagos | Control mensual con estados pagado, pendiente y atrasado. | Implementado en backend. |
-| Material escolar | Inventario basico con alertas de cantidad baja. | Implementado en backend. |
-| Horarios | Organizacion basica por grupo y actividades. | Implementado en backend. |
-| Dashboard | Resumen general de informacion clave. | Implementado en backend. |
+| Students | Create, edit, query and organize students. | Partially implemented. |
+| Parents/guardians | Register guardians and link them to each student. | Implemented on the backend. |
+| Payments | Monthly tracking with paid, pending and overdue states. | Implemented on the backend. |
+| School materials | Basic inventory with low-quantity alerts. | Implemented on the backend. |
+| Schedules | Basic organization by group and activities. | Implemented on the backend. |
+| Dashboard | General summary of key information. | Implemented on the backend. |
 
-## A. Administracion de estudiantes
+## A. Student administration
 
-### Criterios del cliente
+### Client criteria
 
-- Registro de estudiantes activos, pendientes o dados de baja.
-- Ficha individual con nombre, fecha de nacimiento, grupo/aula, datos de contacto y observaciones importantes.
-- Vinculacion del estudiante con sus padres o tutores responsables.
-- Espacio para informacion importante como alergias, notas medicas o contactos de emergencia.
-- Notas internas sobre cada nino.
-- Fotos de los ninos y posible album de fotos por estudiante.
-- Recordatorio de cumpleanos proximos.
-- Busqueda y filtros para encontrar rapidamente a un estudiante.
+- Record of active, pending or discharged students.
+- Individual profile with name, date of birth, group/classroom, contact details and important notes.
+- Linking the student with their responsible parents or guardians.
+- Space for important information such as allergies, medical notes or emergency contacts.
+- Internal notes about each child.
+- Photos of the children and an optional photo album per student.
+- Reminder of upcoming birthdays.
+- Search and filters to quickly find a student.
 
-### Estado actual
+### Current status
 
-- [x] Crear estudiante.
-- [x] Listar estudiantes.
-- [x] Consultar estudiante por id.
-- [x] Actualizar estudiante.
-- [x] Eliminar estudiante: soft-delete con restauracion y ventana de gracia de 7 dias — ver seccion "Prioridad actual: soft-delete y restauracion" arriba.
-- [x] Estado del estudiante.
-- [x] Grupo/aula mediante `groupId`.
-- [x] Alergias, notas medicas y observaciones.
-- [x] Vinculacion con padres/tutores mediante `student_guardians`.
-- [x] Busqueda por nombre, codigo, grupo o estado: `GET /api/students?search=&groupId=&status=`.
-- [x] Filtros formales por estado/grupo: mismos parametros `groupId` y `status`.
-- [x] Contactos de emergencia como campo o entidad especifica: entidad `student_emergency_contacts` (nombre, relacion, telefono, telefono alterno, notas, contacto principal), endpoints `GET/POST/PUT/DELETE /api/students/{id}/emergency-contacts`.
-- [x] Respuesta de ficha completa con tutores incluidos: `StudentResponse` ahora incluye `guardians` (lista completa de tutores con datos de contacto) ademas de `primaryGuardianName`, tanto en `GET /api/students` como en `GET /api/students/{id}`.
-- [x] Revisar si las notas actuales son suficientes o si se necesita historial de notas por fecha/usuario (2026-08-24): agregado historial de auditoria (`student_note_audit_log`, mismo patron que `material_audit_log`) — cada edicion de una nota (`PUT /api/students/{id}/notes/{noteId}`) guarda quien y cuando la cambio y el contenido antes/despues. Nuevo endpoint `GET /api/students/{id}/notes/{noteId}/audit-log`, mismas reglas de acceso que el resto de notas (admin/director sin restriccion, teacher solo si el estudiante esta en uno de sus grupos activos).
-- [x] Investigar almacenamiento de fotos (2026-08-22): decidido filesystem local por ahora — mas simple para el entorno actual (Docker Compose local, sin credenciales de nube todavia), migrar a S3/Cloudinary despues es viable sin rehacer el modelo de datos porque `profilePhotoUrl`/`photoUrl` ya son URLs. Volumen Docker dedicado (`preschool_uploads_data:/app/uploads`) para que sobreviva a `docker compose down`.
-- [x] Definir modelo de album de fotos por estudiante (2026-08-22): reutiliza el modelo `PhotoAlbum`/`PhotoAlbumPhoto` ya existente (por estudiante o por grupo), no hizo falta un modelo nuevo.
-- [x] Endpoint para subir foto de estudiante (2026-08-22): `PUT /api/students/{id}/profile-photo` ahora acepta `multipart/form-data` (antes solo una URL de texto) — guarda el archivo real en disco, valida JPEG/PNG/WEBP/GIF, sigue exigiendo consentimiento activo `IMAGE_PROFILE_PHOTO`. `POST /api/photo-albums/{albumId}/photos` tambien pasa a `multipart/form-data`.
-- [x] Endpoint para listar album de estudiante (2026-08-22): ya existia (`GET /api/photo-albums?studentId=`), sin cambios.
-- [x] Endpoint para eliminar foto de estudiante (2026-08-22): `DELETE .../profile-photo` y `DELETE /api/photo-albums/{albumId}/photos/{photoId}` ahora tambien borran el archivo fisico del disco (antes no habia archivo real que borrar). Verificado que el purgado libera espacio pero no rompe el registro (queda soft-deleted en la fila).
-- [x] Endpoint o dashboard item para cumpleanos proximos: ya implementado en el dashboard (`upcomingBirthdays` en `teacher-summary` y `admin-summary`), ver seccion F.
-- [x] Tests de controller/API.
+- [x] Create student.
+- [x] List students.
+- [x] Look up student by id.
+- [x] Update student.
+- [x] Delete student: soft-delete with restore and a 7-day grace window — see the "Current priority: soft-delete and restore" section above.
+- [x] Student status.
+- [x] Group/classroom via `groupId`.
+- [x] Allergies, medical notes and observations.
+- [x] Linking with parents/guardians via `student_guardians`.
+- [x] Search by name, code, group or status: `GET /api/students?search=&groupId=&status=`.
+- [x] Formal filters by status/group: same `groupId` and `status` parameters.
+- [x] Emergency contacts as a field or a dedicated entity: `student_emergency_contacts` entity (name, relationship, phone, alternate phone, notes, primary contact), endpoints `GET/POST/PUT/DELETE /api/students/{id}/emergency-contacts`.
+- [x] Full profile response including guardians: `StudentResponse` now includes `guardians` (full list of guardians with contact details) in addition to `primaryGuardianName`, both in `GET /api/students` and `GET /api/students/{id}`.
+- [x] Review whether current notes are enough or whether a per-date/per-user note history is needed (2026-08-24): added an audit history (`student_note_audit_log`, same pattern as `material_audit_log`) — every edit of a note (`PUT /api/students/{id}/notes/{noteId}`) records who changed it, when, and the content before/after. New endpoint `GET /api/students/{id}/notes/{noteId}/audit-log`, same access rules as the rest of the notes (admin/director unrestricted, teacher only if the student is in one of their active groups).
+- [x] Investigate photo storage (2026-08-22): decided on local filesystem for now — simpler for the current environment (local Docker Compose, no cloud credentials yet), migrating to S3/Cloudinary later is feasible without redoing the data model since `profilePhotoUrl`/`photoUrl` are already URLs. Dedicated Docker volume (`preschool_uploads_data:/app/uploads`) so it survives `docker compose down`.
+- [x] Define the photo album model per student (2026-08-22): reuses the existing `PhotoAlbum`/`PhotoAlbumPhoto` model (per student or per group), no new model was needed.
+- [x] Endpoint to upload a student photo (2026-08-22): `PUT /api/students/{id}/profile-photo` now accepts `multipart/form-data` (previously just a text URL) — saves the actual file to disk, validates JPEG/PNG/WEBP/GIF, still requires active `IMAGE_PROFILE_PHOTO` consent. `POST /api/photo-albums/{albumId}/photos` also switches to `multipart/form-data`.
+- [x] Endpoint to list a student's album (2026-08-22): already existed (`GET /api/photo-albums?studentId=`), no changes.
+- [x] Endpoint to delete a student photo (2026-08-22): `DELETE .../profile-photo` and `DELETE /api/photo-albums/{albumId}/photos/{photoId}` now also delete the physical file from disk (previously there was no real file to delete). Verified that purging frees space without breaking the record (it stays soft-deleted in the row).
+- [x] Endpoint or dashboard item for upcoming birthdays: already implemented on the dashboard (`upcomingBirthdays` in `teacher-summary` and `admin-summary`), see section F.
+- [x] Controller/API tests.
 
-### Resultado esperado
+### Expected outcome
 
-El personal podra consultar rapidamente la informacion de cada nino sin depender de papeles, mensajes antiguos o archivos separados.
+Staff will be able to quickly look up each child's information without relying on paper, old messages or scattered files.
 
-## B. Administracion de padres o tutores
+## B. Parent/guardian administration
 
-### Criterios del cliente
+### Client criteria
 
-- Registro de padres, madres o tutores legales.
-- Datos de contacto: telefono, correo y relacion con el estudiante.
-- Posibilidad de asociar un tutor con uno o varios estudiantes.
-- Identificacion del responsable principal de pagos o comunicaciones.
+- Registration of parents, mothers/fathers or legal guardians.
+- Contact details: phone, email and relationship to the student.
+- Ability to link a guardian with one or several students.
+- Identification of the person primarily responsible for payments or communications.
 
-### Estado actual
+### Current status
 
-- [x] Crear padre/madre/tutor.
-- [x] Listar padres/tutores.
-- [x] Buscar padres/tutores.
-- [x] Consultar padre/tutor por id.
-- [x] Actualizar padre/tutor.
-- [x] Activar/desactivar padre/tutor.
-- [x] Crear cuenta `User` con rol `PARENT`.
-- [x] Consultar perfil propio con `/api/parents/me`.
-- [x] Consultar estudiantes propios con `/api/parents/me/students`.
-- [x] Asociar padre/tutor con uno o varios estudiantes.
-- [x] Definir relacion: `FATHER`, `MOTHER`, `GUARDIAN`, `RELATIVE`, `OTHER`.
-- [x] Marcar contacto principal.
-- [x] Marcar responsable de pagos.
-- [x] Marcar autorizado para recogida.
-- [x] Marcar si vive con el estudiante.
-- [x] Tests de servicio principales.
-- [x] Revisar payloads finales para frontend (2026-08-24): confirmado por frontend revisando el codigo real (`ParentListItem`, `StudentGuardianSummary`, flujo de vinculacion en `parents.api.ts`) — ya consumido end-to-end y probado contra el backend real, ningun campo falta ni sobra. Nota aparte no bloqueante: `GET /api/parents` no soporta `search` server-side como si tiene `/api/students`, anotado para mas adelante si hace falta.
-- [x] Agregar tests de controller/API: `ParentControllerApiTest` (filtros de admin, acceso propio de padre, rechazo sin autenticar).
-- [x] Acceso de `TEACHER` a padres/tutores (2026-08-22), pedido para poder contactar a la familia en una emergencia: lectura de un tutor puntual (`GET /api/parents/{parentId}`, `GET /api/parents/{parentId}/students`), y listado general (`GET /api/parents`) filtrado automaticamente a los tutores de estudiantes cuyo grupo el profesor tiene asignado activamente. Gestion de tutores (crear/editar/activar/desactivar/eliminar) sigue exclusiva de `SUPER_ADMIN`/`ADMIN`/`DIRECTOR`. Coordinado con el frontend: los tutores del estudiante ahora aparecen automaticamente como primeros contactos de emergencia en la ficha (a partir de `guardians[]`, ya expuesto en `GET /api/students/{id}`), sin necesitar que el profesor los tipee a mano.
+- [x] Create parent/mother/father/guardian.
+- [x] List parents/guardians.
+- [x] Search parents/guardians.
+- [x] Look up parent/guardian by id.
+- [x] Update parent/guardian.
+- [x] Activate/deactivate parent/guardian.
+- [x] Create a `User` account with the `PARENT` role.
+- [x] View own profile via `/api/parents/me`.
+- [x] View own students via `/api/parents/me/students`.
+- [x] Link a parent/guardian with one or several students.
+- [x] Define relationship: `FATHER`, `MOTHER`, `GUARDIAN`, `RELATIVE`, `OTHER`.
+- [x] Mark primary contact.
+- [x] Mark responsible for payments.
+- [x] Mark authorized for pickup.
+- [x] Mark whether they live with the student.
+- [x] Core service tests.
+- [x] Review final payloads for the frontend (2026-08-24): confirmed by the frontend after reviewing the actual code (`ParentListItem`, `StudentGuardianSummary`, the linking flow in `parents.api.ts`) — already consumed end-to-end and tested against the real backend, no field missing or extra. Non-blocking side note: `GET /api/parents` doesn't support server-side `search` the way `/api/students` does, noted for later if needed.
+- [x] Add controller/API tests: `ParentControllerApiTest` (admin filters, a parent's own access, rejection when unauthenticated).
+- [x] `TEACHER` access to parents/guardians (2026-08-22), requested so a teacher can contact the family in an emergency: reading a single guardian (`GET /api/parents/{parentId}`, `GET /api/parents/{parentId}/students`), and the general listing (`GET /api/parents`) automatically filtered to the guardians of students whose group the teacher currently has assigned. Managing guardians (create/edit/activate/deactivate/delete) remains exclusive to `SUPER_ADMIN`/`ADMIN`/`DIRECTOR`. Coordinated with the frontend: a student's guardians now automatically show up as the first emergency contacts on the profile (from `guardians[]`, already exposed on `GET /api/students/{id}`), with no need for the teacher to type them in by hand.
 
-### Resultado esperado
+### Expected outcome
 
-El centro sabra rapidamente a quien contactar y quien es responsable de cada estudiante.
+The center will quickly know who to contact and who is responsible for each student.
 
-## C. Administracion de pagos mensuales
+## C. Monthly payment administration
 
-### Criterios del cliente
+### Client criteria
 
-- Registro de cuota mensual por estudiante.
-- Estados claros: pagado, pendiente o atrasado.
-- Historial de pagos por estudiante y por mes.
-- Filtro por mes, estudiante o estado del pago.
-- Posibilidad de registrar fecha de pago, metodo de pago y comentario administrativo.
-- Metodos de pago iniciales: efectivo, tarjeta y transferencia.
-- Opcional: generar recibo simple o comprobante en PDF en una fase posterior.
+- Record of monthly fee per student.
+- Clear states: paid, pending or overdue.
+- Payment history per student and per month.
+- Filter by month, student or payment status.
+- Ability to record payment date, payment method and administrative comment.
+- Initial payment methods: cash, card and transfer.
+- Optional: generate a simple receipt or PDF proof of payment in a later phase.
 
-### Estado actual
+### Current status
 
-- [x] La base de datos contiene tablas relacionadas con pagos y cargos.
-- [x] Modelos Java para tipos de cargo, cargos de estudiante, pagos, asignaciones y staff.
-- [x] Repositories de pagos, cargos, tipos de cargo, asignaciones y staff.
-- [x] DTOs de pagos/cargos.
+- [x] The database contains tables related to payments and charges.
+- [x] Java models for charge types, student charges, payments, allocations and staff.
+- [x] Repositories for payments, charges, charge types, allocations and staff.
+- [x] Payment/charge DTOs.
 - [x] `PaymentService`.
 - [x] `PaymentController`.
-- [x] Endpoint para listar pagos por estudiante: `GET /api/payments/students/{studentId}`.
-- [x] Endpoint para filtrar cargos por mes: `GET /api/payments/charges?month=YYYY-MM`.
-- [x] Endpoint para filtrar cargos por estudiante o estado.
-- [x] Endpoint para registrar pago: `POST /api/payments`.
-- [x] Soportar metodo de pago: `CASH`, `CARD`, `TRANSFER`.
-- [x] Calculo de saldo pendiente por cargo.
-- [x] Actualizacion automatica de estado del cargo al registrar pagos.
-- [x] Acceso de padre/tutor a sus propios pagos: `GET /api/payments/me`.
-- [x] Acceso de padre/tutor a sus propios cargos: `GET /api/payments/me/charges`.
-- [x] Seguridad por roles para `ADMIN`, `DIRECTOR`, `FINANCE` y `PARENT`.
-- [x] Tests de servicio.
-- [x] Actualizar `api-test.http`.
-- [x] Endpoint explicito para actualizar/cancelar estado de cargo sin registrar pago (2026-08-21): `PUT /api/payments/charges/{studentChargeId}`, reusa el mismo `StudentChargeRequest` que `POST /api/payments/charges`. Permite editar cualquier campo del cargo (fecha, monto, periodo de facturacion, descripcion, estudiante/tipo de cargo) y cambiar el `status` explicitamente — util sobre todo para `CANCELLED`, que hasta ahora solo era alcanzable al crear el cargo, nunca despues. Si `status` viene `null` en el request, el estado actual no se toca (evita pisar por accidente un `PAID`/`PARTIALLY_PAID` calculado automaticamente al editar otro campo). Verificado: cancelar bloquea pagos posteriores sobre ese cargo (`No se puede pagar un cargo cancelado`, ya existia esa regla), reactivar (`status: PENDING` explicito) vuelve a permitir pagos, `404` si el cargo no existe.
-- [x] Reporte/resumen mensual de pagos pendientes y atrasados: `GET /api/payments/reports/monthly?month=YYYY-MM` (mes opcional, default el mes actual). Devuelve conteo, saldo y detalle de cargos pendientes y atrasados de ese mes, mas el total de pagos recibidos.
-- [x] Tests de controller/API.
-- [ ] Revisar optimizacion de queries si el volumen de pagos crece.
-- [x] Generacion de recibo simple o comprobante en PDF en fase posterior (2026-08-24): confirmado con el cliente — recibo informativo (no fiscal, sin NCF/numeracion DGII). Se genera en el servidor automaticamente al registrar un pago (`POST /api/payments`, no bloqueante si falla — el pago igual se registra, y el recibo se regenera al pedirse si faltara). Nuevo `GET /api/payments/{paymentId}/receipt` devuelve el PDF directo (`application/pdf`, `Content-Disposition: attachment`); acceso: staff (admin/director/finance) ve cualquiera, un padre/tutor solo el suyo. El PDF se guarda en un directorio separado de `/uploads` (no servido de forma publica como las fotos, dado que un recibo tiene datos de pago) — volumen Docker dedicado `preschool_receipts_data`. Migrar a comprobante fiscal con NCF mas adelante es posible sin rehacer esto (mismo endpoint/almacenamiento), pero requeriria numeracion secuencial auditable y validacion contable — fuera de alcance por ahora.
-- [x] Generacion automatica de la cuota mensual (2026-08-23): pregunta directa del cliente — los cargos se quedaban solo hasta mayo/junio porque nunca hubo un proceso automatico, cada cargo se creaba a mano. Nuevo job diario (`MonthlyChargeGenerationScheduler`, 02:00) que genera el cargo del mes para cada estudiante activo y cada `ChargeType` con `recurrenceType=MONTHLY` activo, si todavia no existe uno para ese estudiante/tipo/mes (idempotente, seguro correrlo varias veces). Si el estudiante se inscribe a mitad de mes, el primer cargo se prorratea segun los dias restantes del mes (decision del cliente). Ademas de la corrida diaria automatica, `POST /api/payments/generate-monthly-charges?month=YYYY-MM` permite dispararlo a mano para el mes actual u otro, por si el job no corrio algun dia.
-- [x] Precios de demo actualizados a valores reales de mercado en RD (2026-08-24): mensualidad RD$6,000 (punto medio del rango RD$4,500-7,500/mes de guarderias de clase media en RD, decision del cliente). Comedor RD$1,500, excursion RD$500 y cuota de materiales RD$2,000 quedan como estimaciones razonables, no datos de mercado firmes (no se encontro una cifra especifica de "cuota de comedor/excursion cobrada por el centro" en preescolares dominicanos, a diferencia de la mensualidad que si tiene datos directos) — ajustar si el cliente confirma otros montos. Solo actualiza el seed de desarrollo (`docker/mysql/init/01-base-schema.sql`); ver el punto de `ChargeType` sin gestion por API mas abajo en el checklist de release.
-- [x] ~~Sistema de descuentos por estudiante~~ — **reemplazado por completo el 2026-08-25, ver el punto de abajo.** Historial (2026-08-23 a 25): se probaron tres iteraciones seguidas de un descuento como regla recurrente por estudiante (`student_discounts`, porcentaje/monto fijo, vigencia por fecha), incluyendo un fix de recalculo instantaneo de cargos abiertos (detectado probando en vivo contra un estudiante real, Lucas Andersson: el cargo no bajaba de precio al crear el descuento hasta el proximo ciclo) y luego dos tipos de vigencia (`INSTANT`/`SCHEDULED`) mas un tope por fecha de retiro del estudiante. Al probar esa ultima version en vivo, el cliente encontro el problema de fondo: una regla "por estudiante" se aplicaba a la vez a *todos* los tipos de cargo (mensualidad Y comedor, incluso cargos atrasados de otros meses) — no habia forma de que el descuento fuera solo para una factura puntual. En vez de seguir parchando el modelo de regla recurrente, se descarto por completo a favor de un modelo mas simple, ver abajo.
-- [x] Descuentos por cargo especifico (2026-08-25): pedido del cliente tras encontrar el problema de arriba — un descuento debe poder aplicarse a un cargo puntual (ya existente o al crearlo), nunca "a todos los pagos". Se elimino la entidad `student_discounts` y todo su sistema (migracion `V21`, sin migrar datos: eran filas de prueba del mismo dia). El descuento ahora vive directo en `StudentCharge`: `originalAmount` (el monto antes de cualquier descuento, se captura una sola vez), `discountType`, `discountValue`, `discountReason`. Tres formas de usarlo: `PUT /api/payments/charges/{id}/discount` para aplicar/reemplazar el descuento de un cargo ya existente (recalcula siempre desde `originalAmount`, nunca se acumula si se reaplica); `DELETE /api/payments/charges/{id}/discount` para quitarlo y volver al monto original; y `POST /api/payments/charges` acepta los tres campos de descuento de forma opcional para aplicarlo desde la creacion. Verificado en vivo contra Docker real con datos reales: descuento del 20% a un solo cargo de mensualidad sin afectar el cargo de comedor del mismo estudiante en el mismo mes. Integrado en frontend el mismo dia (boton "Descuentos" por fila en Pagos, mas un checkbox al crear un cargo nuevo), verificado en vivo contra el backend real.
-- [x] Filtro `hasDiscount` en `GET /api/payments/charges` (2026-08-25): pedido por el equipo de frontend para una vista de "historial de descuentos" en Reportes (cada cargo que tiene un descuento hoy, en todos los estudiantes) — sin esto, habria que traer todos los cargos y descartar la mayoria en el cliente. `hasDiscount=true/false` se suma a los filtros ya existentes (`studentId`/`status`/`month`) del mismo endpoint, en vez de crear un reporte nuevo, ya que la respuesta ya trae todos los campos de descuento. Importante: no existe ni existio auditoria/historial real de descuentos (a diferencia de notas o materiales, que si tienen su propio audit log) — quitar un descuento no deja rastro, asi que esta vista es una foto del estado actual, no un historial verdadero. Integrado en frontend el mismo dia: pestania de descuentos en Reportes, mas una seccion de solo lectura de "descuentos activos ahora" en el perfil del estudiante.
-- [x] Facturas pagadas con descarga de PDF (2026-08-25): pedido del cliente — un historial financiero mostrando las facturas (cargos) ya pagadas, cada una con boton para descargar el PDF. Ya existia casi todo: el PDF de recibo (`GET /api/payments/{paymentId}/receipt`, ver arriba en este modulo) ya lista las facturas que cubre ese pago, metodo, referencia, fecha, padre y quien lo recibio — es un documento de factura real, no solo una confirmacion. Lo unico que faltaba era saber que pago(s) cubrieron un cargo especifico desde el listado de cargos: `StudentChargeResponse` ahora incluye `paymentIds` (los IDs de pago distintos de las asignaciones de ese cargo, vacio si no se ha pagado). `GET /api/payments/charges?status=PAID` ya sirve como el listado de facturas pagadas. Verificado en vivo contra Docker real: un cargo pagado devuelve su `paymentId`, y descargar el recibo de ese pago da un PDF real. Integrado en frontend el mismo dia.
-- [x] Cargos puntuales (excursion, horas extra, etc.) (2026-08-23): confirmado con el cliente que esto ya funcionaba — `POST /api/payments/charges` ya permite crear un cargo de cualquier tipo (`ChargeType` con `recurrenceType` `ONE_TIME` o `CUSTOM`) para un estudiante puntual, sin cambios necesarios.
+- [x] Endpoint to list payments per student: `GET /api/payments/students/{studentId}`.
+- [x] Endpoint to filter charges by month: `GET /api/payments/charges?month=YYYY-MM`.
+- [x] Endpoint to filter charges by student or status.
+- [x] Endpoint to record a payment: `POST /api/payments`.
+- [x] Support payment method: `CASH`, `CARD`, `TRANSFER`.
+- [x] Calculation of the outstanding balance per charge.
+- [x] Automatic update of a charge's status when payments are recorded.
+- [x] Parent/guardian access to their own payments: `GET /api/payments/me`.
+- [x] Parent/guardian access to their own charges: `GET /api/payments/me/charges`.
+- [x] Role-based security for `ADMIN`, `DIRECTOR`, `FINANCE` and `PARENT`.
+- [x] Service tests.
+- [x] Update `api-test.http`.
+- [x] Explicit endpoint to update/cancel a charge's status without recording a payment (2026-08-21): `PUT /api/payments/charges/{studentChargeId}`, reuses the same `StudentChargeRequest` used by `POST /api/payments/charges`. Allows editing any field of the charge (date, amount, billing period, description, student/charge type) and explicitly changing the `status` — especially useful for `CANCELLED`, which until now was only reachable when creating the charge, never afterward. If `status` comes in as `null` in the request, the current status isn't touched (avoids accidentally overwriting a `PAID`/`PARTIALLY_PAID` value computed automatically when another field is edited). Verified: cancelling blocks further payments on that charge (`No se puede pagar un cargo cancelado`, a rule that already existed), reactivating (explicit `status: PENDING`) allows payments again, `404` if the charge doesn't exist.
+- [x] Monthly report/summary of pending and overdue payments: `GET /api/payments/reports/monthly?month=YYYY-MM` (month optional, defaults to the current month). Returns the count, balance and detail of that month's pending and overdue charges, plus the total payments received.
+- [x] Controller/API tests.
+- [ ] Review query optimization if payment volume grows.
+- [x] Generation of a simple receipt or PDF proof of payment in a later phase (2026-08-24): confirmed with the client — an informational receipt (not a tax document, no NCF/DGII numbering). Generated on the server automatically when a payment is recorded (`POST /api/payments`, non-blocking if it fails — the payment is still recorded, and the receipt is regenerated on request if missing). New `GET /api/payments/{paymentId}/receipt` returns the PDF directly (`application/pdf`, `Content-Disposition: attachment`); access: staff (admin/director/finance) can see any receipt, a parent/guardian only their own. The PDF is stored in a directory separate from `/uploads` (not served publicly like the photos, since a receipt contains payment data) — dedicated Docker volume `preschool_receipts_data`. Migrating to a tax-compliant document with NCF later is possible without redoing this (same endpoint/storage), but would require auditable sequential numbering and accounting validation — out of scope for now.
+- [x] Automatic generation of the monthly fee (2026-08-23): direct client question — charges stopped being generated after May/June because there was never an automated process, every charge was created by hand. New daily job (`MonthlyChargeGenerationScheduler`, 02:00) that generates the month's charge for every active student and every active `ChargeType` with `recurrenceType=MONTHLY`, if one doesn't already exist for that student/type/month (idempotent, safe to run multiple times). If the student enrolls mid-month, the first charge is prorated based on the remaining days of the month (client's decision). In addition to the automatic daily run, `POST /api/payments/generate-monthly-charges?month=YYYY-MM` allows triggering it manually for the current month or another one, in case the job didn't run some day.
+- [x] Demo prices updated to real market values in the DR (2026-08-24): monthly fee RD$6,000 (midpoint of the RD$4,500-7,500/month range for mid-tier daycares in the DR, client's decision). Meal plan RD$1,500, field trip RD$500 and materials fee RD$2,000 remain reasonable estimates, not firm market data (no specific figure was found for a "meal plan/field trip fee charged by the center" in Dominican preschools, unlike the monthly fee which does have direct data) — adjust if the client confirms other amounts. Only updates the development seed (`docker/mysql/init/01-base-schema.sql`); see the `ChargeType` without API management item further below in the release checklist.
+- [x] ~~Per-student discount system~~ — **fully replaced on 2026-08-25, see the item below.** History (2026-08-23 to 25): three consecutive iterations of a discount as a recurring rule per student were tried (`student_discounts`, percentage/fixed amount, date-based validity), including a fix for instantly recalculating open charges (found by testing live against a real student, Lucas Andersson: the charge's price didn't drop when the discount was created until the next cycle) and then two validity types (`INSTANT`/`SCHEDULED`) plus a cap based on the student's withdrawal date. When testing that last version live, the client found the underlying problem: a "per-student" rule was applied at once to *all* charge types (monthly fee AND meal plan, even overdue charges from other months) — there was no way for the discount to apply to just one specific invoice. Instead of continuing to patch the recurring-rule model, it was dropped entirely in favor of a simpler model, see below.
+- [x] Discounts on a specific charge (2026-08-25): requested by the client after finding the problem above — a discount must be applicable to one specific charge (whether already existing or at creation time), never "to all payments." The `student_discounts` entity and its entire system were removed (migration `V21`, no data migration needed: they were same-day test rows). The discount now lives directly on `StudentCharge`: `originalAmount` (the amount before any discount, captured once), `discountType`, `discountValue`, `discountReason`. Three ways to use it: `PUT /api/payments/charges/{id}/discount` to apply/replace the discount on an existing charge (always recalculates from `originalAmount`, never compounds if reapplied); `DELETE /api/payments/charges/{id}/discount` to remove it and go back to the original amount; and `POST /api/payments/charges` accepts the three discount fields optionally to apply it right at creation. Verified live against real Docker with real data: a 20% discount on a single monthly-fee charge without affecting the same student's meal-plan charge for the same month. Integrated into the frontend the same day (a "Discounts" button per row in Payments, plus a checkbox when creating a new charge), verified live against the real backend.
+- [x] `hasDiscount` filter on `GET /api/payments/charges` (2026-08-25): requested by the frontend team for a "discount history" view in Reports (every charge that currently has a discount, across all students) — without this, all charges would need to be fetched and most discarded on the client. `hasDiscount=true/false` is added to the filters already on that same endpoint (`studentId`/`status`/`month`), instead of creating a new report, since the response already carries all the discount fields. Important: there's no real audit trail/history of discounts, and there never was (unlike notes or materials, which do have their own audit log) — removing a discount leaves no trace, so this view is a snapshot of the current state, not a true history. Integrated into the frontend the same day: a discounts tab in Reports, plus a read-only "currently active discounts" section on the student profile.
+- [x] Paid invoices with PDF download (2026-08-25): requested by the client — a financial history showing already-paid invoices (charges), each with a button to download the PDF. Almost everything already existed: the receipt PDF (`GET /api/payments/{paymentId}/receipt`, see above in this module) already lists the invoices covered by that payment, method, reference, date, parent and who received it — it's a real invoice document, not just a confirmation. The only missing piece was knowing which payment(s) covered a specific charge from the charge listing: `StudentChargeResponse` now includes `paymentIds` (the distinct payment IDs from that charge's allocations, empty if not yet paid). `GET /api/payments/charges?status=PAID` already serves as the list of paid invoices. Verified live against real Docker: a paid charge returns its `paymentId`, and downloading that payment's receipt gives a real PDF. Integrated into the frontend the same day.
+- [x] One-off charges (field trip, extra hours, etc.) (2026-08-23): confirmed with the client that this already worked — `POST /api/payments/charges` already allows creating a charge of any type (`ChargeType` with `recurrenceType` `ONE_TIME` or `CUSTOM`) for a specific student, no changes needed.
 
-### Resultado esperado
+### Expected outcome
 
-El preescolar podra ver rapidamente quien ha pagado, quien esta pendiente y que pagos requieren seguimiento.
+The preschool will be able to quickly see who has paid, who is pending and which payments need follow-up.
 
-## D. Administracion de material escolar
+## D. School material administration
 
-### Criterios del cliente
+### Client criteria
 
-- Inventario de materiales del centro: papeleria, limpieza, juguetes, comida u otras categorias.
-- Cantidad disponible y cantidad minima recomendada.
-- Alertas cuando un material este bajo o necesite reposicion.
-- Registro de entradas y salidas de material.
-- Responsable o comentario asociado al movimiento de material.
+- Inventory of the center's materials: stationery, cleaning supplies, toys, food or other categories.
+- Available quantity and recommended minimum quantity.
+- Alerts when a material is low or needs restocking.
+- Recording of material entries and exits.
+- Person responsible or comment associated with a material movement.
 
-### Estado actual
+### Current status
 
-- [x] La base de datos contiene tablas relacionadas con materiales y movimientos.
-- [x] Modelos Java para materiales y movimientos.
-- [x] Repositories para inventario y movimientos.
+- [x] The database contains tables related to materials and movements.
+- [x] Java models for materials and movements.
+- [x] Repositories for inventory and movements.
 - [x] DTOs.
 - [x] `MaterialService`.
 - [x] `MaterialController`.
-- [x] Endpoint para listar inventario: `GET /api/materials`.
-- [x] Endpoint para crear/editar material.
-- [x] Endpoint para registrar entrada de material.
-- [x] Endpoint para registrar salida de material.
-- [x] Endpoint para registrar ajuste por conteo fisico.
-- [x] Endpoint para consultar movimientos.
-- [x] Endpoint y filtro de materiales bajo stock minimo.
-- [x] Eliminar material: soft-delete con restauracion y ventana de gracia de 7 dias, igual que estudiantes (`DELETE /api/materials/{id}`, `POST /api/materials/{id}/restore`, `GET /api/materials?includeDeleted=true`). A diferencia de estudiantes, `material_movements` tiene `ON DELETE CASCADE` (no `RESTRICT`), asi que la purga automatica si borra el historial de movimientos del material purgado — aceptable porque no es informacion financiera.
-- [x] Stock minimo sugerido (2026-08-21): `GET /api/materials/{id}/suggested-minimum?window=WEEK|MONTH|THREE_MONTHS|SIX_MONTHS|TWELVE_MONTHS` — calcula el consumo real (movimientos `OUT`) en la ventana elegida y lo normaliza a un promedio mensual comparable. Es solo sugerencia, nunca escribe `minimumQuantity` automaticamente; el admin sigue decidiendo el valor final via `PUT /api/materials/{id}` como siempre. Sin movimientos en la ventana, devuelve `hasData: false` en vez de inventar un numero.
-- [x] Nombre de quien hizo el movimiento (2026-08-21): `MaterialMovementResponse` gana `performedByName`, resuelto via `Staff` (si el usuario que hizo el movimiento es staff registrado); si no, queda `null` y se usa `performedByEmail` como antes.
-- [x] Auditoria de ediciones al material (2026-08-21): cada `PUT /api/materials/{id}` guarda un snapshot antes/despues en `material_audit_log` (quien, cuando, valores previos y nuevos). Nuevo endpoint `GET /api/materials/{id}/audit-log`.
-- [x] Retencion de historial (2026-08-21): job diario (`MaterialHistoryPurgeScheduler`, 04:00) que borra definitivamente `material_movements` y `material_audit_log` con mas de 3 anios de antiguedad — son registros operativos de inventario, no comprobantes fiscales, asi que no aplica la retencion legal de 10 anios de la DGII (RD) que si aplicaria a `payments`; por eso `payments` queda explicitamente fuera de cualquier borrado automatico por ahora.
-- [x] Seguridad por roles internos.
-- [x] Tests de servicio.
-- [x] Actualizar `api-test.http`.
-- [x] Tests de controller/API.
-- [ ] Revisar categorias finales con el cliente.
-- [ ] Revisar si se necesita responsable como staff especifico en vez de usuario autenticado.
+- [x] Endpoint to list inventory: `GET /api/materials`.
+- [x] Endpoint to create/edit a material.
+- [x] Endpoint to record a material entry.
+- [x] Endpoint to record a material exit.
+- [x] Endpoint to record an adjustment from a physical count.
+- [x] Endpoint to query movements.
+- [x] Endpoint and filter for materials below the minimum stock.
+- [x] Delete material: soft-delete with restore and a 7-day grace window, same as students (`DELETE /api/materials/{id}`, `POST /api/materials/{id}/restore`, `GET /api/materials?includeDeleted=true`). Unlike students, `material_movements` has `ON DELETE CASCADE` (not `RESTRICT`), so the automatic purge does delete the purged material's movement history — acceptable since it isn't financial information.
+- [x] Suggested minimum stock (2026-08-21): `GET /api/materials/{id}/suggested-minimum?window=WEEK|MONTH|THREE_MONTHS|SIX_MONTHS|TWELVE_MONTHS` — calculates actual consumption (`OUT` movements) in the chosen window and normalizes it to a comparable monthly average. It's only a suggestion, it never writes `minimumQuantity` automatically; the admin still decides the final value via `PUT /api/materials/{id}` as before. With no movements in the window, it returns `hasData: false` instead of making up a number.
+- [x] Name of who performed the movement (2026-08-21): `MaterialMovementResponse` gains `performedByName`, resolved via `Staff` (if the user who made the movement is registered staff); otherwise it stays `null` and `performedByEmail` is used as before.
+- [x] Audit trail for material edits (2026-08-21): every `PUT /api/materials/{id}` saves a before/after snapshot in `material_audit_log` (who, when, previous and new values). New endpoint `GET /api/materials/{id}/audit-log`.
+- [x] History retention (2026-08-21): daily job (`MaterialHistoryPurgeScheduler`, 04:00) that permanently deletes `material_movements` and `material_audit_log` older than 3 years — these are operational inventory records, not tax documents, so the DGII's (DR) 10-year legal retention requirement, which would apply to `payments`, doesn't apply here; that's why `payments` is explicitly excluded from any automatic deletion for now.
+- [x] Internal role-based security.
+- [x] Service tests.
+- [x] Update `api-test.http`.
+- [x] Controller/API tests.
+- [ ] Review final categories with the client.
+- [ ] Review whether the person responsible needs to be a specific staff member instead of the authenticated user.
 
-### Resultado esperado
+### Expected outcome
 
-El centro podra prevenir faltas de material y planificar compras con mas control.
+The center will be able to prevent material shortages and plan purchases with more control.
 
-## E. Administracion de horarios
+## E. Schedule administration
 
-### Criterios del cliente
+### Client criteria
 
-- Horarios por grupo o aula.
-- Actividades del dia: entrada, comidas, siesta, recreo, actividades educativas y salida.
-- Asignacion de personal responsable por actividad o grupo.
-- Vista diaria o semanal para facilitar la planificacion.
-- Espacio para eventos especiales o cambios puntuales.
+- Schedules per group or classroom.
+- Daily activities: drop-off, meals, nap time, recess, educational activities and pick-up.
+- Assignment of staff responsible per activity or group.
+- Daily or weekly view to make planning easier.
+- Space for special events or one-off changes.
 
-### Estado actual
+### Current status
 
-- [x] La base de datos contiene tabla relacionada con horarios.
-- [x] Modelos Java para horarios y asignaciones de personal a grupo.
+- [x] The database contains a table related to schedules.
+- [x] Java models for schedules and staff-to-group assignments.
 - [x] Repositories.
 - [x] DTOs.
 - [x] `ScheduleService`.
 - [x] `ScheduleController`.
-- [x] Endpoint para listar horarios: `GET /api/schedules`.
-- [x] Endpoint para horarios por grupo: `GET /api/schedules/groups/{groupId}`.
-- [x] Endpoint para horarios por dia: `GET /api/schedules/days/{dayOfWeek}`.
-- [x] Endpoint para horarios por grupo y dia: `GET /api/schedules/groups/{groupId}/days/{dayOfWeek}`.
-- [x] Endpoint para crear/editar actividad.
-- [x] Endpoint para asignar responsable principal.
-- [x] Endpoint para consultar/asignar personal a grupos.
-- [x] Seguridad por roles internos.
-- [x] Tests de servicio.
-- [x] Tests de controller/API.
-- [x] Actualizar `api-test.http`.
+- [x] Endpoint to list schedules: `GET /api/schedules`.
+- [x] Endpoint for schedules by group: `GET /api/schedules/groups/{groupId}`.
+- [x] Endpoint for schedules by day: `GET /api/schedules/days/{dayOfWeek}`.
+- [x] Endpoint for schedules by group and day: `GET /api/schedules/groups/{groupId}/days/{dayOfWeek}`.
+- [x] Endpoint to create/edit an activity.
+- [x] Endpoint to assign the main person responsible.
+- [x] Endpoint to view/assign staff to groups.
+- [x] Internal role-based security.
+- [x] Service tests.
+- [x] Controller/API tests.
+- [x] Update `api-test.http`.
 
-### Resultado esperado
+### Expected outcome
 
-El personal podra tener una vision clara de la organizacion diaria y semanal del preescolar.
+Staff will have a clear view of the preschool's daily and weekly organization.
 
-## F. Dashboard principal
+## F. Main dashboard
 
-### Criterios del cliente
+### Client criteria
 
-- Resumen de estudiantes activos.
-- Pagos pendientes o atrasados del mes.
-- Materiales con stock bajo.
-- Horarios o actividades importantes del dia.
-- Cumpleanos proximos de estudiantes.
-- Accesos rapidos a las secciones principales.
+- Summary of active students.
+- Pending or overdue payments for the month.
+- Materials with low stock.
+- Important schedules or activities for the day.
+- Upcoming student birthdays.
+- Quick access to the main sections.
 
-### Estado actual
+### Current status
 
-- [x] Crear DTO de resumen.
-- [x] Crear `DashboardService`.
-- [x] Crear `DashboardController`.
-- [x] Endpoint principal `GET /api/dashboard/summary` para administracion/direccion.
-- [x] Separar dashboard en endpoints `teacher-summary`, `admin-summary` y `finance-summary`.
-- [x] Conteo de estudiantes activos.
-- [x] Conteo/listado de pagos pendientes o atrasados del mes.
-- [x] Dashboard financiero restringido a `SUPER_ADMIN`, `ADMIN`, `DIRECTOR` y `FINANCE`.
-- [x] Conteo/listado de materiales con stock bajo.
-- [x] Horarios o actividades importantes del dia.
-- [x] Listado de cumpleanos proximos.
-- [x] Tests de servicio.
-- [x] Tests de controller/API.
-- [x] Actualizar `api-test.http`.
-- [x] Dashboard de profesor: tarjeta de materiales bajos reemplazada por resumen de asistencia del dia (2026-08-22) — `todayAttendanceSummary` en `GET /api/dashboard/teacher-summary` (`presentCount`, `absentCount`, `sickCount`, `lateCount`, `unmarkedCount`, calculado sobre estudiantes activos). El resto del dashboard de profesor (estudiantes activos, horarios del dia, cumpleanos) no cambio; el resumen de materiales bajos se mantiene sin cambios en `admin-summary`.
+- [x] Create summary DTO.
+- [x] Create `DashboardService`.
+- [x] Create `DashboardController`.
+- [x] Main endpoint `GET /api/dashboard/summary` for admin/direction.
+- [x] Split the dashboard into `teacher-summary`, `admin-summary` and `finance-summary` endpoints.
+- [x] Count of active students.
+- [x] Count/list of pending or overdue payments for the month.
+- [x] Financial dashboard restricted to `SUPER_ADMIN`, `ADMIN`, `DIRECTOR` and `FINANCE`.
+- [x] Count/list of materials with low stock.
+- [x] Important schedules or activities for the day.
+- [x] List of upcoming birthdays.
+- [x] Service tests.
+- [x] Controller/API tests.
+- [x] Update `api-test.http`.
+- [x] Teacher dashboard: low-materials card replaced with a summary of the day's attendance (2026-08-22) — `todayAttendanceSummary` in `GET /api/dashboard/teacher-summary` (`presentCount`, `absentCount`, `sickCount`, `lateCount`, `unmarkedCount`, computed over active students). The rest of the teacher dashboard (active students, today's schedule, birthdays) didn't change; the low-materials summary stays unchanged in `admin-summary`.
 
-### Resultado esperado
+### Expected outcome
 
-Al entrar en la aplicacion, el cliente vera lo mas importante sin tener que revisar modulo por modulo.
+When entering the application, the client will see what matters most without having to check module by module.
 
-## Funciones para fases posteriores
+## Functions for later phases
 
-- [ ] Portal para padres: consultar pagos, horarios o avisos del centro.
-- [ ] Notificaciones automaticas para pagos pendientes o comunicados importantes.
-- [x] Registro de asistencia diaria (2026-08-22): pedido puntual del cliente vía el equipo de frontend, para un widget de asistencia/ninos enfermos en el dashboard de profesor (reemplazando la tarjeta de materiales bajos ahi). Nueva entidad `student_attendance` (`V14__create_student_attendance.sql`), un registro por estudiante y dia (`status`: `PRESENT`, `ABSENT`, `SICK`, `LATE`, mas notas y quien lo registro). `GET /api/attendance?groupId=&date=` devuelve el roster completo del grupo para esa fecha (incluye estudiantes sin marcar todavia, con `status: null`); `POST /api/attendance` guarda o actualiza varios registros de una vez (upsert por estudiante+fecha). `TEACHER` solo puede leer/guardar asistencia de grupos que tiene asignados activamente (mismo criterio de `staff_group_assignments` ya usado en notas/consentimientos/albumes/padres); `SUPER_ADMIN`/`ADMIN`/`DIRECTOR` sin restriccion de grupo. Verificado end-to-end contra Docker real: profesor marca asistencia de su grupo (200), intenta con un grupo no asignado (403).
-- [x] Bloqueo de edicion tras medianoche (2026-08-23): pedido especifico del cliente — durante el dia se puede corregir la asistencia las veces que haga falta (ej. marcar falta a un nino y luego cambiarlo a tarde si llega despues), pero una vez que pasa la medianoche ese dia "se archiva" y ya no se puede modificar. `POST /api/attendance` ahora rechaza `date` distinto de hoy: `409` si es un dia anterior (ya archivado), `400` si es un dia futuro (no tiene sentido registrar algo que no paso). `GET /api/attendance` sigue sin restriccion — los dias anteriores se pueden seguir consultando, solo dejan de ser editables.
-- [x] Historial de asistencia por estudiante (2026-08-23): pedido por el equipo de frontend para un modal de historial en `AttendancePage.tsx` — `GET /api/attendance?groupId=&date=` solo servia para un dia puntual de un grupo entero, no habia forma de traer varios dias de un solo estudiante. Nuevo `GET /api/attendance/students/{studentId}?from=&to=` (ambos opcionales, por defecto los ultimos 30 dias), devuelve la lista ordenada por fecha descendente con el mismo formato que ya usa el resto de endpoints de asistencia. Mismo criterio de acceso por grupo asignado para `TEACHER` (basado en el grupo actual del estudiante).
-- [x] Reportes mensuales de pagos, estudiantes o inventario (2026-08-25): pedido del cliente — que `TEACHER` y `FINANCE` vean reportes distintos (no el mismo listado), y rangos superiores (`SUPER_ADMIN`/`ADMIN`/`DIRECTOR`) vean todos. Coordinado con el equipo de frontend antes de fijar los endpoints (que hoy eran una pagina "Reportes" vacia, `PlaceholderPage`). Seis reportes en total: financiero (`GET /api/payments/reports/monthly`, ya existia), asistencia agregada por rango de fechas/grupo (`GET /api/attendance/reports/summary`), historial de notas con auditoria anidada por estudiante para cubrir un reemplazo/suplente (`GET /api/students/{id}/reports/notes-history`), movimientos de materiales con balance corrido opcional (`GET /api/materials/reports/movements`), datos de salud/alergias por estudiante (`GET /api/students/reports/health`), y papeleras (`GET /api/reports/trash`, solo admin) que junta en una sola vista todo lo eliminado/archivado/desactivado (estudiantes, materiales, padres — incluyendo la etapa de archivado de 6 anios —, horarios y staff desactivado), cada uno con su fecha limite de purga calculada. Accesos: `SUPER_ADMIN`/`ADMIN`/`DIRECTOR` ven los 6; `TEACHER` ve asistencia/notas/materiales/salud; `FINANCE` ve financiero y materiales (para control de gastos/compras). Integrado en frontend como la pagina unica de Reportes (con las 6 pestanias) y ademas unico lugar para navegar/restaurar papeleras y archivados — los botones antiguos de papelera por modulo (estudiantes/padres/materiales/horarios/staff) se retiraron y el boton de "Nuevo X" de cada modulo se movio al final de la pagina (Pagos se dejo igual, arriba). Verificado en el navegador para los 3 niveles de rol.
-- [x] Generacion de recibos y documentos en PDF (2026-08-24): ver detalle en Modulo C ("Generacion de recibo simple o comprobante en PDF en fase posterior").
-- [x] Notas estilo comentarios para estudiantes: profesores responsables pueden crear/editar sus comentarios; direccion/admin pueden revisar historial y moderar (2026-08-24): la mayor parte ya existia (lista cronologica de notas por estudiante con autor/tipo/fecha, historial de auditoria del PR #64). El gap real: cualquier profesor asignado al grupo podia editar o eliminar la nota de OTRO profesor sobre el mismo estudiante — solo se validaba pertenencia al grupo, no autoria. Ahora `PUT/DELETE /api/students/{id}/notes/{noteId}` exige ademas ser el autor de la nota si el rol es `TEACHER` ("Solo puedes editar o eliminar las notas que tu creaste"); `SUPER_ADMIN`/`ADMIN`/`DIRECTOR` siguen sin restriccion, como ya era. `moderateNote` no cambio (sigue accesible a cualquier profesor del grupo, comportamiento ya existente y probado, no pedido explicitamente por el cliente para cambiar).
-- [x] Backend base para foto de perfil por estudiante mediante `profilePhotoUrl`.
-- [x] Subida/almacenamiento real de foto de perfil por estudiante (2026-08-22): ver detalle en seccion A arriba.
-- [x] Album de fotos con almacenamiento real por estudiante o grupo (2026-08-22): permisos por grupo/estudiante asignado ya existian (`ensureCanAccessAlbum`/`ensureCanWriteAlbum`); lo que faltaba era el almacenamiento real de archivos, ya resuelto.
-- [x] Consentimientos de privacidad/imagen: padres o tutores deben aceptar condiciones antes de permitir uso de fotos del estudiante. Ya resuelto en el backend (ver "Modulo futuro - Notas, fotos y consentimientos" mas abajo: foto de perfil y albumes ya exigen consentimiento activo `IMAGE_PROFILE_PHOTO`/`PHOTO_ALBUM`). Falta solo la UI de frontend, ver el punto "UI de consentimientos familiares antes de habilitar foto de perfil/albumes en produccion" mas abajo.
-- [x] Roles avanzados (2026-08-22): ya existian los 6 roles base (`SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `TEACHER`, `FINANCE`, `PARENT`) y el mecanismo de multi-rol por usuario (`user_roles` es muchos-a-muchos, `POST/DELETE /api/users/{userId}/roles` ya funcionaba). Pedido del cliente: que un `TEACHER` pueda tambien asumir tareas de finanzas o administrativas (ej. inscribir estudiantes, gestionar materiales) sin crear un rol nuevo — se resuelve asignandole tambien el rol `FINANCE` o `ADMIN` con el mecanismo ya existente. Se evaluo un sistema de permisos granulares tipo catalogo editable (rehacer el motor de autorizacion completo) vs reusar los roles existentes como "paquetes de permisos" activables por staff; el cliente eligio la segunda opcion por ser mucho menor riesgo/esfuerzo para el tamano actual del equipo.
-- [x] Reglas avanzadas para gestion de roles (2026-08-22): cada rol ahora tiene un `rankLevel` numerico (`SUPER_ADMIN=100`, `ADMIN`/`DIRECTOR=90`, `TEACHER`/`FINANCE=10`, `PARENT=0`, migracion `V15`). Quien otorga o quita un rol (`POST/DELETE /api/users/{userId}/roles`, o al crear un usuario/staff) solo puede hacerlo si el rango de ese rol es menor o igual a su propio rango maximo — mismo rango si puede (`ADMIN` y `DIRECTOR` pueden darse roles entre si y dar `TEACHER`/`FINANCE`), pero nadie por debajo de `SUPER_ADMIN` puede otorgar `SUPER_ADMIN`. Ademas, no se puede quitar `SUPER_ADMIN` al ultimo usuario que lo tenga (evita que el sistema se quede sin nadie con acceso total). Nuevo endpoint `POST /api/staff` (con `GET /api/staff` y `GET /api/staff/{id}`) para dar de alta un nuevo puesto de trabajo, con cuenta de acceso y roles iniciales opcionales — antes no existia ningun endpoint para esto, los `Staff` solo venian de datos semilla.
-- [x] Baja de staff (empleado despedido/renuncio) (2026-08-22): `DELETE /api/staff/{staffId}` desactiva el puesto (oculto del listado por defecto, visible con `GET /api/staff?includeDeleted=true`) y desactiva su cuenta de acceso si tiene una (no puede volver a loguearse). A diferencia de `Student`/`Material`/`Parent`/`ScheduleSlot`, **nunca se purga**: no hay ventana de tiempo limite ni job programado de borrado definitivo — decision explicita del cliente para no arriesgar perder historial de horarios/auditorias asociado a un `staffId`, y porque a diferencia de esos otros casos no habia una razon tecnica (ventana de gracia antes de purga) para limitar cuando se puede deshacer. `POST /api/staff/{staffId}/restore` reactiva el puesto y su cuenta de acceso, sin limite de tiempo. Mismo guardia de rango que en roles: no se puede dar de baja un puesto cuya cuenta tenga un rol de rango superior al del que lo pide, y no se puede dar de baja al ultimo `SUPER_ADMIN` del sistema.
-- [x] Cuentas de staff con expiracion automatica (2026-08-26): pedido del cliente para casos reales de profesores suplentes con fecha de fin conocida de antemano (ej. cubrir una licencia por un mes). Nuevo campo opcional `accessExpiresAt` al crear el staff (`POST /api/staff`, migracion `V22`, debe ser una fecha futura). `StaffAccountExpirationScheduler` corre a diario y desactiva automaticamente el puesto y su cuenta (reusando la misma logica ya existente de `DELETE /api/staff/{staffId}`) apenas se cumple esa fecha — recuperable en cualquier momento via `POST /api/staff/{staffId}/restore`, igual que una baja manual. Verificado end-to-end contra Docker real (creacion con fecha futura, rechazo de fecha pasada con 400).
-- [ ] Sistema de mensajes internos entre administracion y padres.
+- [ ] Parent portal: check payments, schedules or center announcements.
+- [ ] Automatic notifications for pending payments or important announcements.
+- [x] Daily attendance record (2026-08-22): a specific client request via the frontend team, for an attendance/sick-children widget on the teacher dashboard (replacing the low-materials card there). New `student_attendance` entity (`V14__create_student_attendance.sql`), one record per student per day (`status`: `PRESENT`, `ABSENT`, `SICK`, `LATE`, plus notes and who recorded it). `GET /api/attendance?groupId=&date=` returns the full group roster for that date (including students not yet marked, with `status: null`); `POST /api/attendance` saves or updates several records at once (upsert by student+date). `TEACHER` can only read/save attendance for groups currently assigned to them (same `staff_group_assignments` criteria already used for notes/consents/albums/parents); `SUPER_ADMIN`/`ADMIN`/`DIRECTOR` have no group restriction. Verified end-to-end against real Docker: a teacher marks attendance for their group (200), tries a non-assigned group (403).
+- [x] Locking edits after midnight (2026-08-23): a specific client request — during the day attendance can be corrected as many times as needed (e.g. mark a child absent and later change it to late if they arrive afterward), but once midnight passes that day is "archived" and can no longer be modified. `POST /api/attendance` now rejects a `date` other than today: `409` if it's a previous day (already archived), `400` if it's a future day (doesn't make sense to record something that hasn't happened yet). `GET /api/attendance` remains unrestricted — previous days can still be queried, they just stop being editable.
+- [x] Per-student attendance history (2026-08-23): requested by the frontend team for a history modal in `AttendancePage.tsx` — `GET /api/attendance?groupId=&date=` only covered a single day for a whole group, there was no way to pull several days for a single student. New `GET /api/attendance/students/{studentId}?from=&to=` (both optional, defaulting to the last 30 days), returns the list sorted by date descending in the same format already used by the rest of the attendance endpoints. Same group-assignment-based access rule for `TEACHER` (based on the student's current group).
+- [x] Monthly reports for payments, students or inventory (2026-08-25): a client request — that `TEACHER` and `FINANCE` see different reports (not the same listing), and higher ranks (`SUPER_ADMIN`/`ADMIN`/`DIRECTOR`) see all of them. Coordinated with the frontend team before settling on the endpoints (what today was an empty "Reports" page, `PlaceholderPage`). Six reports in total: financial (`GET /api/payments/reports/monthly`, already existed), attendance aggregated by date range/group (`GET /api/attendance/reports/summary`), note history with nested audit trail per student to cover a substitute/replacement (`GET /api/students/{id}/reports/notes-history`), material movements with an optional running balance (`GET /api/materials/reports/movements`), health/allergy data per student (`GET /api/students/reports/health`), and trash (`GET /api/reports/trash`, admin only) which brings together in a single view everything deleted/archived/deactivated (students, materials, parents — including the 6-year archive stage —, schedules and deactivated staff), each with its calculated purge deadline. Access: `SUPER_ADMIN`/`ADMIN`/`DIRECTOR` see all 6; `TEACHER` sees attendance/notes/materials/health; `FINANCE` sees financial and materials (for expense/purchase control). Integrated into the frontend as the single Reports page (with 6 tabs) and also the only place to navigate/restore trash and archived records — the old per-module trash buttons (students/parents/materials/schedules/staff) were removed and each module's "New X" button was moved to the bottom of the page (Payments was left as-is, at the top). Verified in the browser for all 3 role levels.
+- [x] Generation of PDF receipts and documents (2026-08-24): see detail in Module C ("Generation of a simple receipt or PDF proof of payment in a later phase").
+- [x] Comment-style notes for students: responsible teachers can create/edit their own comments; direction/admin can review the history and moderate (2026-08-24): most of this already existed (chronological list of notes per student with author/type/date, audit history from PR #64). The real gap: any teacher assigned to the group could edit or delete ANOTHER teacher's note about the same student — only group membership was validated, not authorship. Now `PUT/DELETE /api/students/{id}/notes/{noteId}` additionally requires being the note's author if the role is `TEACHER` ("Solo puedes editar o eliminar las notas que tu creaste"); `SUPER_ADMIN`/`ADMIN`/`DIRECTOR` remain unrestricted, as before. `moderateNote` didn't change (still accessible to any teacher in the group, existing and already-tested behavior, not explicitly requested by the client to change).
+- [x] Backend base for a student profile photo via `profilePhotoUrl`.
+- [x] Real upload/storage of a student profile photo (2026-08-22): see detail in section A above.
+- [x] Photo album with real storage per student or group (2026-08-22): permissions by assigned group/student already existed (`ensureCanAccessAlbum`/`ensureCanWriteAlbum`); what was missing was real file storage, now resolved.
+- [x] Privacy/image consents: parents or guardians must accept terms before allowing use of the student's photos. Already resolved on the backend (see "Future module - Notes, photos and consents" below: profile photo and albums already require active `IMAGE_PROFILE_PHOTO`/`PHOTO_ALBUM` consent). Only the frontend UI is missing, see the "Family consent UI before enabling profile photo/albums in production" item below.
+- [x] Advanced roles (2026-08-22): the 6 base roles already existed (`SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `TEACHER`, `FINANCE`, `PARENT`) and the multi-role-per-user mechanism (`user_roles` is many-to-many, `POST/DELETE /api/users/{userId}/roles` already worked). Client request: that a `TEACHER` could also take on finance or administrative tasks (e.g. enrolling students, managing materials) without creating a new role — solved by also assigning them the `FINANCE` or `ADMIN` role via the existing mechanism. A more granular, catalog-style permission system (checking off individual permissions per user) was evaluated against reusing the existing roles as activatable "permission packages" for staff; the client chose the second option as much lower risk/effort for the team's current size.
+- [x] Advanced role management rules (2026-08-22): every role now has a numeric `rankLevel` (`SUPER_ADMIN=100`, `ADMIN`/`DIRECTOR=90`, `TEACHER`/`FINANCE=10`, `PARENT=0`, migration `V15`). Whoever grants or removes a role (`POST/DELETE /api/users/{userId}/roles`, or when creating a user/staff) can only do so if that role's rank is less than or equal to their own maximum rank — same rank is allowed (`ADMIN` and `DIRECTOR` can grant each other's role and grant `TEACHER`/`FINANCE`), but nobody below `SUPER_ADMIN` can grant `SUPER_ADMIN`. Also, `SUPER_ADMIN` can't be removed from the last user who holds it (prevents the system from ending up with nobody with full access). New endpoint `POST /api/staff` (with `GET /api/staff` and `GET /api/staff/{id}`) to onboard a new staff position, with an optional login account and initial roles — previously there was no endpoint for this at all, `Staff` only came from seed data.
+- [x] Staff offboarding (employee fired/resigned) (2026-08-22): `DELETE /api/staff/{staffId}` deactivates the position (hidden from the listing by default, visible with `GET /api/staff?includeDeleted=true`) and deactivates their login account if they have one (they can no longer log in). Unlike `Student`/`Material`/`Parent`/`ScheduleSlot`, **it's never purged**: there's no time window or scheduled job for permanent deletion — an explicit client decision to avoid risking the loss of schedule/audit history tied to a `staffId`, and because unlike those other cases there was no technical reason (a grace window before purge) to limit when it can be undone. `POST /api/staff/{staffId}/restore` reactivates the position and its login account, with no time limit. Same rank guard as with roles: you can't deactivate a position whose account has a role ranked higher than the requester's, and you can't deactivate the last `SUPER_ADMIN` in the system.
+- [x] Auto-expiring staff accounts (2026-08-26): a client request for real substitute-teacher cases with a known end date (e.g. covering a one-month leave). New optional `accessExpiresAt` field when creating staff (`POST /api/staff`, migration `V22`, must be a future date). `StaffAccountExpirationScheduler` runs daily and automatically deactivates the position and its account (reusing the same logic already used by `DELETE /api/staff/{staffId}`) as soon as that date is reached — recoverable at any time via `POST /api/staff/{staffId}/restore`, the same as a manual offboarding. Verified end-to-end against real Docker (creation with a future date, rejection of a past date with 400).
+- [ ] Internal messaging system between administration and parents.
 
-Nota: parte del portal para padres ya empezo con `/api/parents/me`, `/api/parents/me/students`, `/api/payments/me` y `/api/payments/me/charges`. Horarios y avisos para padres siguen pendientes.
+Note: part of the parent portal already started with `/api/parents/me`, `/api/parents/me/students`, `/api/payments/me` and `/api/payments/me/charges`. Schedules and announcements for parents remain pending.
 
-### Modulo futuro - Notas, fotos y consentimientos
+### Future module - Notes, photos and consents
 
-Este modulo debe tratarse como sensible porque puede incluir informacion personal de menores.
+This module should be treated as sensitive because it may include personal information about minors.
 
-Estado actual:
+Current status:
 
-- [x] Backend base para notas estilo comentarios con autor, tipo, fecha, moderacion y soft delete.
-- [x] Profesores pueden gestionar notas solo de estudiantes cuyo grupo tienen asignado activamente.
-- [x] Direccion/admin pueden revisar, moderar, actualizar o eliminar notas de cualquier estudiante.
-- [x] Foto de perfil base disponible con URL en estudiante.
-- [x] Backend base para consentimientos familiares por estudiante y tutor.
-- [x] La foto de perfil requiere consentimiento activo `IMAGE_PROFILE_PHOTO`.
-- [x] Backend base para albumes/fotos por URL, con aprobacion, borrado logico y permisos por grupo.
-- [x] Las fotos asociadas a estudiante requieren consentimiento activo `PHOTO_ALBUM`.
-- [x] Historial detallado de edicion/auditoria avanzada para notas (2026-08-24): ver Modulo A, `GET /api/students/{id}/notes/{noteId}/audit-log`.
-- [ ] UI de consentimientos familiares antes de habilitar foto de perfil/albumes en produccion.
-- [x] Almacenamiento real de archivos/imagenes para albumes (2026-08-22): `FileStorageService` guarda en filesystem local, sirve via `/uploads/**` (recurso estatico publico, sin autenticacion — mismo nivel de exposicion que ya tenian las URLs externas tipo Cloudinary/S3 que se guardaban antes como texto plano), y borra el archivo fisico al eliminar la foto o reemplazar la foto de perfil.
+- [x] Backend base for comment-style notes with author, type, date, moderation and soft delete.
+- [x] Teachers can manage notes only for students whose group is currently assigned to them.
+- [x] Direction/admin can review, moderate, update or delete notes for any student.
+- [x] Base profile photo available with a URL on the student.
+- [x] Backend base for family consents per student and guardian.
+- [x] The profile photo requires active `IMAGE_PROFILE_PHOTO` consent.
+- [x] Backend base for URL-based albums/photos, with approval, soft delete and group-based permissions.
+- [x] Photos linked to a student require active `PHOTO_ALBUM` consent.
+- [x] Detailed edit/advanced audit history for notes (2026-08-24): see Module A, `GET /api/students/{id}/notes/{noteId}/audit-log`.
+- [ ] Family consent UI before enabling profile photo/albums in production.
+- [x] Real file/image storage for albums (2026-08-22): `FileStorageService` saves to the local filesystem, serves via `/uploads/**` (a public static resource, unauthenticated — the same exposure level the external URLs like Cloudinary/S3 already had when stored before as plain text), and deletes the physical file when a photo is removed or the profile photo is replaced.
 
-Reglas iniciales deseadas:
+Initial desired rules:
 
-- Las notas deben funcionar como comentarios con autor, fecha, tipo y posible historial de edicion.
-- Profesores pueden crear y modificar notas solo para estudiantes o grupos bajo su responsabilidad.
-- Direccion/admin pueden revisar, moderar o eliminar notas si es necesario.
-- La foto de perfil del estudiante debe depender de consentimiento familiar activo.
-- Los albumes pueden organizarse por estudiante, grupo, fecha, evento o album manual.
-- Profesores pueden subir/modificar fotos solo de sus grupos o estudiantes asignados.
-- Directores/admin pueden revisar, aprobar, eliminar o corregir fotos.
-- Padres/tutores deben aceptar consentimiento de privacidad/imagen antes de habilitar fotos del estudiante.
-- Debe existir forma de revocar consentimiento y definir que ocurre con fotos ya existentes.
-- Debe quedar preparada auditoria basica: quien subio, modifico, elimino o aprobo contenido.
+- Notes should work as comments with an author, date, type and a possible edit history.
+- Teachers can create and modify notes only for students or groups under their responsibility.
+- Direction/admin can review, moderate or delete notes when needed.
+- The student's profile photo must depend on active family consent.
+- Albums can be organized by student, group, date, event or manually.
+- Teachers can upload/modify photos only for their groups or assigned students.
+- Directors/admin can review, approve, delete or correct photos.
+- Parents/guardians must accept a privacy/image consent before photos of the student are enabled.
+- There must be a way to revoke consent and define what happens to existing photos.
+- Basic audit trail should be in place: who uploaded, modified, deleted or approved content.
 
-Endpoints futuros sugeridos:
+Suggested future endpoints:
 
 ```text
 GET /api/students/{studentId}/notes
@@ -416,75 +416,75 @@ POST /api/students/{studentId}/consents
 PATCH /api/students/{studentId}/consents/{consentId}/revoke
 ```
 
-## Flujo de uso esperado
+## Expected usage flow
 
-1. El administrador entra al sistema y ve el dashboard principal.
-2. Puede revisar rapidamente pagos pendientes, materiales bajos y actividades del dia.
-3. Desde estudiantes puede consultar o actualizar la informacion de cada nino.
-4. Desde pagos puede registrar cuotas mensuales y revisar deudas.
-5. Desde materiales puede actualizar entradas, salidas y necesidades de compra.
-6. Desde horarios puede organizar la rutina diaria o semanal del preescolar.
+1. The administrator logs into the system and sees the main dashboard.
+2. They can quickly check pending payments, low materials and the day's activities.
+3. From students, they can look up or update each child's information.
+4. From payments, they can record monthly fees and review debts.
+5. From materials, they can update entries, exits and purchase needs.
+6. From schedules, they can organize the preschool's daily or weekly routine.
 
-## Puntos a validar con el cliente
+## Points to validate with the client
 
-- [ ] Que datos exactos necesitan guardar de cada estudiante. (Abierto: siempre puede haber campos adicionales que el cliente pida.)
-- [x] Que tipos de comentarios/notas necesitan (2026-08-21): ya resuelto por `StudentNoteType` — `PEDAGOGICAL`, `BEHAVIOR`, `INCIDENT`, `HEALTH`, `FAMILY_FOLLOW_UP`, `ADMINISTRATIVE` (coincide con pedagogicas/conducta/incidentes/salud/seguimiento familiar/administrativas).
-- [ ] Como manejan actualmente los pagos y si hay diferentes tipos de cuota. (Abierto: pregunta de proceso del cliente, no de sistema — `ChargeType` ya soporta tipos de cuota flexibles, pero falta confirmar el proceso real.)
-- [x] Confirmar metodos de pago (2026-08-21): ya resuelto por `PaymentMethod` — `CASH`, `CARD`, `TRANSFER`, y ademas `SWISH`, `OTHER`.
-- [x] Confirmar si "transferencia" necesita numero de referencia (2026-08-21): ya resuelto — `Payment.referenceNumber` existe (generico para cualquier metodo, no exclusivo de transferencia).
-- [x] Confirmar politica de privacidad/consentimiento para fotos (2026-08-21): ya resuelto por `StudentConsentType` (`IMAGE_PROFILE_PHOTO`, `PHOTO_ALBUM`, `INTERNAL_DOCUMENTATION`, `MARKETING_PUBLICATION`) con `acceptedAt`/`revokedAt` en `StudentConsent`.
-- [x] Confirmar como se organizan las fotos (2026-08-21): ya resuelto — `PhotoAlbum` por estudiante/grupo con flujo de aprobacion (`PATCH .../photos/{photoId}/approve`).
-- [x] Confirmar si profesores solo pueden modificar fotos/notas de sus propios grupos o estudiantes asignados (2026-08-22): ya resuelto — `StudentNoteService`, `StudentConsentService` y `PhotoAlbumService` ya restringen a `TEACHER` a estudiantes cuyo grupo tiene asignado activamente (`staff_group_assignments`, mismo criterio reutilizado hoy para el listado de padres/tutores). Ver lineas 356 y 361 arriba.
-- [x] Confirmar cuantos dias antes debe avisar el sistema de cumpleanos proximos (2026-08-24): ya resuelto desde antes de esta conversacion — `upcomingBirthdays` en el dashboard ya usa una ventana de 30 dias (`BIRTHDAY_LOOKAHEAD_DAYS` en `DashboardService`), justo "aproximadamente un mes antes" como pidio el cliente. Sin cambios necesarios.
-- [x] Si los padres necesitan acceso directo a la aplicacion (2026-08-21): ya resuelto — implementado desde el inicio, rol `PARENT` con login y endpoints propios (`/api/parents/me`, `/api/payments/me`, etc.).
-- [x] Que tipos de materiales quieren controlar en el inventario (2026-08-21): ya resuelto — `Material.category` es texto libre sin restriccion, decision de flexibilidad ya tomada.
-- [x] Como se organizan los grupos, aulas y horarios (2026-08-21): ya resuelto — `ClassGroup` y `ScheduleSlot` ya implementados.
-- [x] Quienes usaran el sistema (2026-08-21): ya resuelto — 6 roles implementados (`SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `TEACHER`, `FINANCE`, `PARENT`).
-- [x] Si necesitan documentos imprimibles, recibos o reportes desde el inicio (2026-08-24): recibo de pago en PDF ya implementado, ver "Generacion de recibo simple o comprobante en PDF en fase posterior" en Modulo C. Otros documentos/reportes imprimibles (mas alla del recibo) siguen diferidos, ver `docs/plan-puntos-pendientes-2026-08-24.md`.
+- [ ] Exactly what data needs to be stored for each student. (Open: there can always be additional fields the client asks for.)
+- [x] What types of comments/notes are needed (2026-08-21): already resolved by `StudentNoteType` — `PEDAGOGICAL`, `BEHAVIOR`, `INCIDENT`, `HEALTH`, `FAMILY_FOLLOW_UP`, `ADMINISTRATIVE` (matches pedagogical/behavior/incidents/health/family follow-up/administrative).
+- [ ] How they currently handle payments and whether there are different fee types. (Open: a client process question, not a system one — `ChargeType` already supports flexible fee types, but the actual process still needs confirming.)
+- [x] Confirm payment methods (2026-08-21): already resolved by `PaymentMethod` — `CASH`, `CARD`, `TRANSFER`, plus `SWISH` and `OTHER`.
+- [x] Confirm whether "transfer" needs a reference number (2026-08-21): already resolved — `Payment.referenceNumber` exists (generic for any method, not exclusive to transfers).
+- [x] Confirm the privacy/consent policy for photos (2026-08-21): already resolved by `StudentConsentType` (`IMAGE_PROFILE_PHOTO`, `PHOTO_ALBUM`, `INTERNAL_DOCUMENTATION`, `MARKETING_PUBLICATION`) with `acceptedAt`/`revokedAt` on `StudentConsent`.
+- [x] Confirm how photos are organized (2026-08-21): already resolved — `PhotoAlbum` per student/group with an approval flow (`PATCH .../photos/{photoId}/approve`).
+- [x] Confirm whether teachers can only modify photos/notes for their own groups or assigned students (2026-08-22): already resolved — `StudentNoteService`, `StudentConsentService` and `PhotoAlbumService` already restrict `TEACHER` to students whose group is currently assigned to them (`staff_group_assignments`, the same criterion reused today for the parent/guardian listing). See lines 356 and 361 above.
+- [x] Confirm how many days in advance the system should flag upcoming birthdays (2026-08-24): already resolved before this conversation — `upcomingBirthdays` on the dashboard already uses a 30-day window (`BIRTHDAY_LOOKAHEAD_DAYS` in `DashboardService`), exactly "about a month in advance" as the client requested. No changes needed.
+- [x] Whether parents need direct access to the application (2026-08-21): already resolved — implemented from the start, `PARENT` role with login and its own endpoints (`/api/parents/me`, `/api/payments/me`, etc.).
+- [x] What types of materials they want to track in inventory (2026-08-21): already resolved — `Material.category` is free text with no restriction, a flexibility decision already made.
+- [x] How groups, classrooms and schedules are organized (2026-08-21): already resolved — `ClassGroup` and `ScheduleSlot` already implemented.
+- [x] Who will use the system (2026-08-21): already resolved — 6 roles implemented (`SUPER_ADMIN`, `ADMIN`, `DIRECTOR`, `TEACHER`, `FINANCE`, `PARENT`).
+- [x] Whether printable documents, receipts or reports are needed from the start (2026-08-24): PDF payment receipt already implemented, see "Generation of a simple receipt or PDF proof of payment in a later phase" in Module C. Other printable documents/reports (beyond the receipt) remain deferred, see `docs/plan-puntos-pendientes-2026-08-24.md`.
 
-## Infraestructura y calidad
+## Infrastructure and quality
 
-- [x] Flyway configurado.
-- [x] Baseline aplicado sobre esquema existente.
-- [x] Seed de roles versionado.
-- [x] `application-local.properties` fuera del control de versiones.
-- [x] Workaround para archivos AppleDouble `._*` en volumen exFAT.
-- [x] `api-test.http` actualizado con flujos principales.
-- [x] `api-test.http` actualizado con flujo base de pagos mensuales.
-- [x] `api-test.http` actualizado con flujo base de horarios.
-- [x] Smoke tester automatico para endpoints principales.
-- [x] Smoke tester con logs locales, retencion de ultimos 4 logs y modo read-only.
-- [x] Mockito configurado como Java agent para tests en Java 25.
-- [x] Agregar futuras migraciones `V3`-`V7` para nuevos cambios de esquema (notas, consentimientos, albumes, contactos de emergencia); `V1` agregada ademas como baseline real para bases de datos limpias.
-- [x] Mejorar cobertura de tests de controllers: agregados `AuthControllerApiTest`, `RoleControllerApiTest`, `UserControllerApiTest` y `PhotoAlbumControllerApiTest` (antes sin tests de controller propios).
-- [x] Revisar `open-in-view` de JPA: se probo `false` y rompio la mayoria de endpoints (`LazyInitializationException` sobre asociaciones como `Parent`); se mantiene `true` explicito con comentario. Ver seccion "Checklist para release oficial".
-- [x] Revisar warnings de Mockito/Java agent en Java 25 (2026-08-21). El propio warning de auto-attach de Mockito ya estaba resuelto (ver linea 445, `-javaagent` configurado en `pom.xml`). El warning que persiste (`sun.misc.Unsafe::objectFieldOffset ... lombok.permit.Permit`) no es de Mockito, es de Lombok: bug abierto conocido, reportado contra JDK 24 y 25 en el repo oficial de Lombok (issues [#3852](https://github.com/projectlombok/lombok/issues/3852), [#3959](https://github.com/projectlombok/lombok/issues/3959), [#3907](https://github.com/projectlombok/lombok/issues/3907), [#4046](https://github.com/projectlombok/lombok/issues/4046)), persiste incluso en la version mas reciente (1.18.46, la que ya usamos). Java marco esos metodos como "deprecados para eliminacion" ([JEP 471](https://openjdk.org/jeps/471)) pero todavia no los removio — puramente cosmetico, nada que arreglar de nuestro lado hasta que Lombok publique un fix.
-- [x] Revisar warning de Flyway con MySQL (2026-08-21). Metadata de compatibilidad desactualizada en la version de Flyway que trae Spring Boot 4.0.6 (`11.14.1`, verificada oficialmente solo hasta versiones de MySQL mas viejas que la que usamos). La documentacion oficial de Flyway ya verifica hasta MySQL 9.4. Confirmado en esta sesion, repetidas veces, que las migraciones corren sin problema contra MySQL real (docker 8.4) — es solo un aviso informativo al arrancar, no un bloqueo funcional. Forzar una version de Flyway distinta a la que Spring Boot gestiona internamente seria mas riesgo (incompatibilidad) que beneficio (silenciar un warning cosmetico), asi que se deja como esta.
-- [x] Corregir que peticiones denegadas por rol devolvian `401` en vez de `403` en la app real (no se detectaba en tests `@WebMvcTest`): `response.sendError()` disparaba un forward interno a `/error` sin reautenticar, sobreescribiendo el status. Fix: `/error` marcado `permitAll()`. Verificado con un test de integracion con servidor real (`SecurityErrorDispatchIntegrationTest`) que falla sin el fix y pasa con el.
-- [x] Corregir que un archivo estatico faltante en `/uploads/**` devolvia `500` en vez de `404` (2026-08-22): descubierto al implementar el almacenamiento real de fotos — `GlobalExceptionHandler` tenia un `@ExceptionHandler(Exception.class)` generico que interceptaba `NoResourceFoundException` de Spring (que ya trae su propio status 404) y la convertia en 500, ademas de loguearla como "Unhandled exception". Fix: handler especifico para `NoResourceFoundException` que responde 404. Verificado contra Docker real: pedir una foto ya eliminada ahora da 404 en vez de 500.
+- [x] Flyway configured.
+- [x] Baseline applied on the existing schema.
+- [x] Versioned role seed.
+- [x] `application-local.properties` kept out of version control.
+- [x] Workaround for AppleDouble `._*` files on an exFAT volume.
+- [x] `api-test.http` updated with the main flows.
+- [x] `api-test.http` updated with the base monthly-payments flow.
+- [x] `api-test.http` updated with the base schedules flow.
+- [x] Automatic smoke tester for the main endpoints.
+- [x] Smoke tester with local logs, retention of the last 4 logs and a read-only mode.
+- [x] Mockito configured as a Java agent for tests on Java 25.
+- [x] Added future migrations `V3`-`V7` for new schema changes (notes, consents, albums, emergency contacts); `V1` also added as a real baseline for clean databases.
+- [x] Improved controller test coverage: added `AuthControllerApiTest`, `RoleControllerApiTest`, `UserControllerApiTest` and `PhotoAlbumControllerApiTest` (previously without their own controller tests).
+- [x] Reviewed JPA's `open-in-view`: `false` was tried and broke most endpoints (`LazyInitializationException` on associations like `Parent`); kept explicitly `true` with a comment. See the "Checklist for official release" section.
+- [x] Reviewed Mockito/Java-agent warnings on Java 25 (2026-08-21). Mockito's own auto-attach warning was already resolved (see line 445, `-javaagent` configured in `pom.xml`). The warning that persists (`sun.misc.Unsafe::objectFieldOffset ... lombok.permit.Permit`) isn't from Mockito, it's from Lombok: a known open bug, reported against JDK 24 and 25 in Lombok's official repo (issues [#3852](https://github.com/projectlombok/lombok/issues/3852), [#3959](https://github.com/projectlombok/lombok/issues/3959), [#3907](https://github.com/projectlombok/lombok/issues/3907), [#4046](https://github.com/projectlombok/lombok/issues/4046)), persisting even in the most recent version (1.18.46, the one we already use). Java flagged those methods as "deprecated for removal" ([JEP 471](https://openjdk.org/jeps/471)) but hasn't removed them yet — purely cosmetic, nothing to fix on our side until Lombok ships a fix.
+- [x] Reviewed the Flyway warning with MySQL (2026-08-21). Outdated compatibility metadata in the Flyway version bundled with Spring Boot 4.0.6 (`11.14.1`, officially verified only up to older MySQL versions than the one we use). Flyway's official documentation already verifies up to MySQL 9.4. Confirmed repeatedly in this session that migrations run fine against real MySQL (docker 8.4) — it's just an informational notice at startup, not a functional blocker. Forcing a different Flyway version than the one Spring Boot manages internally would be more risk (incompatibility) than benefit (silencing a cosmetic warning), so it's left as is.
+- [x] Fixed requests denied by role returning `401` instead of `403` in the real app (not caught by `@WebMvcTest` tests): `response.sendError()` triggered an internal forward to `/error` without re-authenticating, overwriting the status. Fix: `/error` marked `permitAll()`. Verified with a real-server integration test (`SecurityErrorDispatchIntegrationTest`) that fails without the fix and passes with it.
+- [x] Fixed a missing static file under `/uploads/**` returning `500` instead of `404` (2026-08-22): found while implementing real photo storage — `GlobalExceptionHandler` had a generic `@ExceptionHandler(Exception.class)` that intercepted Spring's `NoResourceFoundException` (which already carries its own 404 status) and turned it into a 500, also logging it as an "Unhandled exception". Fix: a specific handler for `NoResourceFoundException` that responds with 404. Verified against real Docker: requesting an already-deleted photo now returns 404 instead of 500.
 
-## Propuesta de cierre
+## Closing proposal
 
-Construir una primera version enfocada en administracion interna: estudiantes, tutores, pagos, materiales, horarios y dashboard. Despues de probarla con el uso real del centro, se podran ajustar flujos y anadir funciones como portal de padres, notificaciones, asistencia y reportes avanzados.
+Build a first version focused on internal administration: students, guardians, payments, materials, schedules and the dashboard. After testing it with the center's real usage, flows can be adjusted and functions added such as a parent portal, notifications, attendance and advanced reports.
 
-## Checklist para release oficial
+## Checklist for official release
 
-Antes de publicar la aplicacion para uso real del cliente:
+Before publishing the application for the client's real use:
 
-- [x] Preparar una base de datos limpia para produccion: apuntar Flyway a un MySQL vacio real (no reusar `docker/mysql/init/`, que es solo para desarrollo local y siembra datos demo). Verificado que una base vacia migra completa via Flyway sin datos demo.
-- [ ] Si alguna vez se corrio `api-smoke-test.mjs` en modo escritura contra un entorno compartido/staging, limpiar los residuos `SMOKE-*` con `scripts/cleanup-smoke-data.sql` (revisar manualmente `staff_group_assignments`, que no tiene campo distintivo para filtrar por patron).
-- [x] Aplicar migraciones Flyway desde cero y confirmar que el esquema queda completo: agregado `V1__initial_schema.sql`, verificado contra base de datos vacia (crea las 20 tablas) y contra el flujo existente de docker-compose (Flyway hace baseline en vez de re-ejecutar V1).
-- [x] Mantener solo seeds necesarios para roles base y datos imprescindibles del sistema: `V2__seed_roles.sql` solo siembra los 6 roles base, sin datos demo dentro de Flyway.
-- [ ] Crear usuario administrador inicial para el cliente. (Requiere entorno/credenciales reales del cliente; pendiente hasta tener el destino de despliegue.)
-- [x] Endpoint para gestionar `ChargeType` (2026-08-24): pedido para que admin/finanzas puedan crear y ajustar precios (ej. subir la mensualidad) desde la aplicacion, en vez de solo poder verlos. Nuevo `POST /api/payments/charge-types` y `PUT /api/payments/charge-types/{id}` (codigo unico, nombre, tipo de recurrencia, monto por defecto, activo/inactivo) — mismo criterio de acceso que el resto de `/api/payments`. Editar el `defaultAmount` de un tipo ya existente (ej. `MONTHLY_FEE`) se refleja automaticamente en la siguiente corrida del job de generacion mensual, sin tocar nada mas. Pendiente aparte, no bloqueante: en una base de datos de produccion limpia todavia no habria ningun `ChargeType` de arranque (el seed de los 4 tipos base sigue siendo solo del entorno de desarrollo) — alguien con acceso admin tendria que crearlos una vez via este nuevo endpoint antes de que la generacion automatica tenga algo que generar.
-- [ ] Configurar `JWT_SECRET` real y suficientemente largo. (La app ahora falla al arrancar si falta; pendiente configurarlo en el entorno real de despliegue.)
-- [ ] Configurar credenciales reales de base de datos y no usar passwords de desarrollo. (Idem: depende del entorno real de despliegue.)
-- [x] Confirmar que `application-local.properties`, `.env` y secretos no se suben al repositorio. Verificado en `.gitignore` y `git check-ignore`.
-- [x] Ejecutar `./mvnw test`. 71/71 passing.
-- [ ] Ejecutar `API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs` contra el entorno final o staging. (Solo corrido contra local/docker; no existe todavia un staging real.)
-- [x] Revisar warnings importantes de runtime antes de entregar. Ver seccion "Infraestructura y calidad".
-- [x] Documentar URL, usuario inicial y pasos basicos de operacion para el cliente: ver `docs/operations-runbook.md` (incluye el procedimiento para crear el primer admin en una base de datos limpia, verificado end-to-end).
+- [x] Prepare a clean production database: point Flyway at a real, empty MySQL instance (don't reuse `docker/mysql/init/`, which is only for local development and seeds demo data). Verified that an empty database migrates completely via Flyway with no demo data.
+- [ ] If `api-smoke-test.mjs` was ever run in write mode against a shared/staging environment, clean up the `SMOKE-*` residue with `scripts/cleanup-smoke-data.sql` (manually review `staff_group_assignments`, which has no distinctive field to filter by pattern).
+- [x] Applied Flyway migrations from scratch and confirmed the schema comes out complete: added `V1__initial_schema.sql`, verified against an empty database (creates all 20 tables) and against the existing docker-compose flow (Flyway baselines instead of re-running V1).
+- [x] Kept only the seeds needed for base roles and essential system data: `V2__seed_roles.sql` only seeds the 6 base roles, no demo data inside Flyway.
+- [ ] Create the client's initial admin user. (Requires the client's real environment/credentials; pending until there's a deployment target.)
+- [x] Endpoint to manage `ChargeType` (2026-08-24): requested so admin/finance can create and adjust prices (e.g. raise the monthly fee) from the application, instead of only being able to view them. New `POST /api/payments/charge-types` and `PUT /api/payments/charge-types/{id}` (unique code, name, recurrence type, default amount, active/inactive) — same access rules as the rest of `/api/payments`. Editing the `defaultAmount` of an existing type (e.g. `MONTHLY_FEE`) is automatically reflected in the next run of the monthly-generation job, with nothing else to touch. Separate, non-blocking pending item: on a clean production database there still wouldn't be any `ChargeType` at startup (the seed for the 4 base types remains development-only) — someone with admin access would need to create them once via this new endpoint before automatic generation has anything to generate.
+- [ ] Configure a real, sufficiently long `JWT_SECRET`. (The app now fails to start if it's missing; still needs configuring in the real deployment environment.)
+- [ ] Configure real database credentials and don't use development passwords. (Same: depends on the real deployment environment.)
+- [x] Confirmed that `application-local.properties`, `.env` and secrets aren't pushed to the repository. Verified in `.gitignore` and with `git check-ignore`.
+- [x] Ran `./mvnw test`. 71/71 passing.
+- [ ] Run `API_SMOKE_READ_ONLY=true node scripts/api-smoke-test.mjs` against the final or staging environment. (Only run against local/Docker so far; there's no real staging environment yet.)
+- [x] Reviewed important runtime warnings before delivery. See the "Infrastructure and quality" section.
+- [x] Documented the URL, initial user and basic operating steps for the client: see `docs/operations-runbook.md` (includes the procedure to create the first admin on a clean database, verified end-to-end).
 
-## Proximo paso recomendado
+## Recommended next step
 
-Iniciar una revision pre-release del backend: comprobar configuracion, seguridad, warnings conocidos, datos demo, smoke tester, documentacion operativa y checklist de entrega antes de pasar al frontend o a nuevas funciones.
+Start a pre-release review of the backend: check configuration, security, known warnings, demo data, the smoke tester, operational documentation and the delivery checklist before moving on to the frontend or new features.
