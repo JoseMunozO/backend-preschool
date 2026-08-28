@@ -110,6 +110,6 @@ Ver `docs/api-smoke-tester.md` para el detalle de variables y que valida cada ch
 - Backups automaticos de la base de datos (ver `docs/cloud-deployment.md`, seccion Backups).
 - Monitoreo/alertas (Sentry, uptime).
 - Rotacion de `JWT_SECRET`.
-- Reglas avanzadas de quien puede crear/promover usuarios (ver `docs/roadmap.md`, seccion "Funciones para fases posteriores").
+- Reglas avanzadas de quien puede crear/promover usuarios (ver `docs/roadmap.md`, seccion "Functions for later phases").
 
 Ver `docs/roadmap.md` para el checklist completo de release y el estado general del proyecto.

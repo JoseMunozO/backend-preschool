@@ -75,7 +75,7 @@ wrong click doesn't erase history someone needs later.
 | Materials | Inventory with stock in/out/adjustments, low-stock alerts, movement history and audit trail, minimum-quantity suggestions based on consumption. |
 | Schedules & attendance | Weekly schedule per group, daily attendance locked after midnight, per-student history. |
 | Reports | Six views gated by role: financial, attendance, notes history, material movements, health/allergies, and a unified trash view. |
-| Roles & staff | Six roles with rank-based hierarchy, staff onboarding/offboarding that's reactivable without losing history. |
+| Roles & staff | Six roles with rank-based hierarchy, staff onboarding/offboarding that's reactivable without losing history, optional auto-expiring access for time-limited positions (e.g. substitute teachers). |
 | Dashboard | A summary tailored to each role (teacher, finance, admin). |
 
 ## Tests and verification
